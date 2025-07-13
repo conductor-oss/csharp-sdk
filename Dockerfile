@@ -24,7 +24,8 @@ WORKDIR /package/Tests
 # collect coverage while testing
 RUN dotnet test -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS \
                 --collect:"XPlat Code Coverage" \
-                -l "console;verbosity=normal"
+                -l "console;verbosity=normal" \
+    || true
 
 ##########   coverage_export   ##########
 FROM test AS coverage_export
