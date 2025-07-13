@@ -1,5 +1,8 @@
 # Conductor OSS C# SDK
 
+[![CI](https://github.com/conductor-oss/csharp-sdk/actions/workflows/pull_request.yml/badge.svg)](https://github.com/conductor-oss/csharp-sdk/actions)
+[![Coverage](https://codecov.io/gh/conductor-oss/csharp-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/conductor-oss/csharp-sdk)
+
 The conductor-csharp repository provides the client SDKs to build task workers in C#.
 
 Building the task workers in C# mainly consists of the following steps:
