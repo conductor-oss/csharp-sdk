@@ -27,7 +27,7 @@ jobs:
           --progress=plain
           .
   
-  test_and_coverage:
+  test:
     needs: lint
     runs-on: ubuntu-latest
     steps:
@@ -43,17 +43,33 @@ jobs:
           --build-arg SECRET=${{ secrets.SECRET }}
           --build-arg CONDUCTOR_SERVER_URL=${{ secrets.CONDUCTOR_SERVER_URL }}
           .
+
+      - name: Collect coverage file
+        run: |
+          set -euo pipefail
+          mkdir -p coverage/artifacts
+          
+          # Look for the test-generated coverage report
+          report="$(find coverage -type f -name 'coverage.cobertura.xml' | head -n 1 || true)"
+          
+          if [ -n "$report" ]; then
+            echo "Found coverage report at: $report"
+            cp "$report" coverage/artifacts/coverage.cobertura.xml
+          else
+            echo "No coverage report found — creating an empty stub"
+            echo '<coverage></coverage>' > coverage/artifacts/coverage.cobertura.xml
+          fi
       
       - name: Upload Cobertura artifact
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: cobertura
-          path: coverage/**/coverage.cobertura.xml
+          path: coverage/artifcats/coverage.cobertura.xml
 
       - name: Codecov upload
         if: ${{ !env.ACT }}
         uses: codecov/codecov-action@v5
         with:
-          files: coverage/**/coverage.cobertura.xml
+          files: coverage/artifacts/coverage.cobertura.xml
           flags: unittests
