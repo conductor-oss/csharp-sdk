@@ -50,18 +50,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cobertura
-          path: coverage/coverage.cobertura.xml
+          path: coverage/out/coverage.cobertura.xml
 
       - name: Ensure coverage file exists
         run: |
           mkdir -p coverage
-          if [ ! -f coverage/coverage.cobertura.xml ]; then
-            echo '<coverage></coverage>' > coverage/coverage.cobertura.xml
+          if [ ! -f coverage/out/coverage.cobertura.xml ]; then
+            echo '<coverage></coverage>' > coverage/out/coverage.cobertura.xml
           fi
 
       - name: Codecov upload
         if: ${{ !env.ACT }}
         uses: codecov/codecov-action@v5
         with:
-          files: coverage/coverage.cobertura.xml
+          files: coverage/out/coverage.cobertura.xml
           flags: unittests
