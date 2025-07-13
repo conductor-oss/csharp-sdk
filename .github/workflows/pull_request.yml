@@ -44,24 +44,16 @@ jobs:
           --build-arg CONDUCTOR_SERVER_URL=${{ secrets.CONDUCTOR_SERVER_URL }}
           .
       
-      # Always upload the XML, even if tests failed
       - name: Upload Cobertura artifact
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: cobertura
-          path: coverage/out/coverage.cobertura.xml
-
-      - name: Ensure coverage file exists
-        run: |
-          mkdir -p coverage
-          if [ ! -f coverage/out/coverage.cobertura.xml ]; then
-            echo '<coverage></coverage>' > coverage/out/coverage.cobertura.xml
-          fi
+          path: coverage/**/coverage.cobertura.xml
 
       - name: Codecov upload
         if: ${{ !env.ACT }}
         uses: codecov/codecov-action@v5
         with:
-          files: coverage/out/coverage.cobertura.xml
+          files: coverage/**/coverage.cobertura.xml
           flags: unittests
