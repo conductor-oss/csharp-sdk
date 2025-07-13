@@ -30,11 +30,11 @@ jobs:
   test_and_coverage:
     needs: lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Test and collect coverage
+        continue-on-error: true
         run: >
           DOCKER_BUILDKIT=1 docker build
           --target=coverage_export
