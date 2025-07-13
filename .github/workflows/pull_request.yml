@@ -63,5 +63,7 @@ jobs:
         if: ${{ !env.ACT }}
         uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}  
           files: coverage/out/coverage.cobertura.xml
           flags: unittests
+          name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
