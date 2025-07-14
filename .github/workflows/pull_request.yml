@@ -1,6 +1,5 @@
 name: CI Build
 
-# Cancel older, in-progress CI runs on the same branch/PR
 concurrency:
   group: ci-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -44,7 +43,6 @@ jobs:
           --build-arg CONDUCTOR_SERVER_URL=${{ secrets.CONDUCTOR_SERVER_URL }}
           .
       
-      # Always upload the XML, even if tests failed
       - name: Upload Cobertura artifact
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4

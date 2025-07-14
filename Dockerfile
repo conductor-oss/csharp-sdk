@@ -21,13 +21,11 @@ ENV CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL}
 COPY /csharp-examples /package/csharp-examples
 COPY /Tests           /package/Tests
 WORKDIR /package/Tests
-# collect coverage while testing
 RUN dotnet test -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS \
                 --collect:"XPlat Code Coverage" \
                 -l "console;verbosity=normal" \
     || true
 
-##########   coverage_export   ##########
 FROM test AS coverage_export
 RUN mkdir /out \
  && cp $(find /package/Tests/TestResults -name 'coverage.cobertura.xml' | head -n 1) \
