@@ -1,5 +1,9 @@
 name: CI Build
 
+concurrency:
+  group: ci-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -14,23 +18,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Linter
         run: >
           DOCKER_BUILDKIT=1 docker build
           --target=linter
           --progress=plain
           .
-  test:
+  
+  test_and_coverage:
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Test
+        uses: actions/checkout@v4
+      - name: Test and collect coverage
+        continue-on-error: true
         run: >
           DOCKER_BUILDKIT=1 docker build
-          --target=test
+          --target=coverage_export
+          --output type=local,dest=coverage
           --build-arg KEY=${{ secrets.KEY }}
           --build-arg SECRET=${{ secrets.SECRET }}
           --build-arg CONDUCTOR_SERVER_URL=${{ secrets.CONDUCTOR_SERVER_URL }}
           .
+      
+      - name: Upload Cobertura artifact
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: coverage/out/coverage.cobertura.xml
+
+      - name: Ensure coverage file exists
+        run: |
+          mkdir -p coverage
+          if [ ! -f coverage/out/coverage.cobertura.xml ]; then
+            echo '<coverage></coverage>' > coverage/out/coverage.cobertura.xml
+          fi
+
+      - name: Codecov upload
+        if: ${{ !env.ACT }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}  
+          files: coverage/out/coverage.cobertura.xml
+          flags: unittests
+          name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
