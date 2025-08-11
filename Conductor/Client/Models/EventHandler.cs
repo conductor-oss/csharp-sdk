@@ -107,7 +107,7 @@ namespace Conductor.Client.Models
         /// </summary>
         [DataMember(Name = "name", EmitDefaultValue = false)]
         public string Name { get; set; }
-        
+
         /// <summary>
         /// Gets or Sets Description
         /// </summary>
