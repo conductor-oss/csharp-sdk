@@ -36,7 +36,8 @@ namespace Conductor.Client.Models
         /// <param name="evaluatorType">evaluatorType.</param>
         /// <param name="_event">_event (required).</param>
         /// <param name="name">name (required).</param>
-        public EventHandler(List<Action> actions = default(List<Action>), bool? active = default(bool?), string condition = default(string), string evaluatorType = default(string), string _event = default(string), string name = default(string))
+        /// <param name="description">description.</param>
+        public EventHandler(List<Action> actions = default(List<Action>), bool? active = default(bool?), string condition = default(string), string evaluatorType = default(string), string _event = default(string), string name = default(string), string description = default(string))
         {
             // to ensure "actions" is required (not null)
             if (actions == null)
@@ -68,6 +69,7 @@ namespace Conductor.Client.Models
             this.Active = active;
             this.Condition = condition;
             this.EvaluatorType = evaluatorType;
+            this.Description = description;
         }
 
         /// <summary>
@@ -105,6 +107,12 @@ namespace Conductor.Client.Models
         /// </summary>
         [DataMember(Name = "name", EmitDefaultValue = false)]
         public string Name { get; set; }
+        
+        /// <summary>
+        /// Gets or Sets Description
+        /// </summary>
+        [DataMember(Name = "description", EmitDefaultValue = false)]
+        public string Description { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
