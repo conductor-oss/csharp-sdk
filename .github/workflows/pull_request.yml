@@ -38,9 +38,9 @@ jobs:
           DOCKER_BUILDKIT=1 docker build
           --target=coverage_export
           --output type=local,dest=coverage
-          --build-arg KEY=${{ secrets.KEY }}
-          --build-arg SECRET=${{ secrets.SECRET }}
-          --build-arg CONDUCTOR_SERVER_URL=${{ secrets.CONDUCTOR_SERVER_URL }}
+          --build-arg KEY=${{ secrets.AUTH_KEY }}
+          --build-arg SECRET=${{ secrets.AUTH_SECRET }}
+          --build-arg CONDUCTOR_SERVER_URL=${{ vars.SERVER_URL }}
           .
       
       - name: Upload Cobertura artifact
