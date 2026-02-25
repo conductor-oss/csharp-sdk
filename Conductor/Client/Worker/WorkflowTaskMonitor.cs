@@ -11,6 +11,7 @@
  * specific language governing permissions and limitations under the License.
  */
 using Microsoft.Extensions.Logging;
+using System;
 using System.Threading;
 
 namespace Conductor.Client.Interfaces
@@ -20,12 +21,21 @@ namespace Conductor.Client.Interfaces
         private readonly ILogger<WorkflowTaskMonitor> _logger;
         private readonly ReaderWriterLockSlim _mutex;
         private int _runningWorkerCounter;
+        private int _consecutivePollErrors;
+        private int _totalTasksProcessed;
+        private int _totalTaskErrors;
+        private int _totalPollErrors;
+        private DateTime? _lastPollTime;
+        private DateTime? _lastTaskCompletedTime;
+        private DateTime? _lastErrorTime;
+        private int _maxConsecutiveErrors = 10;
 
-        public WorkflowTaskMonitor(ILogger<WorkflowTaskMonitor> logger)
+        public WorkflowTaskMonitor(ILogger<WorkflowTaskMonitor> logger, int maxConsecutiveErrors = 10)
         {
             _logger = logger;
             _runningWorkerCounter = 0;
             _mutex = new ReaderWriterLockSlim();
+            _maxConsecutiveErrors = maxConsecutiveErrors;
         }
 
         public void IncrementRunningWorker()
@@ -66,6 +76,101 @@ namespace Conductor.Client.Interfaces
             finally
             {
                 _mutex.ExitWriteLock();
+            }
+        }
+
+        public void RecordPollSuccess(int taskCount)
+        {
+            _mutex.EnterWriteLock();
+            try
+            {
+                _consecutivePollErrors = 0;
+                _lastPollTime = DateTime.UtcNow;
+            }
+            finally
+            {
+                _mutex.ExitWriteLock();
+            }
+        }
+
+        public void RecordPollError()
+        {
+            _mutex.EnterWriteLock();
+            try
+            {
+                _consecutivePollErrors++;
+                _totalPollErrors++;
+                _lastErrorTime = DateTime.UtcNow;
+            }
+            finally
+            {
+                _mutex.ExitWriteLock();
+            }
+        }
+
+        public void RecordTaskSuccess()
+        {
+            _mutex.EnterWriteLock();
+            try
+            {
+                _totalTasksProcessed++;
+                _lastTaskCompletedTime = DateTime.UtcNow;
+            }
+            finally
+            {
+                _mutex.ExitWriteLock();
+            }
+        }
+
+        public void RecordTaskError()
+        {
+            _mutex.EnterWriteLock();
+            try
+            {
+                _totalTasksProcessed++;
+                _totalTaskErrors++;
+                _lastErrorTime = DateTime.UtcNow;
+            }
+            finally
+            {
+                _mutex.ExitWriteLock();
+            }
+        }
+
+        public bool IsHealthy()
+        {
+            _mutex.EnterReadLock();
+            try
+            {
+                return _consecutivePollErrors < _maxConsecutiveErrors;
+            }
+            finally
+            {
+                _mutex.ExitReadLock();
+            }
+        }
+
+        public WorkerHealthStatus GetHealthStatus()
+        {
+            _mutex.EnterReadLock();
+            try
+            {
+                return new WorkerHealthStatus
+                {
+                    IsHealthy = _consecutivePollErrors < _maxConsecutiveErrors,
+                    RunningWorkers = _runningWorkerCounter,
+                    ConsecutivePollErrors = _consecutivePollErrors,
+                    TotalTasksProcessed = _totalTasksProcessed,
+                    TotalTaskErrors = _totalTaskErrors,
+                    TotalPollErrors = _totalPollErrors,
+                    LastPollTime = _lastPollTime,
+                    LastTaskCompletedTime = _lastTaskCompletedTime,
+                    LastErrorTime = _lastErrorTime
+                };
+            }
+            finally
+            {
+                _mutex.ExitReadLock();
             }
         }
     }

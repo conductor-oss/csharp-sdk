@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 2024 Conductor Authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
@@ -15,6 +15,7 @@ using Conductor.Client.Telemetry;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +30,7 @@ namespace Conductor.Client.Worker
         private readonly HashSet<IWorkflowTaskExecutor> _workers;
         private readonly IWorkflowTaskClient _client;
         private readonly MetricsCollector _metrics;
+        private readonly Dictionary<string, WorkflowTaskMonitor> _workerMonitors;
 
         public WorkflowTaskCoordinator(IWorkflowTaskClient client, ILogger<WorkflowTaskCoordinator> logger, ILogger<WorkflowTaskExecutor> loggerWorkflowTaskExecutor, ILogger<WorkflowTaskMonitor> loggerWorkflowTaskMonitor, MetricsCollector metrics = null)
         {
@@ -38,6 +40,7 @@ namespace Conductor.Client.Worker
             _loggerWorkflowTaskExecutor = loggerWorkflowTaskExecutor;
             _loggerWorkflowTaskMonitor = loggerWorkflowTaskMonitor;
             _metrics = metrics;
+            _workerMonitors = new Dictionary<string, WorkflowTaskMonitor>();
         }
 
         public async Task Start(CancellationToken token)
@@ -59,7 +62,8 @@ namespace Conductor.Client.Worker
 
         public void RegisterWorker(IWorkflowTask worker)
         {
-            var workflowTaskMonitor = new WorkflowTaskMonitor(_loggerWorkflowTaskMonitor);
+            var maxConsecutiveErrors = worker.WorkerSettings?.MaxConsecutiveErrors ?? 10;
+            var workflowTaskMonitor = new WorkflowTaskMonitor(_loggerWorkflowTaskMonitor, maxConsecutiveErrors);
             var workflowTaskExecutor = new WorkflowTaskExecutor(
                 _loggerWorkflowTaskExecutor,
                 _client,
@@ -68,6 +72,20 @@ namespace Conductor.Client.Worker
                 _metrics
             );
             _workers.Add(workflowTaskExecutor);
+            _workerMonitors[worker.TaskType] = workflowTaskMonitor;
+        }
+
+        public bool IsHealthy()
+        {
+            return _workerMonitors.Values.All(m => m.IsHealthy());
+        }
+
+        public Dictionary<string, WorkerHealthStatus> GetHealthStatuses()
+        {
+            return _workerMonitors.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.GetHealthStatus()
+            );
         }
 
         private void DiscoverWorkers()

@@ -11,6 +11,7 @@
  * specific language governing permissions and limitations under the License.
  */
 using Conductor.Client.Worker;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,5 +21,7 @@ namespace Conductor.Client.Interfaces
     {
         Task Start(CancellationToken token = default);
         void RegisterWorker(IWorkflowTask worker);
+        bool IsHealthy();
+        Dictionary<string, WorkerHealthStatus> GetHealthStatuses();
     }
 }

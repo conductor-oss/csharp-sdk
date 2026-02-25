@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 2024 Conductor Authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
@@ -34,6 +34,10 @@ namespace Conductor.Client.Worker
         private readonly WorkflowTaskMonitor _workflowTaskMonitor;
         private readonly MetricsCollector _metrics;
 
+        // Adaptive backoff state
+        private TimeSpan _currentBackoff;
+        private int _consecutiveEmptyPolls;
+
         public WorkflowTaskExecutor(
             ILogger<WorkflowTaskExecutor> logger,
             IWorkflowTaskClient client,
@@ -47,6 +51,8 @@ namespace Conductor.Client.Worker
             _workerSettings = worker.WorkerSettings;
             _workflowTaskMonitor = workflowTaskMonitor;
             _metrics = metrics;
+            _currentBackoff = _workerSettings.PollInterval;
+            _consecutiveEmptyPolls = 0;
         }
 
         public WorkflowTaskExecutor(
@@ -62,6 +68,9 @@ namespace Conductor.Client.Worker
             _worker = worker;
             _workflowTaskMonitor = workflowTaskMonitor;
             _metrics = metrics;
+            _workerSettings = worker.WorkerSettings;
+            _currentBackoff = _workerSettings.PollInterval;
+            _consecutiveEmptyPolls = 0;
         }
 
         public System.Threading.Tasks.Task Start(CancellationToken token)
@@ -93,11 +102,21 @@ namespace Conductor.Client.Worker
                     if (token != CancellationToken.None)
                         token.ThrowIfCancellationRequested();
 
+                    // Check if worker is paused via environment variable
+                    if (IsWorkerPaused())
+                    {
+                        _logger.LogDebug(
+                            $"[{_workerSettings.WorkerId}] Worker paused via environment variable '{_workerSettings.PauseEnvironmentVariable}'"
+                            + $", taskName: {_worker.TaskType}"
+                        );
+                        Sleep(_workerSettings.PauseCheckInterval);
+                        continue;
+                    }
+
                     WorkOnce(token);
                 }
                 catch (System.OperationCanceledException canceledException)
                 {
-                    //Do nothing the operation was cancelled
                     _logger.LogTrace(
                         $"[{_workerSettings.WorkerId}] Operation Cancelled: {canceledException.Message}"
                         + $", taskName: {_worker.TaskType}"
@@ -115,7 +134,9 @@ namespace Conductor.Client.Worker
                         + $", domain: {_worker.WorkerSettings.Domain}"
                         + $", batchSize: {_workerSettings.BatchSize}"
                     );
-                    Sleep(SLEEP_FOR_TIME_SPAN_ON_WORKER_ERROR);
+                    // Use adaptive backoff on errors too
+                    IncreaseBackoff();
+                    Sleep(_currentBackoff);
                 }
             }
         }
@@ -128,9 +149,13 @@ namespace Conductor.Client.Worker
             var tasks = PollTasks();
             if (tasks.Count == 0)
             {
-                Sleep(_workerSettings.PollInterval);
+                IncreaseBackoff();
+                Sleep(_currentBackoff);
                 return;
             }
+
+            // Reset backoff when tasks are found
+            ResetBackoff();
 
             var uniqueBatchId = Guid.NewGuid();
             _logger.LogTrace(
@@ -184,6 +209,8 @@ namespace Conductor.Client.Worker
                     + $", domain: {_workerSettings.Domain}"
                     + $", batchSize: {_workerSettings.BatchSize}"
                 );
+
+                _workflowTaskMonitor.RecordPollSuccess(tasks.Count);
                 return tasks;
             }
             catch (Exception e)
@@ -197,6 +224,7 @@ namespace Conductor.Client.Worker
                     + $", domain: {_workerSettings.Domain}"
                     + $", batchSize: {_workerSettings.BatchSize}"
                 );
+                _workflowTaskMonitor.RecordPollError();
                 return new List<Task>();
             }
         }
@@ -236,6 +264,14 @@ namespace Conductor.Client.Worker
             );
 
             var executeStopwatch = Stopwatch.StartNew();
+
+            // Start lease extension timer if enabled
+            Timer leaseTimer = null;
+            if (_workerSettings.LeaseExtensionEnabled)
+            {
+                leaseTimer = StartLeaseExtensionTimer(task);
+            }
+
             try
             {
                 TaskResult taskResult =
@@ -255,6 +291,7 @@ namespace Conductor.Client.Worker
                     + $", CancelToken: {token}"
                 );
                 UpdateTask(taskResult);
+                _workflowTaskMonitor.RecordTaskSuccess();
             }
             catch (Exception e)
             {
@@ -271,13 +308,51 @@ namespace Conductor.Client.Worker
                 );
                 var taskResult = task.Failed(e.Message);
                 UpdateTask(taskResult);
+                _workflowTaskMonitor.RecordTaskError();
             }
             finally
             {
+                leaseTimer?.Dispose();
+
                 if (token != CancellationToken.None)
                     token.ThrowIfCancellationRequested();
                 _workflowTaskMonitor.RunningWorkerDone();
             }
+        }
+
+        private Timer StartLeaseExtensionTimer(Models.Task task)
+        {
+            var thresholdMs = (int)_workerSettings.LeaseExtensionThreshold.TotalMilliseconds;
+            return new Timer(
+                callback: _ =>
+                {
+                    try
+                    {
+                        _logger.LogDebug(
+                            $"[{_workerSettings.WorkerId}] Extending lease for task"
+                            + $", taskId: {task.TaskId}"
+                            + $", workflowId: {task.WorkflowInstanceId}"
+                        );
+                        var extendResult = new TaskResult(
+                            taskId: task.TaskId,
+                            workflowInstanceId: task.WorkflowInstanceId
+                        );
+                        extendResult.Status = TaskResult.StatusEnum.INPROGRESS;
+                        extendResult.CallbackAfterSeconds = (int)(_workerSettings.LeaseExtensionThreshold.TotalSeconds);
+                        _taskClient.UpdateTask(extendResult);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(
+                            $"[{_workerSettings.WorkerId}] Failed to extend task lease: {ex.Message}"
+                            + $", taskId: {task.TaskId}"
+                        );
+                    }
+                },
+                state: null,
+                dueTime: thresholdMs,
+                period: thresholdMs
+            );
         }
 
         private void UpdateTask(Models.TaskResult taskResult)
@@ -339,9 +414,48 @@ namespace Conductor.Client.Worker
             }
         }
 
+        private bool IsWorkerPaused()
+        {
+            if (string.IsNullOrEmpty(_workerSettings.PauseEnvironmentVariable))
+                return false;
+
+            var value = Environment.GetEnvironmentVariable(_workerSettings.PauseEnvironmentVariable);
+            return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void IncreaseBackoff()
+        {
+            _consecutiveEmptyPolls++;
+            var newBackoff = TimeSpan.FromMilliseconds(
+                _workerSettings.PollInterval.TotalMilliseconds * Math.Pow(_workerSettings.PollBackoffMultiplier, _consecutiveEmptyPolls)
+            );
+            _currentBackoff = newBackoff > _workerSettings.MaxPollBackoffInterval
+                ? _workerSettings.MaxPollBackoffInterval
+                : newBackoff;
+
+            _logger.LogTrace(
+                $"[{_workerSettings.WorkerId}] Backoff increased to {_currentBackoff.TotalMilliseconds}ms"
+                + $", consecutiveEmptyPolls: {_consecutiveEmptyPolls}"
+                + $", taskType: {_worker.TaskType}"
+            );
+        }
+
+        private void ResetBackoff()
+        {
+            if (_consecutiveEmptyPolls > 0)
+            {
+                _logger.LogTrace(
+                    $"[{_workerSettings.WorkerId}] Backoff reset to {_workerSettings.PollInterval.TotalMilliseconds}ms"
+                    + $", taskType: {_worker.TaskType}"
+                );
+            }
+            _consecutiveEmptyPolls = 0;
+            _currentBackoff = _workerSettings.PollInterval;
+        }
+
         private void Sleep(TimeSpan timeSpan)
         {
-            _logger.LogDebug($"[{_workerSettings.WorkerId}] Sleeping for {timeSpan.Milliseconds}ms");
+            _logger.LogDebug($"[{_workerSettings.WorkerId}] Sleeping for {timeSpan.TotalMilliseconds}ms");
             Thread.Sleep(timeSpan);
         }
 
