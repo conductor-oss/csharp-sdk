@@ -14,6 +14,7 @@ using Conductor.Client.Models;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using ThreadTask = System.Threading.Tasks;
 
 namespace Conductor.Client.Events
 {
@@ -204,6 +205,24 @@ namespace Conductor.Client.Events
                     _logger?.LogWarning($"Error dispatching workflow event to listener: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Dispatches a task runner event asynchronously on the thread pool.
+        /// Does not block the caller.
+        /// </summary>
+        public ThreadTask.Task DispatchTaskRunnerEventAsync(Action<ITaskRunnerEventListener> action)
+        {
+            return ThreadTask.Task.Run(() => DispatchTaskRunnerEvent(action));
+        }
+
+        /// <summary>
+        /// Dispatches a workflow event asynchronously on the thread pool.
+        /// Does not block the caller.
+        /// </summary>
+        public ThreadTask.Task DispatchWorkflowEventAsync(Action<IWorkflowEventListener> action)
+        {
+            return ThreadTask.Task.Run(() => DispatchWorkflowEvent(action));
         }
     }
 }

@@ -78,7 +78,7 @@ namespace Conductor.Client.Worker
             if (token != CancellationToken.None)
                 token.ThrowIfCancellationRequested();
 
-            var thread = System.Threading.Tasks.Task.Run(() => Work4Ever(token));
+            var thread = System.Threading.Tasks.Task.Run(() => StartWithAutoRestart(token));
             _logger.LogInformation(
                 $"[{_workerSettings.WorkerId}] Started worker"
                 + $", taskName: {_worker.TaskType}"
@@ -91,6 +91,44 @@ namespace Conductor.Client.Worker
                 token.ThrowIfCancellationRequested();
 
             return thread;
+        }
+
+        private void StartWithAutoRestart(CancellationToken token)
+        {
+            var restartCount = 0;
+            while (true)
+            {
+                try
+                {
+                    Work4Ever(token);
+                    return; // Normal exit (shouldn't happen, but just in case)
+                }
+                catch (OperationCanceledException)
+                {
+                    return; // Intentional cancellation, don't restart
+                }
+                catch (Exception e)
+                {
+                    restartCount++;
+                    if (_workerSettings.MaxRestartAttempts > 0 && restartCount > _workerSettings.MaxRestartAttempts)
+                    {
+                        _logger.LogError(
+                            $"[{_workerSettings.WorkerId}] Worker exceeded max restart attempts ({_workerSettings.MaxRestartAttempts})"
+                            + $", taskName: {_worker.TaskType}. Giving up."
+                        );
+                        throw;
+                    }
+
+                    _logger.LogWarning(
+                        $"[{_workerSettings.WorkerId}] Worker crashed, restarting (attempt {restartCount}/{_workerSettings.MaxRestartAttempts})"
+                        + $", taskName: {_worker.TaskType}"
+                        + $", error: {e.Message}"
+                    );
+                    Telemetry.ConductorMetrics.WorkerRestartCount.Add(1,
+                        new System.Collections.Generic.KeyValuePair<string, object>("taskType", _worker.TaskType));
+                    Sleep(_workerSettings.RestartDelay);
+                }
+            }
         }
 
         private void Work4Ever(CancellationToken token)
