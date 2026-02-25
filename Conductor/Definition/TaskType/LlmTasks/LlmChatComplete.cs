@@ -170,7 +170,7 @@ namespace Conductor.Definition.TaskType.LlmTasks
             WithInput(Constants.INSTRUCTIONTEMPLATE, InstructionsTemplate);
             WithInput(Constants.MESSAGES, Messages);
             WithInput(Constants.MAXTOKENS, MaxTokens);
-            WithInput(Constants.MAXTOKENS, StopWords);
+            WithInput(Constants.STOPWORDS, StopWords);
             WithInput(Constants.PROMPTVARIABLES, TemplateVariables);
         }
     }

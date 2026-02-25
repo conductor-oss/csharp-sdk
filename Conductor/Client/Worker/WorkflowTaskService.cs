@@ -47,7 +47,7 @@ namespace Conductor.Client.Worker
             {
                 _logger.LogError($"Task Service execution error out.....Message: {ex.Message}, Exception Stack trace: {ex.StackTrace}");
                 StopAsync(stoppingToken);
-                throw ex;
+                throw;
             }
         }
     }

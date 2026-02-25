@@ -274,7 +274,7 @@ namespace Conductor.Client.Worker
             }
             finally
             {
-                if (token == CancellationToken.None)
+                if (token != CancellationToken.None)
                     token.ThrowIfCancellationRequested();
                 _workflowTaskMonitor.RunningWorkerDone();
             }
