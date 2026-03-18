@@ -18,6 +18,7 @@ using System.IO;
 using System;
 using RestSharp;
 using Newtonsoft.Json;
+using System.Linq;
 
 namespace Conductor.Client
 {
@@ -126,6 +127,12 @@ namespace Conductor.Client
         public readonly ApiClient ApiClient;
 
         public OrkesAuthenticationSettings AuthenticationSettings { get; set; }
+
+        /// <summary>
+        /// Interceptors called before each HTTP request and after each response.
+        /// Add implementations of <see cref="IConductorInterceptor"/> to hook into the request lifecycle.
+        /// </summary>
+        public List<IConductorInterceptor> Interceptors { get; } = new List<IConductorInterceptor>();
 
         /// <summary>
         /// Gets or sets the base path for API access.

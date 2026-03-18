@@ -19,5 +19,12 @@ namespace Conductor.Client.Interfaces
     {
         List<Task> PollTask(string taskType, string workerId, string domain, int count);
         string UpdateTask(TaskResult result);
+
+        /// <summary>
+        /// Update a task and retrieve the next available task in one call (task-update-v2).
+        /// Returns the next task if available, or null if the queue is empty or the server
+        /// does not support v2 (in which case a separate poll should be performed).
+        /// </summary>
+        Task UpdateTaskAndGetNext(TaskResult result, string taskType, string workerId, string domain);
     }
 }

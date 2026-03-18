@@ -25,6 +25,10 @@ namespace Conductor.Client.Authentication
         private readonly MemoryCache _memoryCache;
         private static ILogger _logger;
 
+        // Set to true when the server does not support authentication (OSS mode).
+        // Once disabled, auth is skipped for all future requests.
+        private bool _authDisabled = false;
+
         public TokenHandler()
         {
             _memoryCache = new MemoryCache(new MemoryCacheOptions());
@@ -33,6 +37,9 @@ namespace Conductor.Client.Authentication
 
         public string GetToken(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient)
         {
+            if (_authDisabled)
+                return null;
+
             string token = (string)_memoryCache.Get(authenticationSettings);
             if (token != null)
             {
@@ -43,9 +50,14 @@ namespace Conductor.Client.Authentication
 
         public string RefreshToken(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient)
         {
+            if (_authDisabled)
+                return null;
+
             lock (_lockObject)
             {
                 string token = GetTokenFromServer(authenticationSettings, tokenClient);
+                if (token == null)
+                    return null;
                 var expirationTime = System.DateTimeOffset.Now.AddMinutes(30);
                 _memoryCache.Set(authenticationSettings, token, expirationTime);
                 return token;
@@ -67,9 +79,14 @@ namespace Conductor.Client.Authentication
                 }
                 catch (ApiException e)
                 {
-                    if (e.ErrorCode == 405 || e.ErrorCode == 404)
+                    if (e.ErrorCode == 404 || e.ErrorCode == 405)
                     {
-                        throw new Exception($"Error while getting authentication token. Is the config BasePath correct? {tokenClient.Configuration.BasePath}");
+                        // Server does not support authentication (OSS mode) — disable auth silently.
+                        _authDisabled = true;
+                        _logger.LogInformation(
+                            $"Authentication endpoint not found (HTTP {e.ErrorCode}) at {tokenClient.Configuration.BasePath}. " +
+                            "Running in unauthenticated mode (OSS). Auth will be disabled for all requests.");
+                        return null;
                     }
                 }
                 catch (Exception e)

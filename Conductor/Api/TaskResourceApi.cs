@@ -1426,7 +1426,103 @@ namespace Conductor.Api
         }
 
         /// <summary>
-        /// Update a task By Ref Name 
+        /// Update a task (v2) — submits the result and returns the next available task in one call.
+        /// Uses PUT /tasks/{taskId} which is supported on newer Conductor servers.
+        /// Returns null if no next task is available or the server returns a non-task response.
+        /// Throws ApiException with ErrorCode 404/405 on older servers (caller should fall back to v1).
+        /// </summary>
+        public Task UpdateTaskV2(TaskResult body, string workerid = null)
+        {
+            if (body == null)
+                throw new ApiException(400, "Missing required parameter 'body' when calling TaskResourceApi->UpdateTaskV2");
+
+            var localVarPath = "/tasks/{taskId}";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+
+            localVarPathParams["taskId"] = this.Configuration.ApiClient.ParameterToString(body.TaskId);
+            if (workerid != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "workerid", workerid));
+
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(new[] { "application/json" });
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(new[] { "application/json" });
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            localVarHeaderParams["Content-Type"] = localVarHttpContentType;
+            Object localVarPostBody = this.Configuration.ApiClient.Serialize(body);
+
+            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
+                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
+
+            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(
+                localVarPath, Method.Put, localVarQueryParams, localVarPostBody,
+                localVarHeaderParams, localVarFormParams, localVarFileParams,
+                localVarPathParams, localVarHttpContentType, this.Configuration);
+
+            int localVarStatusCode = (int)localVarResponse.StatusCode;
+
+            if (ExceptionFactory != null)
+            {
+                Exception exception = ExceptionFactory("UpdateTaskV2", localVarResponse);
+                if (exception != null) throw exception;
+            }
+
+            if (string.IsNullOrWhiteSpace(localVarResponse.Content) || localVarResponse.Content == "null")
+                return null;
+
+            return (Task)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Task));
+        }
+
+        public async ThreadTask.Task<Task> UpdateTaskV2Async(TaskResult body, string workerid = null)
+        {
+            if (body == null)
+                throw new ApiException(400, "Missing required parameter 'body' when calling TaskResourceApi->UpdateTaskV2Async");
+
+            var localVarPath = "/tasks/{taskId}";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+
+            localVarPathParams["taskId"] = this.Configuration.ApiClient.ParameterToString(body.TaskId);
+            if (workerid != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "workerid", workerid));
+
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(new[] { "application/json" });
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(new[] { "application/json" });
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            localVarHeaderParams["Content-Type"] = localVarHttpContentType;
+            Object localVarPostBody = this.Configuration.ApiClient.Serialize(body);
+
+            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
+                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
+
+            RestResponse localVarResponse = (RestResponse)await this.Configuration.ApiClient.CallApiAsync(
+                localVarPath, Method.Put, localVarQueryParams, localVarPostBody,
+                localVarHeaderParams, localVarFormParams, localVarFileParams,
+                localVarPathParams, localVarHttpContentType);
+
+            int localVarStatusCode = (int)localVarResponse.StatusCode;
+
+            if (ExceptionFactory != null)
+            {
+                Exception exception = ExceptionFactory("UpdateTaskV2Async", localVarResponse);
+                if (exception != null) throw exception;
+            }
+
+            if (string.IsNullOrWhiteSpace(localVarResponse.Content) || localVarResponse.Content == "null")
+                return null;
+
+            return (Task)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Task));
+        }
+
+        /// <summary>
+        /// Update a task By Ref Name
         /// </summary>
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="body"></param>

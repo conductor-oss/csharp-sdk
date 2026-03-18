@@ -199,8 +199,14 @@ namespace Conductor.Client
                 pathParams, contentType);
 
                 InterceptRequest(request);
+                if (configuration?.Interceptors != null)
+                    foreach (var interceptor in configuration.Interceptors)
+                        interceptor.BeforeRequest(request);
                 response = RestClient.Execute(request, method);
                 InterceptResponse(request, response);
+                if (configuration?.Interceptors != null)
+                    foreach (var interceptor in configuration.Interceptors)
+                        interceptor.AfterResponse(request, response);
                 FormatHeaders(response);
 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -230,9 +236,16 @@ namespace Conductor.Client
                 path, method, queryParams, postBody, headerParams, formParams, fileParams,
                 pathParams, contentType);
 
+            var cfg = Configuration as Configuration;
             InterceptRequest(request);
+            if (cfg?.Interceptors != null)
+                foreach (var interceptor in cfg.Interceptors)
+                    interceptor.BeforeRequest(request);
             var response = await RestClient.ExecuteAsync(request, method);
             InterceptResponse(request, response);
+            if (cfg?.Interceptors != null)
+                foreach (var interceptor in cfg.Interceptors)
+                    interceptor.AfterResponse(request, response);
             FormatHeaders(response);
             return (object)response;
         }
