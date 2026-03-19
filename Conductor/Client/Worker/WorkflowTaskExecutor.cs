@@ -38,6 +38,9 @@ namespace Conductor.Client.Worker
         private TimeSpan _currentBackoff;
         private int _consecutiveEmptyPolls;
 
+        // task-update-v2 fallback: set to false once server returns 404/405
+        private bool _useUpdateV2 = true;
+
         public WorkflowTaskExecutor(
             ILogger<WorkflowTaskExecutor> logger,
             IWorkflowTaskClient client,
@@ -405,9 +408,9 @@ namespace Conductor.Client.Worker
 
         /// <summary>
         /// Updates a task result and returns the next task if the server supports task-update-v2,
-        /// or null when falling back to v1.
+        /// or null when falling back to v1. Falls back permanently on HTTP 404/405.
         /// </summary>
-        private Models.Task UpdateTask(Models.TaskResult taskResult)
+        internal Models.Task UpdateTask(Models.TaskResult taskResult)
         {
             taskResult.WorkerId = taskResult.WorkerId ?? _workerSettings.WorkerId;
             RecordTaskResultSize(taskResult);
@@ -422,18 +425,51 @@ namespace Conductor.Client.Worker
                         Sleep(TimeSpan.FromSeconds(1 << attemptCounter));
                     }
 
-                    var nextTask = _taskClient.UpdateTaskAndGetNext(taskResult, _worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain);
-                    updateStopwatch.Stop();
-                    _metrics?.RecordTaskUpdateTime(_worker.TaskType, updateStopwatch.Elapsed.TotalSeconds);
-                    _logger.LogTrace(
-                        $"[{_workerSettings.WorkerId}] Done updating task"
+                    if (_useUpdateV2)
+                    {
+                        var nextTask = _taskClient.UpdateTaskAndGetNext(taskResult, _worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain);
+                        updateStopwatch.Stop();
+                        _metrics?.RecordTaskUpdateTime(_worker.TaskType, updateStopwatch.Elapsed.TotalSeconds);
+                        _logger.LogTrace(
+                            $"[{_workerSettings.WorkerId}] Done updating task"
+                            + $", taskType: {_worker.TaskType}"
+                            + $", domain: {_workerSettings.Domain}"
+                            + $", taskId: {taskResult.TaskId}"
+                            + $", workflowId: {taskResult.WorkflowInstanceId}"
+                            + (nextTask != null ? $", nextTaskId: {nextTask.TaskId}" : ", no next task")
+                        );
+                        return nextTask;
+                    }
+                    else
+                    {
+                        _taskClient.UpdateTask(taskResult);
+                        updateStopwatch.Stop();
+                        _metrics?.RecordTaskUpdateTime(_worker.TaskType, updateStopwatch.Elapsed.TotalSeconds);
+                        return null;
+                    }
+                }
+                catch (ApiException e) when (_useUpdateV2 && (e.ErrorCode == 404 || e.ErrorCode == 405))
+                {
+                    _logger.LogWarning(
+                        $"[{_workerSettings.WorkerId}] Server does not support task-update-v2 (HTTP {e.ErrorCode})."
+                        + " Falling back to v1 for all future updates."
                         + $", taskType: {_worker.TaskType}"
-                        + $", domain: {_workerSettings.Domain}"
-                        + $", taskId: {taskResult.TaskId}"
-                        + $", workflowId: {taskResult.WorkflowInstanceId}"
-                        + (nextTask != null ? $", nextTaskId: {nextTask.TaskId}" : ", no next task")
                     );
-                    return nextTask;
+                    _useUpdateV2 = false;
+                    // Retry immediately with v1
+                    try
+                    {
+                        _taskClient.UpdateTask(taskResult);
+                        return null;
+                    }
+                    catch (Exception fallbackEx)
+                    {
+                        _logger.LogError(
+                            $"[{_workerSettings.WorkerId}] Failed to update task via v1 fallback, reason: {fallbackEx.Message}"
+                            + $", taskType: {_worker.TaskType}"
+                            + $", taskId: {taskResult.TaskId}"
+                        );
+                    }
                 }
                 catch (Exception e)
                 {
