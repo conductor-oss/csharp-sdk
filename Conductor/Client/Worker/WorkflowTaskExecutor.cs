@@ -38,6 +38,9 @@ namespace Conductor.Client.Worker
         private TimeSpan _currentBackoff;
         private int _consecutiveEmptyPolls;
 
+        // task-update-v2: once the server returns 404/405, fall back to v1 for all future updates
+        private bool _useUpdateV2 = true;
+
         public WorkflowTaskExecutor(
             ILogger<WorkflowTaskExecutor> logger,
             IWorkflowTaskClient client,
@@ -454,8 +457,13 @@ namespace Conductor.Client.Worker
                     Models.Task nextTask;
                     using (ConductorMetrics.Time(ConductorMetrics.TaskUpdateLatency, tags))
                     {
-                        // UpdateTaskAndGetNext handles the v2→v1 fallback internally.
-                        nextTask = _taskClient.UpdateTaskAndGetNext(taskResult, _worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain);
+                        if (_useUpdateV2)
+                            nextTask = _taskClient.UpdateTaskAndGetNext(taskResult, _worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain);
+                        else
+                        {
+                            _taskClient.UpdateTask(taskResult);
+                            nextTask = null;
+                        }
                     }
 
                     _logger.LogTrace(
@@ -468,6 +476,17 @@ namespace Conductor.Client.Worker
                     );
                     EventDispatcher.Instance.OnTaskUpdateSent(_worker.TaskType, taskResult);
                     return nextTask;
+                }
+                catch (ApiException e) when (_useUpdateV2 && (e.ErrorCode == 404 || e.ErrorCode == 405))
+                {
+                    _useUpdateV2 = false;
+                    _logger.LogWarning(
+                        $"[{_workerSettings.WorkerId}] Server does not support task-update-v2 (HTTP {e.ErrorCode}), falling back to v1"
+                        + $", taskType: {_worker.TaskType}"
+                    );
+                    _taskClient.UpdateTask(taskResult);
+                    EventDispatcher.Instance.OnTaskUpdateSent(_worker.TaskType, taskResult);
+                    return null;
                 }
                 catch (Exception e)
                 {
