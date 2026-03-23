@@ -17,6 +17,7 @@ using Xunit;
 
 namespace Tests.Client
 {
+    [Trait("Category", "CloudIntegration")]
     public class OrkesApiClientTest
     {
         // BasePath is required because the Configuration constructor initializes a

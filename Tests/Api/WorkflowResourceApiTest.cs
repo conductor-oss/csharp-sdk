@@ -28,7 +28,6 @@ using Task = Conductor.Client.Models.Task;
 
 namespace conductor_csharp.test.Api
 {
-    [Collection("CloudIntegration")]
     [Trait("Category", "CloudIntegration")]
     public class WorkflowResourceApiTest
     {

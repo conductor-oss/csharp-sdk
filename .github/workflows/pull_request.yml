@@ -32,11 +32,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Run unit tests
+      - name: Test and collect coverage
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
@@ -55,18 +51,13 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage/**/coverage.cobertura.xml
+          files: coverage/out/coverage.cobertura.xml
           flags: unittests
           name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
 
   integration_tests:
     needs: lint
     runs-on: ubuntu-latest
-    env:
-      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
-      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
-      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
-      GITHUB_RUN_ID: ${{ github.run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,40 +65,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Show server endpoint and auth key prefix
-        run: |
-          echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
-          echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
-      - name: Run integration tests (v5)
+      - name: Run integration tests
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
           --filter "Category=Integration"
           -l "console;verbosity=normal"
-
-  legacy_integration_tests:
-    needs: lint
-    runs-on: ubuntu-latest
-    env:
-      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
-      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
-      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
-      GITHUB_RUN_ID: ${{ github.run_id }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Show server endpoint and auth key prefix
-        run: |
-          echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
-          echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
-      - name: Run legacy integration tests
-        run: >
-          dotnet test Tests/conductor-csharp.test.csproj
-          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
-          --filter "Category=CloudIntegration"
-          -l "console;verbosity=normal"
-

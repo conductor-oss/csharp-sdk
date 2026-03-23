@@ -23,7 +23,6 @@ using Xunit.Abstractions;
 
 namespace Conductor_csharp.test.Api
 {
-    [Collection("CloudIntegration")]
     [Trait("Category", "CloudIntegration")]
     public class PromptResourceApiTest : IDisposable
     {

@@ -15,6 +15,19 @@ COPY /Harness /package/Harness
 WORKDIR /package/Harness
 RUN dotnet publish Harness.csproj -c Release -o /app
 
+COPY /csharp-examples /package/csharp-examples
+COPY /Tests           /package/Tests
+WORKDIR /package/Tests
+RUN dotnet test -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS \
+                --filter "Category!=CloudIntegration&Category!=Integration" \
+                --collect:"XPlat Code Coverage" \
+                -l "console;verbosity=normal"
+
+FROM test AS coverage_export
+RUN mkdir /out \
+ && cp $(find /package/Tests/TestResults -name 'coverage.cobertura.xml' | head -n 1) \
+       /out/coverage.cobertura.xml
+
 FROM mcr.microsoft.com/dotnet/runtime:8.0 AS harness
 COPY --from=harness-build /app /app
 WORKDIR /app

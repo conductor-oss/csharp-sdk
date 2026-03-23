@@ -25,7 +25,6 @@ using Xunit;
 
 namespace Tests.Worker
 {
-    [Collection("CloudIntegration")]
     [Trait("Category", "CloudIntegration")]
     public class WorkerTests
     {

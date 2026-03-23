@@ -26,7 +26,6 @@ namespace Conductor_csharp.test.Api
     /// <summary>
     /// Class for testing IntegrationResourceApi
     /// </summary>
-    [Collection("CloudIntegration")]
     [Trait("Category", "CloudIntegration")]
     public class IntegrationResourceApiTests : IDisposable
     {
