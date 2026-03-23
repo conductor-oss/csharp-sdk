@@ -1451,7 +1451,6 @@ namespace Conductor.Api
             if (localVarHttpHeaderAccept != null)
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
-            localVarHeaderParams["Content-Type"] = localVarHttpContentType;
             Object localVarPostBody = this.Configuration.ApiClient.Serialize(body);
 
             if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
@@ -1496,7 +1495,6 @@ namespace Conductor.Api
             if (localVarHttpHeaderAccept != null)
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
-            localVarHeaderParams["Content-Type"] = localVarHttpContentType;
             Object localVarPostBody = this.Configuration.ApiClient.Serialize(body);
 
             if (!String.IsNullOrEmpty(this.Configuration.AccessToken))

@@ -38,9 +38,6 @@ namespace Conductor.Client.Worker
         private TimeSpan _currentBackoff;
         private int _consecutiveEmptyPolls;
 
-        // task-update-v2 fallback: set to false once server returns 404/405
-        private bool _useUpdateV2 = true;
-
         public WorkflowTaskExecutor(
             ILogger<WorkflowTaskExecutor> logger,
             IWorkflowTaskClient client,
@@ -457,15 +454,8 @@ namespace Conductor.Client.Worker
                     Models.Task nextTask;
                     using (ConductorMetrics.Time(ConductorMetrics.TaskUpdateLatency, tags))
                     {
-                        if (_useUpdateV2)
-                        {
-                            nextTask = _taskClient.UpdateTaskAndGetNext(taskResult, _worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain);
-                        }
-                        else
-                        {
-                            _taskClient.UpdateTask(taskResult);
-                            nextTask = null;
-                        }
+                        // UpdateTaskAndGetNext handles the v2→v1 fallback internally.
+                        nextTask = _taskClient.UpdateTaskAndGetNext(taskResult, _worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain);
                     }
 
                     _logger.LogTrace(
@@ -478,29 +468,6 @@ namespace Conductor.Client.Worker
                     );
                     EventDispatcher.Instance.OnTaskUpdateSent(_worker.TaskType, taskResult);
                     return nextTask;
-                }
-                catch (ApiException e) when (_useUpdateV2 && (e.ErrorCode == 404 || e.ErrorCode == 405))
-                {
-                    _logger.LogWarning(
-                        $"[{_workerSettings.WorkerId}] Server does not support task-update-v2 (HTTP {e.ErrorCode})."
-                        + " Falling back to v1 for all future updates."
-                        + $", taskType: {_worker.TaskType}"
-                    );
-                    _useUpdateV2 = false;
-                    try
-                    {
-                        _taskClient.UpdateTask(taskResult);
-                        EventDispatcher.Instance.OnTaskUpdateSent(_worker.TaskType, taskResult);
-                        return null;
-                    }
-                    catch (Exception fallbackEx)
-                    {
-                        _logger.LogError(
-                            $"[{_workerSettings.WorkerId}] Failed to update task via v1 fallback, reason: {fallbackEx.Message}"
-                            + $", taskType: {_worker.TaskType}"
-                            + $", taskId: {taskResult.TaskId}"
-                        );
-                    }
                 }
                 catch (Exception e)
                 {
