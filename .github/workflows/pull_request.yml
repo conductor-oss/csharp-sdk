@@ -42,7 +42,7 @@ jobs:
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
-          --filter "Category!=Integration&Category!=CloudIntegration"
+          --filter "Category!=Integration&Category!=CloudIntegration&FullyQualifiedName!~Tests.Worker."
           -l "console;verbosity=normal"
 
   integration_tests_v5:

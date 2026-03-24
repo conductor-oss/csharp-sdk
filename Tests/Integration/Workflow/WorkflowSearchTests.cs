@@ -71,6 +71,8 @@ namespace Tests.Integration.Workflow
         {
             var id = _workflowClient.StartWorkflow(new StartWorkflowRequest(name: _workflowName));
 
+            System.Threading.Thread.Sleep(2000);
+
             var results = _workflowClient.Search(
                 start: 0, size: 100, freeText: "*",
                 query: $"status = RUNNING AND workflowType = \"{_workflowName}\"");

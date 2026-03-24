@@ -82,7 +82,7 @@ namespace Tests.Integration.Orkes
         {
             var tag = BuildTagObject("env", "test");
             _tagsClient.AddTaskTag(tag, _taskName);
-            _tagsClient.DeleteTaskTag(BuildTagString("env"), _taskName);
+            _tagsClient.DeleteTaskTag(BuildTagString("env", "test"), _taskName);
             var tags = _tagsClient.GetTaskTags(_taskName);
             Assert.DoesNotContain(tags, t => t.Key == "env");
         }
@@ -90,8 +90,8 @@ namespace Tests.Integration.Orkes
         private TagObject BuildTagObject(string key, string value) =>
             new TagObject { Key = key, Value = value, Type = TagObject.TypeEnum.METADATA };
 
-        private TagString BuildTagString(string key) =>
-            new TagString { Key = key, Type = TagString.TypeEnum.METADATA, Value = key };
+        private TagString BuildTagString(string key, string value = null) =>
+            new TagString { Key = key, Type = TagString.TypeEnum.METADATA, Value = value };
 
         private void CleanupWorkflow()
         {

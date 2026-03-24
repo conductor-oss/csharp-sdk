@@ -33,7 +33,7 @@ namespace Tests.Integration.Environment
         public void CreateEnvVariable_CanBeRetrieved()
         {
             _envClient.CreateOrUpdateEnvVariable("test_value", _key);
-            var value = _envClient.Get1(_key);
+            var value = _envClient.Get1(_key)?.ToString().Trim('"');
             Assert.Equal("test_value", value);
             Cleanup();
         }
@@ -43,7 +43,7 @@ namespace Tests.Integration.Environment
         {
             _envClient.CreateOrUpdateEnvVariable("original", _key);
             _envClient.CreateOrUpdateEnvVariable("updated", _key);
-            var value = _envClient.Get1(_key);
+            var value = _envClient.Get1(_key)?.ToString().Trim('"');
             Assert.Equal("updated", value);
             Cleanup();
         }
