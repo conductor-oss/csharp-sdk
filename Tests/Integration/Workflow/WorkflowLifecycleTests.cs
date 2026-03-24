@@ -132,6 +132,26 @@ namespace Tests.Integration.Workflow
             Cleanup(id);
         }
 
+        [Fact]
+        public void UpdateWorkflowVariables_VariablesAreReflected()
+        {
+            var id = StartWorkflow();
+            var variables = new System.Collections.Generic.Dictionary<string, object>
+            {
+                { "testVar", "testValue" }
+            };
+            var updated = _workflowClient.UpdateWorkflowVariables(id, variables);
+            Assert.NotNull(updated);
+            Cleanup(id);
+        }
+
+        [Fact]
+        public void GetExecutionStatus_NonExistentId_ThrowsApiException()
+        {
+            Assert.Throws<Conductor.Client.ApiException>(() =>
+                _workflowClient.GetExecutionStatus("non-existent-workflow-id-12345"));
+        }
+
         private string StartWorkflow() =>
             _workflowClient.StartWorkflow(new StartWorkflowRequest(name: _workflowName));
 

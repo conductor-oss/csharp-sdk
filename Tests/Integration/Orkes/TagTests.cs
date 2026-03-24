@@ -87,6 +87,36 @@ namespace Tests.Integration.Orkes
             Assert.DoesNotContain(tags, t => t.Key == "env");
         }
 
+        [Fact]
+        public void SetWorkflowTags_ReplacesAllTags()
+        {
+            _tagsClient.AddWorkflowTag(BuildTagObject("old", "value"), _workflowName);
+            _tagsClient.SetWorkflowTags(new List<TagObject>
+            {
+                BuildTagObject("new1", "v1"),
+                BuildTagObject("new2", "v2")
+            }, _workflowName);
+            var tags = _tagsClient.GetWorkflowTags(_workflowName);
+            Assert.DoesNotContain(tags, t => t.Key == "old");
+            Assert.Contains(tags, t => t.Key == "new1");
+            Assert.Contains(tags, t => t.Key == "new2");
+        }
+
+        [Fact]
+        public void SetTaskTags_ReplacesAllTags()
+        {
+            _tagsClient.AddTaskTag(BuildTagObject("old", "value"), _taskName);
+            _tagsClient.SetTaskTags(new List<TagObject>
+            {
+                BuildTagObject("new1", "v1"),
+                BuildTagObject("new2", "v2")
+            }, _taskName);
+            var tags = _tagsClient.GetTaskTags(_taskName);
+            Assert.DoesNotContain(tags, t => t.Key == "old");
+            Assert.Contains(tags, t => t.Key == "new1");
+            Assert.Contains(tags, t => t.Key == "new2");
+        }
+
         private TagObject BuildTagObject(string key, string value) =>
             new TagObject { Key = key, Value = value, Type = TagObject.TypeEnum.METADATA };
 

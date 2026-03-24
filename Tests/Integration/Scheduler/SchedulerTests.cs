@@ -97,6 +97,14 @@ namespace Tests.Integration.Scheduler
             Assert.DoesNotContain(all, s => s.Name == _scheduleName);
         }
 
+        [Fact]
+        public void GetNextFewSchedules_ReturnsTimestamps()
+        {
+            var timestamps = _schedulerClient.GetNextFewSchedules("0 0 * * * *", limit: 3);
+            Assert.NotNull(timestamps);
+            Assert.Equal(3, timestamps.Count);
+        }
+
         private void Save() =>
             _schedulerClient.SaveSchedule(new SaveScheduleRequest(
                 name: _scheduleName,

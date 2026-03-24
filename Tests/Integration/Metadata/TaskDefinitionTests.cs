@@ -74,6 +74,13 @@ namespace Tests.Integration.Metadata
             Assert.DoesNotContain(all, t => t.Name == _taskName);
         }
 
+        [Fact]
+        public void GetTaskDef_NonExistent_ThrowsApiException()
+        {
+            Assert.Throws<Conductor.Client.ApiException>(() =>
+                _metadataClient.GetTaskDef(TestPrefix.Name("nonexistent_task")));
+        }
+
         private void Register() =>
             _metadataClient.RegisterTaskDef(new List<TaskDef>
             {

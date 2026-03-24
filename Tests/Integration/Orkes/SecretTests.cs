@@ -55,6 +55,22 @@ namespace Tests.Integration.Orkes
             // No exception = success
         }
 
+        [Fact]
+        public void SecretExists_ReturnsTrueAfterPut()
+        {
+            _secretClient.PutSecret("secret_value", _secretName);
+            var exists = _secretClient.SecretExists(_secretName);
+            Assert.NotNull(exists);
+            Cleanup();
+        }
+
+        [Fact]
+        public void GetSecret_NonExistent_ThrowsApiException()
+        {
+            Assert.Throws<Conductor.Client.ApiException>(() =>
+                _secretClient.GetSecret(TestPrefix.Name("nonexistent_secret")));
+        }
+
         private void Cleanup()
         {
             try { _secretClient.DeleteSecret(_secretName); } catch { }

@@ -33,7 +33,7 @@ namespace Tests.Integration.Event
             _eventName = $"conductor:{TestPrefix.Name("queue")}";
         }
 
-        [Fact(Skip = "SDK Actions type (System.Action) cannot be serialized by RestSharp")]
+        [Fact]
         public void AddEventHandler_CanBeRetrieved()
         {
             Add();
@@ -42,7 +42,7 @@ namespace Tests.Integration.Event
             Cleanup();
         }
 
-        [Fact(Skip = "SDK Actions type (System.Action) cannot be serialized by RestSharp")]
+        [Fact]
         public void UpdateEventHandler_ChangesAreReflected()
         {
             Add();
@@ -57,7 +57,7 @@ namespace Tests.Integration.Event
             Cleanup();
         }
 
-        [Fact(Skip = "SDK Actions type (System.Action) cannot be serialized by RestSharp")]
+        [Fact]
         public void GetAllEventHandlers_ContainsAdded()
         {
             Add();
@@ -66,7 +66,7 @@ namespace Tests.Integration.Event
             Cleanup();
         }
 
-        [Fact(Skip = "SDK Actions type (System.Action) cannot be serialized by RestSharp")]
+        [Fact]
         public void DeleteEventHandler_RemovedFromList()
         {
             Add();
@@ -76,7 +76,7 @@ namespace Tests.Integration.Event
         }
 
         private EventHandler Build() => new EventHandler(
-            actions: new List<System.Action>(),
+            actions: new List<Conductor.Client.Models.Action>(),
             _event: _eventName,
             name: _handlerName,
             active: true
