@@ -63,9 +63,9 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     env:
-      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL_V5 }}
-      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY_V5 }}
-      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET_V5 }}
+      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
       GITHUB_RUN_ID: ${{ github.run_id }}
     steps:
       - name: Checkout
@@ -83,6 +83,7 @@ jobs:
 
   integration_tests_v4:
     needs: lint
+    if: ${{ secrets.CONDUCTOR_SERVER_URL_V4 != '' }}
     runs-on: ubuntu-latest
     env:
       CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL_V4 }}
