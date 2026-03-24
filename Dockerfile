@@ -11,20 +11,13 @@ FROM csharp-sdk AS build
 RUN dotnet build *.csproj
 
 FROM build AS test
-ARG KEY
-ARG SECRET
-ARG CONDUCTOR_SERVER_URL
-ENV CONDUCTOR_AUTH_KEY=${KEY}
-ENV CONDUCTOR_AUTH_SECRET=${SECRET}
-ENV CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL}
-
 COPY /csharp-examples /package/csharp-examples
 COPY /Tests           /package/Tests
 WORKDIR /package/Tests
 RUN dotnet test -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS \
+                --filter "Category!=Integration&Category!=CloudIntegration" \
                 --collect:"XPlat Code Coverage" \
-                -l "console;verbosity=normal" \
-    || true
+                -l "console;verbosity=normal"
 
 FROM test AS coverage_export
 RUN mkdir /out \
