@@ -42,9 +42,8 @@ namespace Tests.Integration.Environment
         public void UpdateEnvVariable_ValueChanges()
         {
             _envClient.CreateOrUpdateEnvVariable("original", _key);
-            System.Threading.Thread.Sleep(500);
+            _envClient.DeleteEnvVariable(_key);
             _envClient.CreateOrUpdateEnvVariable("updated", _key);
-            System.Threading.Thread.Sleep(500);
             var value = _envClient.Get1(_key)?.ToString().Trim('"');
             Assert.Equal("updated", value);
             Cleanup();
