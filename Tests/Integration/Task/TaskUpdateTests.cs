@@ -132,8 +132,17 @@ namespace Tests.Integration.Task
             return task;
         }
 
-        private Conductor.Client.Models.Workflow.StatusEnum? GetWorkflowStatus(string id) =>
-            _workflowClient.GetExecutionStatus(id).Status;
+        private Conductor.Client.Models.Workflow.StatusEnum? GetWorkflowStatus(string id)
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                var status = _workflowClient.GetExecutionStatus(id).Status;
+                if (status != Conductor.Client.Models.Workflow.StatusEnum.RUNNING)
+                    return status;
+                System.Threading.Thread.Sleep(500);
+            }
+            return _workflowClient.GetExecutionStatus(id).Status;
+        }
 
         private void Cleanup(string workflowId, string taskId)
         {

@@ -98,12 +98,11 @@ namespace Tests.Integration.Scheduler
         }
 
         private void Save() =>
-            _schedulerClient.SaveSchedule(new SaveScheduleRequest
-            {
-                Name = _scheduleName,
-                CronExpression = "0 0 * * *",
-                StartWorkflowRequest = new StartWorkflowRequest(name: _workflowName)
-            });
+            _schedulerClient.SaveSchedule(new SaveScheduleRequest(
+                name: _scheduleName,
+                cronExpression: "0 * * * *",
+                startWorkflowRequest: new StartWorkflowRequest(name: _workflowName)
+            ));
 
         private void Cleanup()
         {

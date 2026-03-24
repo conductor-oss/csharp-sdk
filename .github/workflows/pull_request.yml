@@ -29,35 +29,21 @@ jobs:
   unit_tests:
     needs: lint
     runs-on: ubuntu-latest
+    env:
+      CONDUCTOR_SERVER_URL: http://localhost:8080/api
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Unit tests and coverage
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run unit tests
         run: >
-          DOCKER_BUILDKIT=1 docker build
-          --target=coverage_export
-          --output type=local,dest=coverage
-          .
-      - name: Upload Cobertura artifact
-        if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: cobertura
-          path: coverage/out/coverage.cobertura.xml
-      - name: Ensure coverage file exists
-        run: |
-          mkdir -p coverage/out
-          if [ ! -f coverage/out/coverage.cobertura.xml ]; then
-            echo '<coverage></coverage>' > coverage/out/coverage.cobertura.xml
-          fi
-      - name: Codecov upload
-        if: ${{ !env.ACT }}
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage/out/coverage.cobertura.xml
-          flags: unittests
-          name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
+          dotnet test Tests/conductor-csharp.test.csproj
+          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
+          --filter "Category!=Integration&Category!=CloudIntegration"
+          -l "console;verbosity=normal"
 
   integration_tests_v5:
     needs: lint

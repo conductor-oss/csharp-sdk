@@ -75,13 +75,12 @@ namespace Tests.Integration.Event
             Assert.DoesNotContain(all, h => h.Name == _handlerName);
         }
 
-        private EventHandler Build() => new EventHandler
-        {
-            Name = _handlerName,
-            _Event = _eventName,
-            Active = true,
-            Actions = new List<System.Action>()
-        };
+        private EventHandler Build() => new EventHandler(
+            actions: new List<System.Action>(),
+            _event: _eventName,
+            name: _handlerName,
+            active: true
+        );
 
         private void Add() => _eventClient.AddEventHandler(Build());
 

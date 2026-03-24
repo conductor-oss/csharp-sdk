@@ -81,7 +81,8 @@ namespace Tests.Integration.Metadata
                 {
                     Description = "SDK integration test task",
                     RetryCount = 0,
-                    TimeoutSeconds = 60
+                    TimeoutSeconds = 300,
+                    ResponseTimeoutSeconds = 300
                 }
             });
 

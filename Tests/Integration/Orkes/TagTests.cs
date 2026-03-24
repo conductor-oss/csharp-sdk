@@ -91,7 +91,7 @@ namespace Tests.Integration.Orkes
             new TagObject { Key = key, Value = value, Type = TagObject.TypeEnum.METADATA };
 
         private TagString BuildTagString(string key) =>
-            new TagString { Key = key, Type = TagString.TypeEnum.METADATA };
+            new TagString { Key = key, Type = TagString.TypeEnum.METADATA, Value = key };
 
         private void CleanupWorkflow()
         {
