@@ -50,8 +50,9 @@ namespace Tests.Integration.Event
             updated.Active = false;
             _eventClient.UpdateEventHandler(updated);
 
-            var handlers = _eventClient.GetEventHandlersForEvent(_eventName);
-            var handler = handlers.Find(h => h.Name == _handlerName);
+            // GetEventHandlersForEvent only returns active handlers; use GetEventHandlers for inactive
+            var all = _eventClient.GetEventHandlers();
+            var handler = all.Find(h => h.Name == _handlerName);
             Assert.NotNull(handler);
             Assert.False(handler.Active);
             Cleanup();
