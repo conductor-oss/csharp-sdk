@@ -13,60 +13,44 @@ namespace Harness
         private readonly WorkflowResourceApi _workflowClient;
         private readonly ILogger<WorkflowGovernor> _logger;
         private readonly string _workflowName;
-        private readonly int _targetConcurrency;
-        private readonly TimeSpan _pollInterval;
+        private readonly int _workflowsPerSecond;
 
         public WorkflowGovernor(
             Configuration config,
             ILogger<WorkflowGovernor> logger,
             string workflowName,
-            int targetConcurrency,
-            TimeSpan pollInterval)
+            int workflowsPerSecond)
         {
             _workflowClient = config.GetClient<WorkflowResourceApi>();
             _logger = logger;
             _workflowName = workflowName;
-            _targetConcurrency = targetConcurrency;
-            _pollInterval = pollInterval;
+            _workflowsPerSecond = workflowsPerSecond;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation(
-                "WorkflowGovernor started: workflow={Workflow}, targetConcurrency={Target}, pollInterval={Interval}s",
-                _workflowName, _targetConcurrency, _pollInterval.TotalSeconds);
+                "WorkflowGovernor started: workflow={Workflow}, rate={Rate}/sec",
+                _workflowName, _workflowsPerSecond);
 
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    var running = _workflowClient.GetRunningWorkflow(_workflowName);
-                    var currentCount = running?.Count ?? 0;
-                    var deficit = _targetConcurrency - currentCount;
-
-                    if (deficit > 0)
+                    for (var i = 0; i < _workflowsPerSecond; i++)
                     {
-                        _logger.LogInformation(
-                            "Governor: {Current}/{Target} running, starting {Deficit} new workflow(s)",
-                            currentCount, _targetConcurrency, deficit);
+                        _workflowClient.StartWorkflow(
+                            new Conductor.Client.Models.StartWorkflowRequest(name: _workflowName));
+                    }
 
-                        for (var i = 0; i < deficit; i++)
-                        {
-                            _workflowClient.StartWorkflow(new Conductor.Client.Models.StartWorkflowRequest(name: _workflowName));
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogDebug("Governor: {Current}/{Target} running, no action needed",
-                            currentCount, _targetConcurrency);
-                    }
+                    _logger.LogInformation("Governor: started {Count} workflow(s)", _workflowsPerSecond);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Governor: error during reconciliation loop");
+                    _logger.LogError(ex, "Governor: error starting workflows");
                 }
 
-                await Task.Delay(_pollInterval, stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
             }
         }
     }

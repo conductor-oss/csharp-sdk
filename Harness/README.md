@@ -21,10 +21,10 @@ docker run --rm \
 
 ## Worker Harness
 
-A self-feeding worker that runs indefinitely. On startup it registers `csharp_echo_task` and `csharp_echo_workflow`, then runs two background services:
+A self-feeding worker that runs indefinitely. On startup it registers five sleep tasks (`csharp_worker_0` through `csharp_worker_4`) and the `csharp_sleep_workflow`, then runs two background services:
 
-- **WorkflowGovernor** -- polls for running `csharp_echo_workflow` instances and starts new ones to maintain a target concurrency.
-- **EchoWorker** -- polls for `csharp_echo_task`, echoes input data to output, and completes the task.
+- **WorkflowGovernor** -- starts a configurable number of `csharp_sleep_workflow` instances per second (default 2), indefinitely.
+- **SleepWorkers** -- five task handlers, each with a codename and a distinct sleep duration. The workflow chains them in sequence: whisperlink (2s) → quickpulse (1s) → shadowfetch (3s) → deepcrawl (9s) → ironforge (7s).
 
 ```bash
 docker build --target harness -t csharp-sdk-harness .
@@ -33,8 +33,7 @@ docker run -d \
   -e CONDUCTOR_SERVER_URL=https://your-cluster.example.com/api \
   -e CONDUCTOR_AUTH_KEY=$CONDUCTOR_AUTH_KEY \
   -e CONDUCTOR_AUTH_SECRET=$CONDUCTOR_AUTH_SECRET \
-  -e HARNESS_TARGET_CONCURRENCY=10 \
-  -e HARNESS_POLL_INTERVAL_SEC=15 \
+  -e HARNESS_WORKFLOWS_PER_SEC=4 \
   csharp-sdk-harness
 ```
 
@@ -47,5 +46,4 @@ All resource names use a `csharp_` prefix so multiple SDK harnesses (Python, Jav
 | `CONDUCTOR_SERVER_URL` | yes | -- | Conductor API base URL |
 | `CONDUCTOR_AUTH_KEY` | no | -- | Orkes auth key |
 | `CONDUCTOR_AUTH_SECRET` | no | -- | Orkes auth secret |
-| `HARNESS_TARGET_CONCURRENCY` | no | 5 | Workflows to keep running |
-| `HARNESS_POLL_INTERVAL_SEC` | no | 10 | Governor check interval (seconds) |
+| `HARNESS_WORKFLOWS_PER_SEC` | no | 2 | Workflows to start per second |

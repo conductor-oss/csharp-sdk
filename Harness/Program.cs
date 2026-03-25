@@ -13,7 +13,16 @@ namespace Harness
 {
     public class Program
     {
-        private const string WorkflowName = "csharp_echo_workflow";
+        private const string WorkflowName = "csharp_sleep_workflow";
+
+        private static readonly (string TaskName, string Codename, int SleepSeconds)[] SleepWorkers =
+        {
+            ("csharp_worker_0", "quickpulse",  1),
+            ("csharp_worker_1", "shadowfetch", 3),
+            ("csharp_worker_2", "ironforge",   7),
+            ("csharp_worker_3", "whisperlink", 2),
+            ("csharp_worker_4", "deepcrawl",   9),
+        };
 
         public static async Task Main(string[] args)
         {
@@ -21,16 +30,15 @@ namespace Harness
 
             RegisterMetadata(config);
 
-            var targetConcurrency = int.TryParse(
-                Environment.GetEnvironmentVariable("HARNESS_TARGET_CONCURRENCY"), out var tc) ? tc : 5;
-            var pollIntervalSec = int.TryParse(
-                Environment.GetEnvironmentVariable("HARNESS_POLL_INTERVAL_SEC"), out var pi) ? pi : 10;
+            var workflowsPerSec = int.TryParse(
+                Environment.GetEnvironmentVariable("HARNESS_WORKFLOWS_PER_SEC"), out var wps) ? wps : 2;
 
             var host = new HostBuilder()
                 .ConfigureServices(services =>
                 {
                     services.AddConductorWorker(config);
-                    services.AddConductorWorkflowTask(new EchoWorker());
+                    foreach (var (taskName, codename, sleepSeconds) in SleepWorkers)
+                        services.AddConductorWorkflowTask(new SleepWorker(taskName, codename, sleepSeconds));
                     services.WithHostedService();
 
                     services.AddSingleton(config);
@@ -38,8 +46,7 @@ namespace Harness
                         config,
                         sp.GetRequiredService<ILogger<WorkflowGovernor>>(),
                         WorkflowName,
-                        targetConcurrency,
-                        TimeSpan.FromSeconds(pollIntervalSec)));
+                        workflowsPerSec));
                 })
                 .ConfigureLogging(logging =>
                 {
@@ -55,26 +62,32 @@ namespace Harness
         {
             var metadataClient = config.GetClient<MetadataResourceApi>();
 
-            metadataClient.RegisterTaskDef(new List<Conductor.Client.Models.TaskDef>
+            var taskDefs = new List<Conductor.Client.Models.TaskDef>();
+            foreach (var (taskName, codename, sleepSeconds) in SleepWorkers)
             {
-                new Conductor.Client.Models.TaskDef(name: EchoWorker.TaskName)
+                taskDefs.Add(new Conductor.Client.Models.TaskDef(name: taskName)
                 {
-                    Description = "C# SDK harness echo task",
+                    Description = $"C# SDK harness sleep task ({codename}, {sleepSeconds}s)",
                     RetryCount = 1,
                     TimeoutSeconds = 300,
                     ResponseTimeoutSeconds = 300
-                }
-            });
+                });
+            }
+            metadataClient.RegisterTaskDef(taskDefs);
 
-            metadataClient.UpdateWorkflowDefinitions(new List<Conductor.Client.Models.WorkflowDef>
-            {
-                new ConductorWorkflow()
-                    .WithName(WorkflowName)
-                    .WithVersion(1)
-                    .WithDescription("C# SDK harness echo workflow")
-                    .WithOwner("csharp-sdk-harness@conductor.io")
-                    .WithTask(new Conductor.Definition.TaskType.SimpleTask(EchoWorker.TaskName, EchoWorker.TaskName))
-            }, overwrite: true);
+            var workflow = new ConductorWorkflow()
+                .WithName(WorkflowName)
+                .WithVersion(1)
+                .WithDescription("C# SDK harness sleep workflow")
+                .WithOwner("csharp-sdk-harness@conductor.io")
+                .WithTask(new Conductor.Definition.TaskType.SimpleTask("csharp_worker_3", "csharp_worker_3"))
+                .WithTask(new Conductor.Definition.TaskType.SimpleTask("csharp_worker_0", "csharp_worker_0"))
+                .WithTask(new Conductor.Definition.TaskType.SimpleTask("csharp_worker_1", "csharp_worker_1"))
+                .WithTask(new Conductor.Definition.TaskType.SimpleTask("csharp_worker_4", "csharp_worker_4"))
+                .WithTask(new Conductor.Definition.TaskType.SimpleTask("csharp_worker_2", "csharp_worker_2"));
+
+            metadataClient.UpdateWorkflowDefinitions(
+                new List<Conductor.Client.Models.WorkflowDef> { workflow }, overwrite: true);
         }
     }
 }
