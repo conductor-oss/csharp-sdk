@@ -21,10 +21,10 @@ docker run --rm \
 
 ## Worker Harness
 
-A self-feeding worker that runs indefinitely. On startup it registers five sleep tasks (`csharp_worker_0` through `csharp_worker_4`) and the `csharp_sleep_workflow`, then runs two background services:
+A self-feeding worker that runs indefinitely. On startup it registers five simulated tasks (`csharp_worker_0` through `csharp_worker_4`) and the `csharp_sleep_workflow`, then runs two background services:
 
 - **WorkflowGovernor** -- starts a configurable number of `csharp_sleep_workflow` instances per second (default 2), indefinitely.
-- **SleepWorkers** -- five task handlers, each with a codename and a distinct sleep duration. The workflow chains them in sequence: whisperlink (2s) → quickpulse (1s) → shadowfetch (3s) → deepcrawl (9s) → ironforge (7s).
+- **SimulatedTaskWorkers** -- five task handlers, each with a codename and a default sleep duration. Each worker supports configurable delay types, failure simulation, and output generation via task input parameters. The workflow chains them in sequence: quickpulse (1s) → whisperlink (2s) → shadowfetch (3s) → ironforge (4s) → deepcrawl (5s).
 
 ```bash
 docker build --target harness -t csharp-sdk-harness .
@@ -47,3 +47,5 @@ All resource names use a `csharp_` prefix so multiple SDK harnesses (Python, Jav
 | `CONDUCTOR_AUTH_KEY` | no | -- | Orkes auth key |
 | `CONDUCTOR_AUTH_SECRET` | no | -- | Orkes auth secret |
 | `HARNESS_WORKFLOWS_PER_SEC` | no | 2 | Workflows to start per second |
+| `HARNESS_BATCH_SIZE` | no | 20 | Number of tasks each worker polls per batch |
+| `HARNESS_POLL_INTERVAL_MS` | no | 100 | Milliseconds between poll cycles |
