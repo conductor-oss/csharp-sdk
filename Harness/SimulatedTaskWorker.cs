@@ -23,6 +23,10 @@ namespace Harness
         private const string AlphanumericChars =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
+        private static readonly string InstanceId =
+            Environment.GetEnvironmentVariable("HOSTNAME") ?? Guid.NewGuid().ToString("N")[..8];
+        private readonly string _workerId;
+
         public SimulatedTaskWorker(string taskName, string codename, int sleepSeconds,
             int batchSize = 5, int pollIntervalMs = 1000)
         {
@@ -31,13 +35,18 @@ namespace Harness
             _defaultDelayMs = sleepSeconds * 1000;
             _batchSize = batchSize;
             _pollInterval = TimeSpan.FromMilliseconds(pollIntervalMs);
+
+            _workerId = $"{_taskName}-{InstanceId}";
+
+            Console.WriteLine(
+                $"[{_taskName}] Initialized worker [workerId={_workerId}, codename={_codename}, batchSize={_batchSize}, pollInterval={pollIntervalMs}ms]");
         }
 
         public string TaskType => _taskName;
 
         public WorkflowTaskExecutorConfiguration WorkerSettings => new()
         {
-            WorkerId = _taskName,
+            WorkerId = _workerId,
             BatchSize = _batchSize,
             PollInterval = _pollInterval
         };
