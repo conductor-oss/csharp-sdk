@@ -37,6 +37,22 @@ docker run -d \
   csharp-sdk-harness
 ```
 
+You can also run the harness locally without Docker:
+
+```bash
+export CONDUCTOR_SERVER_URL=https://your-cluster.example.com/api
+export CONDUCTOR_AUTH_KEY=$CONDUCTOR_AUTH_KEY
+export CONDUCTOR_AUTH_SECRET=$CONDUCTOR_AUTH_SECRET
+
+dotnet run --project Harness/Harness.csproj
+```
+
+Override defaults with environment variables as needed:
+
+```bash
+HARNESS_WORKFLOWS_PER_SEC=4 HARNESS_BATCH_SIZE=10 dotnet run --project Harness/Harness.csproj
+```
+
 All resource names use a `csharp_` prefix so multiple SDK harnesses (Python, Java, Go, etc.) can coexist on the same cluster.
 
 ### Environment Variables

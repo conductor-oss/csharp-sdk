@@ -15,8 +15,7 @@ spec:
       labels:
         app: csharp-sdk-harness-worker
     spec:
-      # imagePullSecrets:
-      # - name: ghcr-oss-sdk
+      # note: imagePullSecrets is not needed for public images
       containers:
       - name: harness
         image: ghcr.io/conductor-oss/csharp-sdk/harness-worker:latest
