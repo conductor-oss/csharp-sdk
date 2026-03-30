@@ -21,6 +21,7 @@ using Xunit;
 
 namespace Tests.Definition
 {
+    [Trait("Category", "CloudIntegration")]
     public class WorkflowDefTests
     {
         private const string WORKFLOW_NAME = "test-sdk-csharp-workflow";

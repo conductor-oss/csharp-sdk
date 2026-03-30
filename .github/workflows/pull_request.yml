@@ -44,7 +44,22 @@ jobs:
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
           --filter "Category!=Integration&Category!=CloudIntegration"
           -l "console;verbosity=normal"
-          || true
+          --collect:"XPlat Code Coverage"
+          --results-directory coverage
+      - name: Upload Cobertura artifact
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: coverage/**/coverage.cobertura.xml
+      - name: Codecov upload
+        if: ${{ !env.ACT }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/**/coverage.cobertura.xml
+          flags: unittests
+          name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
 
   integration_tests_v5:
     needs: lint

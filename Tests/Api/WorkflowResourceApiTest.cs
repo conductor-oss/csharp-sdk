@@ -28,6 +28,7 @@ using Task = Conductor.Client.Models.Task;
 
 namespace conductor_csharp.test.Api
 {
+    [Trait("Category", "CloudIntegration")]
     public class WorkflowResourceApiTest
     {
         private const string WORKFLOW_NAME = "TestToCreateVariables";

@@ -71,6 +71,7 @@ namespace Tests.Integration.V5
             });
 
             Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.COMPLETED, GetWorkflowStatus(workflowId));
+            Cleanup(workflowId);
         }
 
         [Fact]
@@ -88,6 +89,7 @@ namespace Tests.Integration.V5
             });
 
             Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.FAILED, GetWorkflowStatus(workflowId));
+            Cleanup(workflowId);
         }
 
         private string StartWorkflow() =>
@@ -115,6 +117,12 @@ namespace Tests.Integration.V5
                 System.Threading.Thread.Sleep(500);
             }
             return _workflowClient.GetExecutionStatus(id).Status;
+        }
+
+        private void Cleanup(string workflowId)
+        {
+            try { _workflowClient.Terminate(workflowId); } catch { }
+            try { _workflowClient.Delete(workflowId); } catch { }
         }
     }
 }
