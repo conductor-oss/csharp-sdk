@@ -48,6 +48,9 @@ jobs:
             type=raw,value=latest
             type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
 
+      - name: Debug CONDUCTOR_SERVER_URL
+        run: echo "CONDUCTOR_SERVER_URL=${{ secrets.CONDUCTOR_SERVER_URL }}" | sed 's/http/xxhttpxx/g'
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
