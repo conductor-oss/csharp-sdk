@@ -60,4 +60,4 @@ workflowClient.StartWorkflow(
 )
 ```
 
-### Next: [Create and run task workers](https://github.com/conductor-sdk/conductor-csharp/blob/main/docs/readme/workers.md)
+### Next: [Create and run task workers](https://github.com/conductor-oss/csharp-sdk/blob/main/docs/readme/workers.md)
