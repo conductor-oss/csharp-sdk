@@ -23,6 +23,80 @@ Show support for the Conductor OSS.  Please help spread the awareness by starrin
 dotnet add package conductor-csharp
 ```
 
+## Hello World
+
+This example creates a worker, connects it to a local Conductor server, and runs it end-to-end.
+
+### Step 1: Start a local Conductor server
+
+```shell
+docker run --init -p 8080:8080 conductoross/conductor-standalone:latest
+```
+
+### Step 2: Define and run a worker
+
+```csharp
+using Conductor.Client;
+using Conductor.Client.Extensions;
+using Conductor.Client.Worker;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+// Define a worker using the [WorkerTask] attribute
+[WorkerTask]
+public class GreetWorker
+{
+    [WorkerTask(taskType: "greet", batchSize: 1, pollIntervalMs: 200, workerId: "greeter")]
+    public string Greet([InputParam("name")] string name)
+    {
+        return $"Hello, {name}!";
+    }
+}
+
+// Connect to local OSS Conductor and start polling
+var configuration = new Configuration
+{
+    BasePath = "http://localhost:8080/api"
+};
+
+var host = WorkflowTaskHost.CreateWorkerHost(configuration, LogLevel.Information, new GreetWorker());
+await host.StartAsync();
+Console.WriteLine("Worker started. Press Ctrl+C to stop.");
+await Task.Delay(Timeout.Infinite);
+```
+
+### Step 3: Register a workflow and run it
+
+```csharp
+using Conductor.Api;
+using Conductor.Client;
+using Conductor.Definition;
+using Conductor.Definition.TaskType;
+using Conductor.Executor;
+
+var configuration = new Configuration { BasePath = "http://localhost:8080/api" };
+
+// Build and register the workflow
+var workflow = new ConductorWorkflow()
+    .WithName("greetings")
+    .WithVersion(1)
+    .WithTask(new SimpleTask("greet", "greet_ref").WithInput("name", "${workflow.input.name}"));
+
+var executor = new WorkflowExecutor(configuration);
+executor.RegisterWorkflow(workflow, overwrite: true);
+
+// Start the workflow
+var workflowClient = configuration.GetClient<WorkflowResourceApi>();
+var workflowId = workflowClient.StartWorkflow(
+    name: "greetings",
+    body: new Dictionary<string, object> { ["name"] = "World" },
+    version: 1
+);
+
+Console.WriteLine($"Started workflow: {workflowId}");
+// Open http://localhost:8080 to see the execution in the UI
+```
+
 ## Configurations
 
 ### Authentication Settings (Optional)
@@ -60,4 +134,4 @@ workflowClient.StartWorkflow(
 )
 ```
 
-### Next: [Create and run task workers](https://github.com/conductor-sdk/conductor-csharp/blob/main/docs/readme/workers.md)
+### Next: [Create and run task workers](https://github.com/conductor-oss/csharp-sdk/blob/main/docs/readme/workers.md)
