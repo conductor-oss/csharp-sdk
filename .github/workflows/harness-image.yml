@@ -62,7 +62,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
 
   dispatch-deploy:
-    # TODO: remove the github.ref condition prior to merging
+    # TODO: remove the github.ref condition prior to merging ###
     if: github.event_name == 'release' || github.ref == 'refs/heads/certification-worker'
     needs: build-and-push
     runs-on: ubuntu-latest
