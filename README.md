@@ -59,31 +59,3 @@ workflowClient.StartWorkflow(
     version: 1
 )
 ```
-
-## Running Integration Tests Locally
-
-Set the environment variables for your Conductor server:
-
-```shell
-export CONDUCTOR_SERVER_URL=https://your-cluster.example.com/api
-export CONDUCTOR_AUTH_KEY=your-key
-export CONDUCTOR_AUTH_SECRET=your-secret
-```
-
-Run the integration test suite:
-
-```shell
-dotnet test Tests/conductor-csharp.test.csproj \
-  -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS \
-  --filter "Category=Integration" \
-  -l "console;verbosity=normal"
-```
-
-All three flags matter:
-- `-p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS` prevents example worker code from compiling into the test assembly.
-- `--filter "Category=Integration"` runs only the integration tests (skips legacy API tests that require specific server state).
-- `-l "console;verbosity=normal"` streams per-test results to the console.
-
-Alternatively, you can run the tests via Docker (see [Harness README](Harness/README.md#integration-test-runner)).
-
-### Next: [Create and run task workers](https://github.com/conductor-sdk/conductor-csharp/blob/main/docs/readme/workers.md)
