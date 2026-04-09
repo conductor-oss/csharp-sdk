@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+      - sdk-integration-tests-enhance # todo: remove this branch after testing
   pull_request:
     branches:
       - main
