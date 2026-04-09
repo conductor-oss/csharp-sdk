@@ -30,6 +30,7 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     env:
+      # TODO: unit test should not need this but i believe stuff is set up weirdly from legacy mashup of integration and unit test. please try testing without this and investigate what it will take to remove the requirement of this env var for a unit test.
       CONDUCTOR_SERVER_URL: http://localhost:8080/api
     steps:
       - name: Checkout
@@ -76,10 +77,36 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Show server endpoint
+        run: echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
       - name: Run integration tests (v5)
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
           --filter "Category=Integration"
+          -l "console;verbosity=normal"
+
+  integration_tests_legacy:
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Show server endpoint
+        run: echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
+      - name: Run legacy integration tests
+        run: >
+          dotnet test Tests/conductor-csharp.test.csproj
+          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
+          --filter "Category=CloudIntegration"
           -l "console;verbosity=normal"
 
