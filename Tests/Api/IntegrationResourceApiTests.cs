@@ -27,6 +27,7 @@ namespace Conductor_csharp.test.Api
     /// <summary>
     /// Class for testing IntegrationResourceApi
     /// </summary>
+    [Trait("Category", "CloudIntegration")]
     public class IntegrationResourceApiTests : IDisposable
     {
         private readonly IntegrationResourceApi _integrationResourceApi;

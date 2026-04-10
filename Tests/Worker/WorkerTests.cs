@@ -25,6 +25,7 @@ using Xunit;
 
 namespace Tests.Worker
 {
+    [Trait("Category", "CloudIntegration")]
     public class WorkerTests
     {
         private const string WORKFLOW_NAME = "test-sdk-csharp-worker";

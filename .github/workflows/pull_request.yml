@@ -25,43 +25,61 @@ jobs:
           --target=linter
           --progress=plain
           .
-  
-  test_and_coverage:
+
+  unit_tests:
     needs: lint
     runs-on: ubuntu-latest
+    env:
+      CONDUCTOR_SERVER_URL: http://localhost:8080/api
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Test and collect coverage
-        continue-on-error: true
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run unit tests
         run: >
-          DOCKER_BUILDKIT=1 docker build
-          --target=coverage_export
-          --output type=local,dest=coverage
-          --build-arg KEY=${{ secrets.AUTH_KEY }}
-          --build-arg SECRET=${{ secrets.AUTH_SECRET }}
-          --build-arg CONDUCTOR_SERVER_URL=${{ vars.SERVER_URL }}
-          .
-      
+          dotnet test Tests/conductor-csharp.test.csproj
+          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
+          --filter "Category!=Integration&Category!=CloudIntegration"
+          -l "console;verbosity=normal"
+          --collect:"XPlat Code Coverage"
+          --results-directory coverage
       - name: Upload Cobertura artifact
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: cobertura
-          path: coverage/out/coverage.cobertura.xml
-
-      - name: Ensure coverage file exists
-        run: |
-          mkdir -p coverage
-          if [ ! -f coverage/out/coverage.cobertura.xml ]; then
-            echo '<coverage></coverage>' > coverage/out/coverage.cobertura.xml
-          fi
-
+          path: coverage/**/coverage.cobertura.xml
       - name: Codecov upload
         if: ${{ !env.ACT }}
         uses: codecov/codecov-action@v5
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}  
-          files: coverage/out/coverage.cobertura.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/**/coverage.cobertura.xml
           flags: unittests
           name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
+
+  integration_tests_v5:
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run integration tests (v5)
+        run: >
+          dotnet test Tests/conductor-csharp.test.csproj
+          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
+          --filter "Category=Integration"
+          -l "console;verbosity=normal"
+

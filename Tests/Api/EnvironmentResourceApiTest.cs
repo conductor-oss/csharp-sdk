@@ -18,6 +18,7 @@ using Xunit.Abstractions;
 
 namespace conductor_csharp.test.Api
 {
+    [Trait("Category", "CloudIntegration")]
     public class EnvironmentResourceApiTest
     {
         private readonly OrkesApiClient _orkesApiClient;

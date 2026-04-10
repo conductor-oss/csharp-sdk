@@ -24,6 +24,7 @@ using Xunit;
 
 namespace Test.Worker
 {
+    [Xunit.Trait("Category", "CloudIntegration")]
     public class TestWorkflows
     {
         private readonly OrkesApiClient _orkesApiClient;

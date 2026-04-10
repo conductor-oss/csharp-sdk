@@ -24,6 +24,7 @@ using Xunit;
 
 namespace Tests.Worker
 {
+    [Trait("Category", "CloudIntegration")]
     public class AnnotatedWorkerTest
     {
         private readonly MetadataResourceApi _metaDataClient;
