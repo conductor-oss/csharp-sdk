@@ -55,6 +55,12 @@ HARNESS_WORKFLOWS_PER_SEC=4 HARNESS_BATCH_SIZE=10 dotnet run --project Harness/H
 
 All resource names use a `csharp_` prefix so multiple SDK harnesses (Python, Java, Go, etc.) can coexist on the same cluster.
 
+### Metrics
+
+The harness exposes Prometheus metrics at `http://localhost:9991/metrics` via the OpenTelemetry
+Prometheus exporter. See [METRICS.md](../METRICS.md) for the full list of metrics, labels, and
+configuration options.
+
 ### Environment Variables
 
 | Variable | Required | Default | Description |
@@ -65,3 +71,4 @@ All resource names use a `csharp_` prefix so multiple SDK harnesses (Python, Jav
 | `HARNESS_WORKFLOWS_PER_SEC` | no | 2 | Workflows to start per second |
 | `HARNESS_BATCH_SIZE` | no | 20 | Number of tasks each worker polls per batch |
 | `HARNESS_POLL_INTERVAL_MS` | no | 100 | Milliseconds between poll cycles |
+| `HARNESS_METRICS_PORT` | no | 9991 | Port for the Prometheus metrics HTTP endpoint |

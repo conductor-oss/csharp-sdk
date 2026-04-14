@@ -1,10 +1,13 @@
 using Conductor.Api;
 using Conductor.Client;
 using Conductor.Client.Extensions;
+using Conductor.Client.Telemetry;
 using Conductor.Definition;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -14,6 +17,7 @@ namespace Harness
     public class Program
     {
         private const string WorkflowName = "csharp_simulated_tasks_workflow";
+        private const int DefaultMetricsPort = 9991;
 
         private static readonly (string TaskName, string Codename, int SleepSeconds)[] SimulatedWorkers =
         {
@@ -36,6 +40,18 @@ namespace Harness
                 Environment.GetEnvironmentVariable("HARNESS_BATCH_SIZE"), out var bs) ? bs : 20;
             var pollIntervalMs = int.TryParse(
                 Environment.GetEnvironmentVariable("HARNESS_POLL_INTERVAL_MS"), out var pi) ? pi : 100;
+            var metricsPort = int.TryParse(
+                Environment.GetEnvironmentVariable("HARNESS_METRICS_PORT"), out var mp) ? mp : DefaultMetricsPort;
+
+            var meterProvider = Sdk.CreateMeterProviderBuilder()
+                .AddMeter(MetricsCollector.MeterName)
+                .AddPrometheusHttpListener(options =>
+                {
+                    options.UriPrefixes = new[] { $"http://*:{metricsPort}/" };
+                })
+                .Build();
+
+            Console.WriteLine($"Prometheus metrics server started on port {metricsPort}");
 
             var host = new HostBuilder()
                 .ConfigureServices(services =>
@@ -51,7 +67,8 @@ namespace Harness
                         config,
                         sp.GetRequiredService<ILogger<WorkflowGovernor>>(),
                         WorkflowName,
-                        workflowsPerSec));
+                        workflowsPerSec,
+                        sp.GetRequiredService<MetricsCollector>()));
                 })
                 .ConfigureLogging(logging =>
                 {
@@ -60,7 +77,14 @@ namespace Harness
                 })
                 .Build();
 
-            await host.RunAsync();
+            try
+            {
+                await host.RunAsync();
+            }
+            finally
+            {
+                meterProvider?.Dispose();
+            }
         }
 
         private static void RegisterMetadata(Configuration config)

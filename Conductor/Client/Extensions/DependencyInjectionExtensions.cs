@@ -11,6 +11,7 @@
  * specific language governing permissions and limitations under the License.
  */
 using Conductor.Client.Interfaces;
+using Conductor.Client.Telemetry;
 using Conductor.Client.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -38,6 +39,7 @@ namespace Conductor.Client.Extensions
             }
             services.AddSingleton<Configuration>(configuration);
             services.AddSingleton<IWorkflowTaskClient, WorkflowTaskHttpClient>();
+            services.AddSingleton<MetricsCollector>();
             services.AddTransient<IWorkflowTaskCoordinator, WorkflowTaskCoordinator>();
             return services;
         }

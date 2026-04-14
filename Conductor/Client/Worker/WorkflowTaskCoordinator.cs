@@ -11,6 +11,7 @@
  * specific language governing permissions and limitations under the License.
  */
 using Conductor.Client.Interfaces;
+using Conductor.Client.Telemetry;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -27,14 +28,16 @@ namespace Conductor.Client.Worker
         private readonly ILogger<WorkflowTaskMonitor> _loggerWorkflowTaskMonitor;
         private readonly HashSet<IWorkflowTaskExecutor> _workers;
         private readonly IWorkflowTaskClient _client;
+        private readonly MetricsCollector _metrics;
 
-        public WorkflowTaskCoordinator(IWorkflowTaskClient client, ILogger<WorkflowTaskCoordinator> logger, ILogger<WorkflowTaskExecutor> loggerWorkflowTaskExecutor, ILogger<WorkflowTaskMonitor> loggerWorkflowTaskMonitor)
+        public WorkflowTaskCoordinator(IWorkflowTaskClient client, ILogger<WorkflowTaskCoordinator> logger, ILogger<WorkflowTaskExecutor> loggerWorkflowTaskExecutor, ILogger<WorkflowTaskMonitor> loggerWorkflowTaskMonitor, MetricsCollector metrics = null)
         {
             _logger = logger;
             _client = client;
             _workers = new HashSet<IWorkflowTaskExecutor>();
             _loggerWorkflowTaskExecutor = loggerWorkflowTaskExecutor;
             _loggerWorkflowTaskMonitor = loggerWorkflowTaskMonitor;
+            _metrics = metrics;
         }
 
         public async Task Start(CancellationToken token)
@@ -61,7 +64,8 @@ namespace Conductor.Client.Worker
                 _loggerWorkflowTaskExecutor,
                 _client,
                 worker,
-                workflowTaskMonitor
+                workflowTaskMonitor,
+                _metrics
             );
             _workers.Add(workflowTaskExecutor);
         }

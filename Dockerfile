@@ -18,6 +18,7 @@ RUN dotnet publish Harness.csproj -c Release -o /app
 FROM mcr.microsoft.com/dotnet/runtime:8.0 AS harness
 COPY --from=harness-build /app /app
 WORKDIR /app
+EXPOSE 9991
 ENTRYPOINT ["dotnet", "Harness.dll"]
 
 FROM build AS pack_release

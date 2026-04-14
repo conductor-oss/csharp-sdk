@@ -53,6 +53,14 @@ spec:
         - name: HARNESS_POLL_INTERVAL_MS
           value: "100"
 
+        - name: HARNESS_METRICS_PORT
+          value: "9991"
+
+        ports:
+        - name: metrics
+          containerPort: 9991
+          protocol: TCP
+
         resources:
           requests:
             memory: "256Mi"
