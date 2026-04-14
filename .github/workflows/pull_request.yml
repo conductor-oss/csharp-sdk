@@ -111,3 +111,65 @@ jobs:
           --filter "Category=CloudIntegration"
           -l "console;verbosity=normal"
 
+  integration_tests_legacy_v4:
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      CONDUCTOR_SERVER_URL: ${{ secrets.SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ secrets.AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Show server endpoint
+        run: echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
+      - name: Probe server version and health
+        run: |
+          BASE_URL="${CONDUCTOR_SERVER_URL}"
+          # Strip trailing /api if present to reach the root
+          ROOT_URL="${BASE_URL%/api}"
+          ROOT_URL="${ROOT_URL%/}"
+
+          echo "=== Probing ${ROOT_URL} ==="
+
+          echo "--- GET /api/health ---"
+          curl -sf --max-time 10 "${ROOT_URL}/api/health" 2>&1 || echo "(no response)"
+
+          echo ""
+          echo "--- GET /health (Spring Actuator) ---"
+          curl -sf --max-time 10 "${ROOT_URL}/health" 2>&1 || echo "(no response)"
+
+          echo ""
+          echo "--- GET /actuator/info ---"
+          curl -sf --max-time 10 "${ROOT_URL}/actuator/info" 2>&1 || echo "(no response)"
+
+          echo ""
+          echo "--- GET /api/environment/SDK_SERVER_VERSION (authed) ---"
+          TOKEN=$(curl -sf --max-time 10 -X POST "${ROOT_URL}/api/token" \
+            -H "Content-Type: application/json" \
+            -d "{\"keyId\":\"${CONDUCTOR_AUTH_KEY}\",\"keySecret\":\"${CONDUCTOR_AUTH_SECRET}\"}" \
+            | jq -r '.token // empty') || true
+
+          if [ -n "$TOKEN" ]; then
+            echo "Auth token obtained."
+            curl -sf --max-time 10 -H "X-Authorization: ${TOKEN}" "${ROOT_URL}/api/environment" 2>&1 || echo "(no response)"
+            echo ""
+            echo "--- GET /api/workflow/search?size=0 (smoke test) ---"
+            curl -sf --max-time 10 -H "X-Authorization: ${TOKEN}" "${ROOT_URL}/api/workflow/search?size=0" 2>&1 || echo "(no response)"
+          else
+            echo "Could not obtain auth token — skipping authed probes."
+          fi
+          echo ""
+          echo "=== Done ==="
+      - name: Run legacy integration tests (v4)
+        run: >
+          dotnet test Tests/conductor-csharp.test.csproj
+          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
+          --filter "Category=CloudIntegration"
+          -l "console;verbosity=normal"
+
