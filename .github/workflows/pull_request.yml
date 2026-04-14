@@ -115,7 +115,7 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     env:
-      CONDUCTOR_SERVER_URL: ${{ secrets.SERVER_URL }}
+      CONDUCTOR_SERVER_URL: ${{ vars.SERVER_URL }}
       CONDUCTOR_AUTH_KEY: ${{ secrets.AUTH_KEY }}
       CONDUCTOR_AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
       GITHUB_RUN_ID: ${{ github.run_id }}
