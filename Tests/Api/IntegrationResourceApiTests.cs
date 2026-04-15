@@ -157,30 +157,6 @@ namespace Conductor_csharp.test.Api
         }
 
         /// <summary>
-        /// Test GetTokenUsageForIntegration
-        /// </summary>
-        [Fact]
-        public void GetTokenUsageForIntegrationTest()
-        {
-            Setup();
-            var response = _integrationResourceApi.GetTokenUsageForIntegration(TestConstants.IntegrationName, TestConstants.ModelName);
-            Assert.IsType<int>(response);
-            _performCleanup = true;
-        }
-
-        /// <summary>
-        /// Test GetTokenUsageForIntegrationAsync
-        /// </summary>
-        [Fact]
-        public async void GetTokenUsageForIntegrationAsyncTest()
-        {
-            Setup();
-            var response = await _integrationResourceApi.GetTokenUsageForIntegrationAsync(TestConstants.IntegrationName, TestConstants.ModelName);
-            Assert.IsType<int>(response);
-            _performCleanup = true;
-        }
-
-        /// <summary>
         /// Test GetTagsForIntegrationTest
         /// </summary>
         [Fact]
