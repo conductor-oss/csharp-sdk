@@ -63,7 +63,7 @@ jobs:
           flags: unittests
           name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
 
-  integration_tests_v5:
+  integration_tests:
     needs: lint
     runs-on: ubuntu-latest
     env:
@@ -78,8 +78,10 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Show server endpoint
-        run: echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
+      - name: Show server endpoint and auth key prefix
+        run: |
+          echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
+          echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
       - name: Run integration tests (v5)
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
@@ -87,7 +89,7 @@ jobs:
           --filter "Category=Integration"
           -l "console;verbosity=normal"
 
-  integration_tests_legacy:
+  legacy_integration_tests:
     needs: lint
     runs-on: ubuntu-latest
     env:
@@ -102,8 +104,10 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Show server endpoint
-        run: echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
+      - name: Show server endpoint and auth key prefix
+        run: |
+          echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
+          echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
       - name: Run legacy integration tests
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
