@@ -29,9 +29,6 @@ jobs:
   unit_tests:
     needs: lint
     runs-on: ubuntu-latest
-    env:
-      # TODO: unit test should not need this but i believe stuff is set up weirdly from legacy mashup of integration and unit test. please try testing without this and investigate what it will take to remove the requirement of this env var for a unit test.
-      CONDUCTOR_SERVER_URL: http://localhost:8080/api
     steps:
       - name: Checkout
         uses: actions/checkout@v4
