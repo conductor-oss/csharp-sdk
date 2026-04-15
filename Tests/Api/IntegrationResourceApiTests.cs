@@ -11,7 +11,6 @@
  * specific language governing permissions and limitations under the License.
  */
 using Conductor.Api;
-using Conductor.Client;
 using Conductor.Client.Extensions;
 using Conductor.Client.Models;
 using conductor_csharp.test.Extensions;
@@ -32,7 +31,6 @@ namespace Conductor_csharp.test.Api
     public class IntegrationResourceApiTests : IDisposable
     {
         private readonly IntegrationResourceApi _integrationResourceApi;
-        private readonly OrkesApiClient _orkesApiClient;
         private readonly ITestOutputHelper _testOutputHelper;
         private bool _performCleanup = true;
 
@@ -41,10 +39,6 @@ namespace Conductor_csharp.test.Api
         /// </summary>
         public IntegrationResourceApiTests(ITestOutputHelper testOutputHelper)
         {
-            //dev local testing
-            //_orkesApiClient = new OrkesApiClient(new Configuration(), new OrkesAuthenticationSettings(Constants.KEY_ID, Constants.KEY_SECRET));
-            //_integrationResourceApi = _orkesApiClient.GetClient<IntegrationResourceApi>();
-
             _testOutputHelper = testOutputHelper;
             _integrationResourceApi = ApiExtensions.GetClient<IntegrationResourceApi>();
         }

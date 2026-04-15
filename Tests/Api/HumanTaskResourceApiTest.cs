@@ -11,7 +11,6 @@
  * specific language governing permissions and limitations under the License.
  */
 using Conductor.Api;
-using Conductor.Client;
 using Conductor.Client.Extensions;
 using Xunit;
 using Xunit.Abstractions;
@@ -23,16 +22,11 @@ namespace conductor_csharp.test.Api
     public class HumanTaskResourceApiTest
     {
         private readonly HumanTaskResourceApi _humanTaskResourceApi;
-        private readonly OrkesApiClient _orkesApiClient;
         private const string UserFormName = "USER_FORM_NAME_TEST";
         private readonly ITestOutputHelper _testOutputHelper;
 
         public HumanTaskResourceApiTest(ITestOutputHelper testOutputHelper)
         {
-            // dev local testing
-            //_orkesApiClient = new OrkesApiClient(new Configuration(), new OrkesAuthenticationSettings(Constants.KEY_ID, Constants.KEY_SECRET));
-            //_humanTaskResourceApi = _orkesApiClient.GetClient<HumanTaskResourceApi>();
-
             _testOutputHelper = testOutputHelper;
             _humanTaskResourceApi = ApiExtensions.GetClient<HumanTaskResourceApi>();
         }

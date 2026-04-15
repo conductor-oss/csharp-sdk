@@ -12,7 +12,6 @@
  */
 using conductor.csharp.Client.Extensions;
 using Conductor.Api;
-using Conductor.Client;
 using Conductor.Client.Extensions;
 using Conductor.Client.Models;
 using Conductor.Definition;
@@ -27,22 +26,15 @@ namespace Test.Worker
     [Xunit.Trait("Category", "CloudIntegration")]
     public class TestWorkflows
     {
-        private readonly OrkesApiClient _orkesApiClient;
         private readonly WorkflowResourceApi workflowClient;
         private readonly MetadataResourceApi _metaDataClient;
         private ILogger _logger;
 
         public TestWorkflows()
         {
-            var config = new Configuration();
             workflowClient = ApiExtensions.GetClient<WorkflowResourceApi>();
             _metaDataClient = ApiExtensions.GetClient<MetadataResourceApi>();
             _logger = ApplicationLogging.CreateLogger<TestWorkflows>();
-
-            //For local testing
-            //_orkesApiClient = new OrkesApiClient(config, new OrkesAuthenticationSettings(Constants.KEY_ID, Constants.KEY_SECRET));
-            //workflowClient = _orkesApiClient.GetClient<WorkflowResourceApi>();
-            // _metaDataClient = _orkesApiClient.GetClient<MetadataResourceApi>();
         }
 
         // Skipped: This test mocks hello_C_1 as FAILED first, then COMPLETED on retry.

@@ -241,10 +241,7 @@ namespace Conductor.Client.Worker
                 TaskResult taskResult =
                     new TaskResult(taskId: task.TaskId, workflowInstanceId: task.WorkflowInstanceId);
 
-                if (token == CancellationToken.None)
-                    taskResult = _worker.Execute(task);
-                else
-                    taskResult = await _worker.Execute(task, token);
+                taskResult = await _worker.Execute(task, token);
 
                 executeStopwatch.Stop();
                 _metrics?.RecordTaskExecuteTime(_worker.TaskType, executeStopwatch.Elapsed.TotalSeconds);
