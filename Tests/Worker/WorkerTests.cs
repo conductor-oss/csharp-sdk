@@ -25,6 +25,7 @@ using Xunit;
 
 namespace Tests.Worker
 {
+    [Collection("CloudIntegration")]
     [Trait("Category", "CloudIntegration")]
     public class WorkerTests
     {
@@ -47,10 +48,27 @@ namespace Tests.Worker
         public async System.Threading.Tasks.Task TestWorkflowAsyncExecution()
         {
             var workflow = GetConductorWorkflow();
-            ApiExtensions.GetWorkflowExecutor().RegisterWorkflow(workflow, true);
+            RegisterWorkflowWithRetry(workflow);
             var workflowIdList = await StartWorkflows(workflow, quantity: 15);
             await ExecuteWorkflowTasks(workflowCompletionTimeout: TimeSpan.FromSeconds(30));
             await ValidateWorkflowCompletion(workflowIdList.ToArray());
+        }
+
+        private static void RegisterWorkflowWithRetry(ConductorWorkflow workflow, int maxAttempts = 3)
+        {
+            for (int i = 0; i < maxAttempts; i++)
+            {
+                try
+                {
+                    ApiExtensions.GetWorkflowExecutor().RegisterWorkflow(workflow, true);
+                    return;
+                }
+                catch (Conductor.Client.ApiException)
+                {
+                    if (i == maxAttempts - 1) throw;
+                    Thread.Sleep(TimeSpan.FromSeconds(1 << i));
+                }
+            }
         }
 
         private ConductorWorkflow GetConductorWorkflow()

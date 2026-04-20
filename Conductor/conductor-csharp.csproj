@@ -18,6 +18,7 @@
     <PackageReference Include="System.Net.Http.Json" Version="6.0.0" />
     <PackageReference Include="RestSharp.Serializers.NewtonsoftJson" Version="112.1.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="8.0.1" />
     <None Include="/package/Conductor/README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>

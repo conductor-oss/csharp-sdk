@@ -11,25 +11,20 @@
  * specific language governing permissions and limitations under the License.
  */
 using Conductor.Api;
-using Conductor.Client;
 using Conductor.Client.Extensions;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace conductor_csharp.test.Api
 {
+    [Collection("CloudIntegration")]
     [Trait("Category", "CloudIntegration")]
     public class EnvironmentResourceApiTest
     {
-        private readonly OrkesApiClient _orkesApiClient;
         private readonly ITestOutputHelper _testOutputHelper;
         private readonly EnvironmentResourceApi _environmentResourceApi;
         public EnvironmentResourceApiTest(ITestOutputHelper testOutputHelper)
         {
-            // dev local testing
-            //_orkesApiClient = new OrkesApiClient(new Configuration(), new OrkesAuthenticationSettings(Conductor.Client.Constants.KEY_ID, Conductor.Client.Constants.KEY_SECRET));
-            //_environmentResourceApi = _orkesApiClient.GetClient<EnvironmentResourceApi>();
-
             _testOutputHelper = testOutputHelper;
             _environmentResourceApi = ApiExtensions.GetClient<EnvironmentResourceApi>();
         }

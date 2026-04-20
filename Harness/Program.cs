@@ -1,10 +1,13 @@
 using Conductor.Api;
 using Conductor.Client;
 using Conductor.Client.Extensions;
+using Conductor.Client.Telemetry;
 using Conductor.Definition;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -14,6 +17,7 @@ namespace Harness
     public class Program
     {
         private const string WorkflowName = "csharp_simulated_tasks_workflow";
+        private const int DefaultMetricsPort = 9991;
 
         private static readonly (string TaskName, string Codename, int SleepSeconds)[] SimulatedWorkers =
         {
@@ -36,6 +40,26 @@ namespace Harness
                 Environment.GetEnvironmentVariable("HARNESS_BATCH_SIZE"), out var bs) ? bs : 20;
             var pollIntervalMs = int.TryParse(
                 Environment.GetEnvironmentVariable("HARNESS_POLL_INTERVAL_MS"), out var pi) ? pi : 100;
+            var metricsPort = int.TryParse(
+                Environment.GetEnvironmentVariable("HARNESS_METRICS_PORT"), out var mp) ? mp : DefaultMetricsPort;
+
+            var timeBuckets = new double[] { 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10 };
+            var sizeBuckets = new double[] { 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000 };
+
+            var meterProvider = Sdk.CreateMeterProviderBuilder()
+                .AddMeter(MetricsCollector.MeterName)
+                .AddView("task_poll_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = timeBuckets })
+                .AddView("task_execute_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = timeBuckets })
+                .AddView("task_update_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = timeBuckets })
+                .AddView("task_result_size_bytes", new ExplicitBucketHistogramConfiguration { Boundaries = sizeBuckets })
+                .AddView("workflow_input_size_bytes", new ExplicitBucketHistogramConfiguration { Boundaries = sizeBuckets })
+                .AddPrometheusHttpListener(options =>
+                {
+                    options.UriPrefixes = new[] { $"http://*:{metricsPort}/" };
+                })
+                .Build();
+
+            Console.WriteLine($"Prometheus metrics server started on port {metricsPort}");
 
             var host = new HostBuilder()
                 .ConfigureServices(services =>
@@ -51,7 +75,8 @@ namespace Harness
                         config,
                         sp.GetRequiredService<ILogger<WorkflowGovernor>>(),
                         WorkflowName,
-                        workflowsPerSec));
+                        workflowsPerSec,
+                        sp.GetRequiredService<MetricsCollector>()));
                 })
                 .ConfigureLogging(logging =>
                 {
@@ -60,7 +85,14 @@ namespace Harness
                 })
                 .Build();
 
-            await host.RunAsync();
+            try
+            {
+                await host.RunAsync();
+            }
+            finally
+            {
+                meterProvider?.Dispose();
+            }
         }
 
         private static void RegisterMetadata(Configuration config)

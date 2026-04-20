@@ -97,6 +97,7 @@ The harness worker accepts these optional environment variables (set in `deploym
 | `HARNESS_WORKFLOWS_PER_SEC` | 2 | Workflows to start per second |
 | `HARNESS_BATCH_SIZE` | 20 | Tasks each worker polls per batch |
 | `HARNESS_POLL_INTERVAL_MS` | 100 | Milliseconds between poll cycles |
+| `HARNESS_METRICS_PORT` | 9991 | Port for Prometheus metrics endpoint |
 
 Edit `deployment.yaml` to change these, then re-apply:
 
@@ -129,4 +130,4 @@ Adjust in `deployment.yaml` based on workload. Higher `HARNESS_WORKFLOWS_PER_SEC
 
 ## Service
 
-The harness worker does **not** need a Service or Ingress. It connects to Conductor via outbound HTTP polling. All communication is outbound.
+The harness worker does **not** need a Service or Ingress for its core function -- it connects to Conductor via outbound HTTP polling. However, it does expose a Prometheus metrics endpoint on port 9991. If your Prometheus instance requires a Kubernetes Service to discover scrape targets, create one targeting port 9991.

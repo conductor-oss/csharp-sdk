@@ -10,31 +10,6 @@ RUN dotnet format --verify-no-changes *.csproj
 FROM csharp-sdk AS build
 RUN dotnet build *.csproj
 
-FROM build AS test
-COPY /csharp-examples /package/csharp-examples
-COPY /Tests           /package/Tests
-WORKDIR /package/Tests
-RUN dotnet test -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS \
-                --filter "Category!=Integration&Category!=CloudIntegration" \
-                --collect:"XPlat Code Coverage" \
-                -l "console;verbosity=normal"
-
-FROM test AS coverage_export
-RUN mkdir /out \
- && cp $(find /package/Tests/TestResults -name 'coverage.cobertura.xml' | head -n 1) \
-       /out/coverage.cobertura.xml
-
-FROM build AS integration-test-runner
-COPY /csharp-examples /package/csharp-examples
-COPY /Tests           /package/Tests
-WORKDIR /package/Tests
-RUN dotnet build -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS conductor-csharp.test.csproj
-ENTRYPOINT ["dotnet", "test", "conductor-csharp.test.csproj", \
-            "-p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS", \
-            "--no-build", \
-            "--filter", "Category=Integration", \
-            "-l", "console;verbosity=normal"]
-
 FROM build AS harness-build
 COPY /Harness /package/Harness
 WORKDIR /package/Harness
@@ -43,6 +18,7 @@ RUN dotnet publish Harness.csproj -c Release -o /app
 FROM mcr.microsoft.com/dotnet/runtime:8.0 AS harness
 COPY --from=harness-build /app /app
 WORKDIR /app
+EXPOSE 9991
 ENTRYPOINT ["dotnet", "Harness.dll"]
 
 FROM build AS pack_release

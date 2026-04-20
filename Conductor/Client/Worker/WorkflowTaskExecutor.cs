@@ -12,9 +12,11 @@
  */
 using Conductor.Client.Interfaces;
 using Conductor.Client.Extensions;
+using Conductor.Client.Telemetry;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using Conductor.Client.Models;
 
@@ -30,18 +32,21 @@ namespace Conductor.Client.Worker
         private readonly IWorkflowTaskClient _taskClient;
         private readonly WorkflowTaskExecutorConfiguration _workerSettings;
         private readonly WorkflowTaskMonitor _workflowTaskMonitor;
+        private readonly MetricsCollector _metrics;
 
         public WorkflowTaskExecutor(
             ILogger<WorkflowTaskExecutor> logger,
             IWorkflowTaskClient client,
             IWorkflowTask worker,
-            WorkflowTaskMonitor workflowTaskMonitor)
+            WorkflowTaskMonitor workflowTaskMonitor,
+            MetricsCollector metrics = null)
         {
             _logger = logger;
             _taskClient = client;
             _worker = worker;
             _workerSettings = worker.WorkerSettings;
             _workflowTaskMonitor = workflowTaskMonitor;
+            _metrics = metrics;
         }
 
         public WorkflowTaskExecutor(
@@ -49,12 +54,14 @@ namespace Conductor.Client.Worker
             IWorkflowTaskClient client,
             IWorkflowTask worker,
             WorkflowTaskExecutorConfiguration workflowTaskConfiguration,
-            WorkflowTaskMonitor workflowTaskMonitor)
+            WorkflowTaskMonitor workflowTaskMonitor,
+            MetricsCollector metrics = null)
         {
             _logger = logger;
             _taskClient = client;
             _worker = worker;
             _workflowTaskMonitor = workflowTaskMonitor;
+            _metrics = metrics;
         }
 
         public System.Threading.Tasks.Task Start(CancellationToken token)
@@ -101,7 +108,7 @@ namespace Conductor.Client.Worker
                 }
                 catch (Exception e)
                 {
-
+                    _metrics?.RecordUncaughtException();
                     _logger.LogError(
                         $"[{_workerSettings.WorkerId}] worker error: {e.Message}"
                         + $", taskName: {_worker.TaskType}"
@@ -147,17 +154,25 @@ namespace Conductor.Client.Worker
                 + $", domain: {_workerSettings.Domain}"
                 + $", batchSize: {_workerSettings.BatchSize}"
             );
-            var availableWorkerCounter = _workerSettings.BatchSize - _workflowTaskMonitor.GetRunningWorkers();
+            var runningWorkers = _workflowTaskMonitor.GetRunningWorkers();
+            _metrics?.RecordActiveWorkers(_worker.TaskType, runningWorkers);
+            var availableWorkerCounter = _workerSettings.BatchSize - runningWorkers;
             if (availableWorkerCounter < 1)
             {
                 _logger.LogDebug("All workers are busy");
+                _metrics?.RecordTaskExecutionQueueFull(_worker.TaskType);
                 return new List<Task>();
             }
 
+            _metrics?.RecordTaskPoll(_worker.TaskType);
+            var pollStopwatch = Stopwatch.StartNew();
             try
             {
                 var tasks = _taskClient.PollTask(_worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain,
                     availableWorkerCounter);
+                pollStopwatch.Stop();
+                _metrics?.RecordTaskPollTime(_worker.TaskType, pollStopwatch.Elapsed.TotalSeconds);
+
                 if (tasks == null)
                 {
                     tasks = new List<Models.Task>();
@@ -173,6 +188,9 @@ namespace Conductor.Client.Worker
             }
             catch (Exception e)
             {
+                pollStopwatch.Stop();
+                _metrics?.RecordTaskPollTime(_worker.TaskType, pollStopwatch.Elapsed.TotalSeconds);
+                _metrics?.RecordTaskPollError(_worker.TaskType, e.GetType().Name);
                 _logger.LogTrace(
                     $"[{_workerSettings.WorkerId}] Polling error: {e.Message} "
                     + $", taskType: {_worker.TaskType}"
@@ -217,15 +235,17 @@ namespace Conductor.Client.Worker
                 + $", CancelToken: {token}"
             );
 
+            var executeStopwatch = Stopwatch.StartNew();
             try
             {
                 TaskResult taskResult =
                     new TaskResult(taskId: task.TaskId, workflowInstanceId: task.WorkflowInstanceId);
 
-                if (token == CancellationToken.None)
-                    taskResult = _worker.Execute(task);
-                else
-                    taskResult = await _worker.Execute(task, token);
+                taskResult = await _worker.Execute(task, token);
+
+                executeStopwatch.Stop();
+                _metrics?.RecordTaskExecuteTime(_worker.TaskType, executeStopwatch.Elapsed.TotalSeconds);
+
                 _logger.LogTrace(
                     $"[{_workerSettings.WorkerId}] Done processing task for worker"
                     + $", taskType: {_worker.TaskType}"
@@ -238,6 +258,9 @@ namespace Conductor.Client.Worker
             }
             catch (Exception e)
             {
+                executeStopwatch.Stop();
+                _metrics?.RecordTaskExecuteTime(_worker.TaskType, executeStopwatch.Elapsed.TotalSeconds);
+                _metrics?.RecordTaskExecuteError(_worker.TaskType, e.GetType().Name);
                 _logger.LogError(
                     $"[{_workerSettings.WorkerId}] Failed to process task for worker, reason: {e.Message}"
                     + $", taskType: {_worker.TaskType}"
@@ -260,6 +283,8 @@ namespace Conductor.Client.Worker
         private void UpdateTask(Models.TaskResult taskResult)
         {
             taskResult.WorkerId = taskResult.WorkerId ?? _workerSettings.WorkerId;
+            RecordTaskResultSize(taskResult);
+            var updateStopwatch = Stopwatch.StartNew();
             for (var attemptCounter = 0; attemptCounter < UPDATE_TASK_RETRY_COUNT_LIMIT; attemptCounter += 1)
             {
                 try
@@ -271,6 +296,8 @@ namespace Conductor.Client.Worker
                     }
 
                     _taskClient.UpdateTask(taskResult);
+                    updateStopwatch.Stop();
+                    _metrics?.RecordTaskUpdateTime(_worker.TaskType, updateStopwatch.Elapsed.TotalSeconds);
                     _logger.LogTrace(
                         $"[{_workerSettings.WorkerId}] Done updating task"
                         + $", taskType: {_worker.TaskType}"
@@ -292,7 +319,24 @@ namespace Conductor.Client.Worker
                 }
             }
 
+            updateStopwatch.Stop();
+            _metrics?.RecordTaskUpdateError(_worker.TaskType);
             throw new Exception("Failed to update task after retries");
+        }
+
+        private void RecordTaskResultSize(Models.TaskResult taskResult)
+        {
+            if (_metrics == null || taskResult.OutputData == null)
+                return;
+            try
+            {
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(taskResult.OutputData);
+                _metrics.RecordTaskResultSize(_worker.TaskType, json.Length);
+            }
+            catch
+            {
+                // Don't let metrics serialization failures disrupt task processing.
+            }
         }
 
         private void Sleep(TimeSpan timeSpan)

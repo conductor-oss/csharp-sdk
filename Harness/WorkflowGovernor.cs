@@ -1,5 +1,6 @@
 using Conductor.Api;
 using Conductor.Client;
+using Conductor.Client.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
@@ -14,17 +15,20 @@ namespace Harness
         private readonly ILogger<WorkflowGovernor> _logger;
         private readonly string _workflowName;
         private readonly int _workflowsPerSecond;
+        private readonly MetricsCollector _metrics;
 
         public WorkflowGovernor(
             Configuration config,
             ILogger<WorkflowGovernor> logger,
             string workflowName,
-            int workflowsPerSecond)
+            int workflowsPerSecond,
+            MetricsCollector metrics = null)
         {
             _workflowClient = config.GetClient<WorkflowResourceApi>();
             _logger = logger;
             _workflowName = workflowName;
             _workflowsPerSecond = workflowsPerSecond;
+            _metrics = metrics;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -47,6 +51,7 @@ namespace Harness
                 }
                 catch (Exception ex)
                 {
+                    _metrics?.RecordWorkflowStartError(_workflowName);
                     _logger.LogError(ex, "Governor: error starting workflows");
                 }
 

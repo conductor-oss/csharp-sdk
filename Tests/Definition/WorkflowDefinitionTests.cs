@@ -21,6 +21,7 @@ using Xunit;
 
 namespace Tests.Definition
 {
+    [Collection("CloudIntegration")]
     [Trait("Category", "CloudIntegration")]
     public class WorkflowDefTests
     {

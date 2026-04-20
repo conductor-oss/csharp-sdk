@@ -11,7 +11,6 @@
  * specific language governing permissions and limitations under the License.
  */
 using Conductor.Api;
-using Conductor.Client;
 using Conductor.Client.Extensions;
 using Conductor.Client.Models;
 using conductor_csharp.test.Extensions;
@@ -24,12 +23,12 @@ using Xunit.Abstractions;
 
 namespace Conductor_csharp.test.Api
 {
+    [Collection("CloudIntegration")]
     [Trait("Category", "CloudIntegration")]
     public class PromptResourceApiTest : IDisposable
     {
         private readonly PromptResourceApi _promptResourceApi;
         private readonly IntegrationResourceApi _integrationResourceApi;
-        private readonly OrkesApiClient _orkesApiClient;
         private readonly ITestOutputHelper _testOutputHelper;
         private bool _performCleanup = true;
 
@@ -39,11 +38,6 @@ namespace Conductor_csharp.test.Api
         /// <param name="testOutputHelper"></param>
         public PromptResourceApiTest(ITestOutputHelper testOutputHelper)
         {
-            //dev local testing
-            //_orkesApiClient = new OrkesApiClient(new Configuration(), new OrkesAuthenticationSettings(Constants.KEY_ID, Constants.KEY_SECRET));
-            //_promptResourceApi = _orkesApiClient.GetClient<PromptResourceApi>();
-            //_integrationResourceApi = _orkesApiClient.GetClient<IntegrationResourceApi>();
-
             _testOutputHelper = testOutputHelper;
             _promptResourceApi = ApiExtensions.GetClient<PromptResourceApi>();
             _integrationResourceApi = ApiExtensions.GetClient<IntegrationResourceApi>();
