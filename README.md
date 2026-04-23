@@ -48,6 +48,7 @@ dotnet add package conductor-csharp
 
 ```csharp
 using Conductor.Client;
+using Conductor.Client.Extensions;
 using Conductor.Client.Worker;
 using Conductor.Definition;
 using Conductor.Definition.TaskType;
@@ -97,6 +98,7 @@ await host.WaitForShutdownAsync();
 **Step 3: Add the worker class — create `GreetWorker.cs`**
 
 ```csharp
+using Conductor.Client.Extensions;
 using Conductor.Client.Interfaces;
 using Conductor.Client.Models;
 using Conductor.Client.Worker;
