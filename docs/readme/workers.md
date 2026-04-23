@@ -48,7 +48,7 @@ await host.startAsync();
 Thread.Sleep(TimeSpan.FromSeconds(100));
 ```
 
-Check out our [integration tests](https://github.com/conductor-sdk/conductor-csharp/blob/92c7580156a89322717c94aeaea9e5201fe577eb/Tests/Worker/WorkerTests.cs#L37) for more examples
+Check out our [integration tests](https://github.com/conductor-oss/csharp-sdk/blob/main/Tests/Worker/WorkerTests.cs) for more examples
 
 Worker SDK collects the following metrics:
 
@@ -65,4 +65,4 @@ Worker SDK collects the following metrics:
 
 Metrics on client side supplements the one collected from server in identifying the network as well as client side issues.
 
-### Next: [Create and Execute Workflows](https://github.com/conductor-sdk/conductor-csharp/blob/main/docs/readme/workflow.md)
+### Next: [Create and Execute Workflows](https://github.com/conductor-oss/csharp-sdk/blob/main/docs/readme/workflow.md)
