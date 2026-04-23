@@ -1,6 +1,6 @@
-using Conductor.Api;
 using Conductor.Client;
 using Conductor.Client.Telemetry;
+using Conductor.Executor;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
@@ -11,11 +11,10 @@ namespace Harness
 {
     public class WorkflowGovernor : BackgroundService
     {
-        private readonly WorkflowResourceApi _workflowClient;
+        private readonly WorkflowExecutor _executor;
         private readonly ILogger<WorkflowGovernor> _logger;
         private readonly string _workflowName;
         private readonly int _workflowsPerSecond;
-        private readonly MetricsCollector _metrics;
 
         public WorkflowGovernor(
             Configuration config,
@@ -24,11 +23,10 @@ namespace Harness
             int workflowsPerSecond,
             MetricsCollector metrics = null)
         {
-            _workflowClient = config.GetClient<WorkflowResourceApi>();
+            _executor = new WorkflowExecutor(config, metrics);
             _logger = logger;
             _workflowName = workflowName;
             _workflowsPerSecond = workflowsPerSecond;
-            _metrics = metrics;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -43,15 +41,14 @@ namespace Harness
                 {
                     for (var i = 0; i < _workflowsPerSecond; i++)
                     {
-                        _workflowClient.StartWorkflow(
-                            new Conductor.Client.Models.StartWorkflowRequest(name: _workflowName));
+                        _executor.StartWorkflow(
+                            new Conductor.Client.Models.StartWorkflowRequest(name: _workflowName, version: 1));
                     }
 
                     _logger.LogInformation("Governor: started {Count} workflow(s)", _workflowsPerSecond);
                 }
                 catch (Exception ex)
                 {
-                    _metrics?.RecordWorkflowStartError(_workflowName);
                     _logger.LogError(ex, "Governor: error starting workflows");
                 }
 
