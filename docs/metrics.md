@@ -17,8 +17,7 @@ compatible with any .NET metrics listener -- most notably the
   - [Histograms](#histograms)
   - [Gauges](#gauges)
 - [Labels](#labels)
-  - [Dual-Emit Strategy (Phase 1)](#dual-emit-strategy-phase-1)
-  - [Deprecated Labels](#deprecated-labels)
+- [Nonstandard Metrics](#nonstandard-metrics)
 - [Histogram Bucket Boundaries](#histogram-bucket-boundaries)
 - [Example Metrics Output](#example-metrics-output)
 - [OTel Scope Label](#otel-scope-label)
@@ -28,29 +27,29 @@ compatible with any .NET metrics listener -- most notably the
 
 All metrics are registered under the meter named `Conductor.Client`.
 
-| Name | Type | Canonical Labels | Deprecated Labels | Description |
-|---|---|---|---|---|
-| `task_poll_total` | Counter | `taskType` | `task_type` | Total task poll attempts |
-| `task_execution_started_total` | Counter | `taskType` | `task_type` | Tasks dispatched to the worker function |
-| `task_poll_error_total` | Counter | `taskType`, `exception` | `task_type`, `error_type` | Total task poll errors |
-| `task_execute_error_total` | Counter | `taskType`, `exception` | `task_type`, `error_type` | Total task execution errors |
-| `task_update_error_total` | Counter | `taskType`, `exception` | `task_type`, `error_type` | Total task update errors (after all retries) |
-| `task_ack_error_total` | Counter | `taskType`, `exception` | `task_type` | Task ack client-side errors (surface-only) |
-| `task_ack_failed_total` | Counter | `taskType` | `task_type` | Task ack declined by server (surface-only) |
-| `task_paused_total` | Counter | `taskType` | `task_type` | Polls skipped because the worker is paused |
-| `task_execution_queue_full_total` | Counter | `taskType` | `task_type` | Polls returning zero capacity (all workers busy) |
-| `thread_uncaught_exceptions_total` | Counter | `exception` | -- | Uncaught exceptions in worker threads |
-| `workflow_start_error_total` | Counter | `workflowType`, `exception` | `workflow_type` | Errors starting workflows |
-| `external_payload_used_total` | Counter | `entityName`, `operation`, `payload_type` | `entity_name` | External payload storage usage |
-| `task_poll_time_seconds` | Histogram | `taskType`, `status` | `task_type` | Task poll round-trip duration (seconds) |
-| `task_execute_time_seconds` | Histogram | `taskType`, `status` | `task_type` | Task execution duration (seconds) |
-| `task_update_time_seconds` | Histogram | `taskType`, `status` | `task_type` | Task result update duration (seconds) |
-| `http_api_client_request_seconds` | Histogram | `method`, `uri`, `status` | -- | HTTP API client request duration (seconds) |
-| `task_result_size_bytes` | **Gauge** | `taskType` | `task_type` | Task result payload size (bytes) — last value |
-| `task_result_size_bytes_histogram` | Histogram | `taskType` | `task_type` | **[DEPRECATED]** Task result payload size (bytes) |
-| `workflow_input_size_bytes` | **Gauge** | `workflowType`, `version` | `workflow_type` | Workflow input payload size (bytes) — last value |
-| `workflow_input_size_bytes_histogram` | Histogram | `workflowType`, `version` | `workflow_type` | **[DEPRECATED]** Workflow input payload size (bytes) |
-| `active_workers` | Gauge | `taskType` | `task_type` | Workers currently executing tasks |
+| Name | Type | Labels | Description |
+|---|---|---|---|
+| `task_poll_total` | Counter | `taskType` | Total task poll attempts |
+| `task_execution_started_total` | Counter | `taskType` | Tasks dispatched to the worker function |
+| `task_poll_error_total` | Counter | `taskType`, `exception` | Total task poll errors |
+| `task_execute_error_total` | Counter | `taskType`, `exception` | Total task execution errors |
+| `task_update_error_total` | Counter | `taskType`, `exception` | Total task update errors (after all retries) |
+| `task_ack_error_total` | Counter | `taskType`, `exception` | Task ack client-side errors (surface-only) |
+| `task_ack_failed_total` | Counter | `taskType` | Task ack declined by server (surface-only) |
+| `task_paused_total` | Counter | `taskType` | Polls skipped because the worker is paused |
+| `task_execution_queue_full_total` | Counter | `taskType` | Polls returning zero capacity (all workers busy) |
+| `thread_uncaught_exceptions_total` | Counter | `exception` | Uncaught exceptions in worker threads |
+| `workflow_start_error_total` | Counter | `workflowType`, `exception` | Errors starting workflows |
+| `external_payload_used_total` | Counter | `entityName`, `operation`, `payload_type` | External payload storage usage |
+| `task_poll_time_seconds` | Histogram | `taskType`, `status` | Task poll round-trip duration (seconds) |
+| `task_execute_time_seconds` | Histogram | `taskType`, `status` | Task execution duration (seconds) |
+| `task_update_time_seconds` | Histogram | `taskType`, `status` | Task result update duration (seconds) |
+| `http_api_client_request_seconds` | Histogram | `method`, `uri`, `status` | HTTP API client request duration (seconds) |
+| `task_result_size_bytes` | Gauge | `taskType` | Task result payload size (bytes) — last value |
+| `workflow_input_size_bytes` | Gauge | `workflowType`, `version` | Workflow input payload size (bytes) — last value |
+| `active_workers` | Gauge | `taskType` | Workers currently executing tasks |
+| `task_result_size_bytes_histogram` | Histogram | `taskType` | Task result payload size (bytes) — **nonstandard**, see [below](#nonstandard-metrics) |
+| `workflow_input_size_bytes_histogram` | Histogram | `workflowType`, `version` | Workflow input payload size (bytes) — **nonstandard**, see [below](#nonstandard-metrics) |
 
 ## Configuration
 
@@ -168,8 +167,6 @@ Distribution metrics with sum, count, and bucket breakdowns. All time values are
 | `task_execute_time_seconds` | `taskType`, `status` | seconds | Wall-clock time inside `worker.Execute()`. `status` is `SUCCESS` or `FAILURE`. |
 | `task_update_time_seconds` | `taskType`, `status` | seconds | Wall-clock time for the update call (including retries). `status` is `SUCCESS` or `FAILURE`. |
 | `http_api_client_request_seconds` | `method`, `uri`, `status` | seconds | Every HTTP request made by the API client. `method` is the HTTP verb, `uri` is the request path, `status` is the HTTP status code (or `"0"` on transport failure). |
-| `task_result_size_bytes_histogram` | `taskType` | bytes | **[DEPRECATED]** JSON-serialized size of `TaskResult.OutputData`. Use the `task_result_size_bytes` Gauge instead. |
-| `workflow_input_size_bytes_histogram` | `workflowType`, `version` | bytes | **[DEPRECATED]** Workflow input payload size. Use the `workflow_input_size_bytes` Gauge instead. |
 
 ### Gauges
 
@@ -183,30 +180,53 @@ Point-in-time values sampled by the metrics listener.
 
 ## Labels
 
-### Dual-Emit Strategy (Phase 1)
+The C# SDK uses the canonical label names defined by the cross-SDK metrics harmonization spec.
 
-As part of the cross-SDK metrics harmonization, every metric now emits **both** the canonical
-camelCase label and the legacy snake_case label with the same value. This ensures existing
-dashboards and alerts continue to work during migration.
-
-| Canonical (new) | Legacy (deprecated) | Used By |
+| Label | Used by | Values |
 |---|---|---|
-| `taskType` | `task_type` | Most task metrics |
-| `exception` | `error_type` | Error counters |
-| `workflowType` | `workflow_type` | Workflow metrics |
-| `entityName` | `entity_name` | `external_payload_used_total` |
+| `taskType` | Most task metrics | The task definition name (e.g. `my_worker`). |
+| `workflowType` | Workflow metrics | The workflow definition name. |
+| `entityName` | `external_payload_used_total` | The entity identifier. |
+| `exception` | Error counters, `thread_uncaught_exceptions_total` | The .NET exception class name (e.g. `HttpRequestException`). |
+| `status` | Time histograms | `SUCCESS` or `FAILURE`. |
+| `method` | `http_api_client_request_seconds` | HTTP verb (`GET`, `POST`, etc.). |
+| `uri` | `http_api_client_request_seconds` | Request path (interpolated, not templated). |
+| `operation` | `external_payload_used_total` | `READ` or `WRITE`. |
+| `payload_type` | `external_payload_used_total` | `TASK_INPUT`, `TASK_OUTPUT`, `WORKFLOW_INPUT`, or `WORKFLOW_OUTPUT`. |
+| `version` | `workflow_input_size_bytes` | Workflow version string. |
 
-Labels that are new (no legacy equivalent): `status` on time histograms, `method`/`uri`/`status`
-on `http_api_client_request_seconds`, `version` on `workflow_input_size_bytes`.
+**Label naming convention.** Labels referencing Conductor domain entities (`taskType`,
+`workflowType`, `entityName`) use camelCase to match the Conductor API's JSON field names.
+Generic observability labels (`status`, `method`, `uri`, `exception`, `operation`,
+`payload_type`, `version`) follow the standard Prometheus snake_case / lowercase convention.
 
-### Deprecated Labels
+> **Note:** Unlike some other Conductor SDKs that are undergoing a migration from legacy
+> label names, the C# SDK's metrics surface is entirely new and emits only canonical labels.
+> There are no legacy/deprecated label aliases.
 
-The following labels are deprecated and will be removed in a future major release:
+## Nonstandard Metrics
 
-- `task_type` — use `taskType`
-- `error_type` — use `exception`
-- `workflow_type` — use `workflowType`
-- `entity_name` — use `entityName`
+The C# SDK emits two additional **histogram** instruments for payload sizes that are not part
+of the cross-SDK canonical catalog:
+
+| Name | Labels | Unit | Description |
+|---|---|---|---|
+| `task_result_size_bytes_histogram` | `taskType` | bytes | Distribution of task result payload sizes. |
+| `workflow_input_size_bytes_histogram` | `workflowType`, `version` | bytes | Distribution of workflow input payload sizes. |
+
+The canonical catalog defines size metrics as **last-value Gauges** (`task_result_size_bytes`,
+`workflow_input_size_bytes`), which is what the SDK emits as its primary size instruments.
+These histogram variants provide distribution information (bucket breakdowns, count, sum) that
+the gauge shape cannot offer -- for example, computing p99 result sizes via
+`histogram_quantile()`.
+
+These histograms are **proposed** for inclusion in a future revision of the canonical catalog
+(see the harmonization spec's §5.1 "Future catalog considerations"). They use the proposed
+size bucket set `(100, 1000, 10000, 100000, 1000000, 10000000)` bytes. Until the catalog
+formally adopts them, they should be considered nonstandard and may change.
+
+Both are emitted automatically whenever the corresponding gauge is recorded (i.e. calling
+`RecordTaskResultSize` writes to both the gauge and the histogram).
 
 ## Histogram Bucket Boundaries
 
@@ -218,7 +238,7 @@ The SDK defines canonical bucket boundaries that match all other Conductor SDKs:
 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10
 ```
 
-**Size histograms** (deprecated `*_histogram`):
+**Size histograms** (nonstandard `*_histogram`, proposed):
 
 ```
 100, 1000, 10000, 100000, 1000000, 10000000
@@ -235,24 +255,24 @@ When scraped by Prometheus (via the built-in server or OpenTelemetry exporter):
 ```prometheus
 # HELP task_poll_total Total task poll attempts
 # TYPE task_poll_total counter
-task_poll_total{taskType="my_worker",task_type="my_worker"} 142
+task_poll_total{taskType="my_worker"} 142
 
 # HELP task_execution_started_total Tasks dispatched to the worker function
 # TYPE task_execution_started_total counter
-task_execution_started_total{taskType="my_worker",task_type="my_worker"} 140
+task_execution_started_total{taskType="my_worker"} 140
 
 # HELP task_poll_time_seconds Task poll round-trip duration (seconds)
 # TYPE task_poll_time_seconds histogram
-task_poll_time_seconds_bucket{taskType="my_worker",task_type="my_worker",status="SUCCESS",le="0.001"} 2
-task_poll_time_seconds_bucket{taskType="my_worker",task_type="my_worker",status="SUCCESS",le="0.005"} 12
-task_poll_time_seconds_bucket{taskType="my_worker",task_type="my_worker",status="SUCCESS",le="0.01"} 45
-task_poll_time_seconds_bucket{taskType="my_worker",task_type="my_worker",status="SUCCESS",le="0.025"} 98
-task_poll_time_seconds_bucket{taskType="my_worker",task_type="my_worker",status="SUCCESS",le="0.05"} 120
-task_poll_time_seconds_bucket{taskType="my_worker",task_type="my_worker",status="SUCCESS",le="0.1"} 135
-task_poll_time_seconds_bucket{taskType="my_worker",task_type="my_worker",status="SUCCESS",le="0.25"} 140
-task_poll_time_seconds_bucket{taskType="my_worker",task_type="my_worker",status="SUCCESS",le="+Inf"} 140
-task_poll_time_seconds_sum{taskType="my_worker",task_type="my_worker",status="SUCCESS"} 3.842
-task_poll_time_seconds_count{taskType="my_worker",task_type="my_worker",status="SUCCESS"} 140
+task_poll_time_seconds_bucket{taskType="my_worker",status="SUCCESS",le="0.001"} 2
+task_poll_time_seconds_bucket{taskType="my_worker",status="SUCCESS",le="0.005"} 12
+task_poll_time_seconds_bucket{taskType="my_worker",status="SUCCESS",le="0.01"} 45
+task_poll_time_seconds_bucket{taskType="my_worker",status="SUCCESS",le="0.025"} 98
+task_poll_time_seconds_bucket{taskType="my_worker",status="SUCCESS",le="0.05"} 120
+task_poll_time_seconds_bucket{taskType="my_worker",status="SUCCESS",le="0.1"} 135
+task_poll_time_seconds_bucket{taskType="my_worker",status="SUCCESS",le="0.25"} 140
+task_poll_time_seconds_bucket{taskType="my_worker",status="SUCCESS",le="+Inf"} 140
+task_poll_time_seconds_sum{taskType="my_worker",status="SUCCESS"} 3.842
+task_poll_time_seconds_count{taskType="my_worker",status="SUCCESS"} 140
 
 # HELP http_api_client_request_seconds HTTP API client request duration (seconds)
 # TYPE http_api_client_request_seconds histogram
@@ -261,15 +281,15 @@ http_api_client_request_seconds_bucket{method="GET",uri="/api/tasks/poll/batch/m
 
 # HELP task_result_size_bytes Task result payload size (bytes)
 # TYPE task_result_size_bytes gauge
-task_result_size_bytes{taskType="my_worker",task_type="my_worker"} 2048
+task_result_size_bytes{taskType="my_worker"} 2048
 
 # HELP active_workers Workers currently executing tasks
 # TYPE active_workers gauge
-active_workers{taskType="my_worker",task_type="my_worker"} 5
+active_workers{taskType="my_worker"} 5
 
 # HELP task_execution_queue_full_total Polls returning zero capacity
 # TYPE task_execution_queue_full_total counter
-task_execution_queue_full_total{taskType="my_worker",task_type="my_worker"} 3
+task_execution_queue_full_total{taskType="my_worker"} 3
 ```
 
 ## OTel Scope Label
@@ -277,7 +297,7 @@ task_execution_queue_full_total{taskType="my_worker",task_type="my_worker"} 3
 The C# metrics output includes an `otel_scope_name="Conductor.Client"` label on every metric.
 This is injected by the OpenTelemetry .NET exporter (it identifies the `System.Diagnostics.Metrics.Meter`
 that owns each instrument). Other SDKs using native Prometheus client libraries do not have this.
-This is harmless — it is a standard OTel convention and does not interfere with canonical label queries.
+This is harmless — it is a standard OTel convention and does not interfere with label queries.
 
 ## Best Practices
 
@@ -311,10 +331,6 @@ This is harmless — it is a standard OTel convention and does not interfere wit
    histogram_quantile(0.99, rate(task_execute_time_seconds_bucket[5m]))
    ```
 
-7. **Migrate dashboards to canonical labels.** Both `taskType` and `task_type` resolve to the
-   same value during Phase 1. Update your queries to use `taskType` before the deprecated labels
-   are removed in a future major release.
-
-8. **Use `WorkflowExecutor` for starting workflows.** It automatically records
+7. **Use `WorkflowExecutor` for starting workflows.** It automatically records
    `workflow_input_size_bytes` and `workflow_start_error_total` when a `MetricsCollector`
    is injected.

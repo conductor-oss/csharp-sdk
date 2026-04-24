@@ -405,7 +405,7 @@ namespace Conductor.Client.Telemetry
             _externalPayloadUsedTotal.Add(1,
                 new KeyValuePair<string, object>("entityName", entityName),
                 new KeyValuePair<string, object>("operation", operation),
-                new KeyValuePair<string, object>("payloadType", payloadType));
+                new KeyValuePair<string, object>("payload_type", payloadType));
         }
 
         // ---------------------------------------------------------------
