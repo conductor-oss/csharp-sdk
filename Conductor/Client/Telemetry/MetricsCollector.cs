@@ -39,6 +39,12 @@ namespace Conductor.Client.Telemetry
         public static readonly double[] CanonicalTimeBuckets =
             { 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10 };
 
+        /// <summary>
+        /// Proposed size histogram buckets (in bytes); if accepted, will be shared across all Conductor SDKs.
+        /// </summary>
+        public static readonly double[] CanonicalSizeBuckets =
+            { 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000 };
+
         private readonly Meter _meter;
         private MeterProvider _meterProvider;
 
@@ -61,6 +67,8 @@ namespace Conductor.Client.Telemetry
         private readonly Histogram<double> _taskExecuteTimeSeconds;
         private readonly Histogram<double> _taskUpdateTimeSeconds;
         private readonly Histogram<double> _httpApiClientRequestSeconds;
+        private readonly Histogram<double> _taskResultSizeBytesHistogram;
+        private readonly Histogram<double> _workflowInputSizeBytesHistogram;
 
         // --- gauges ---
         private readonly ConcurrentDictionary<string, int> _activeWorkerCounts = new ConcurrentDictionary<string, int>();
@@ -143,6 +151,18 @@ namespace Conductor.Client.Telemetry
                 unit: "s",
                 description: "HTTP API client request duration in seconds");
 
+            // --- size histograms (non-canonical names while spec uses gauges) ---
+
+            _taskResultSizeBytesHistogram = _meter.CreateHistogram<double>(
+                "task_result_size_bytes_histogram",
+                unit: "By",
+                description: "Distribution of task result payload sizes in bytes");
+
+            _workflowInputSizeBytesHistogram = _meter.CreateHistogram<double>(
+                "workflow_input_size_bytes_histogram",
+                unit: "By",
+                description: "Distribution of workflow input payload sizes in bytes");
+
             // --- canonical size gauges ---
 
             _meter.CreateObservableGauge(
@@ -218,6 +238,8 @@ namespace Conductor.Client.Telemetry
                 .AddView("task_execute_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = CanonicalTimeBuckets })
                 .AddView("task_update_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = CanonicalTimeBuckets })
                 .AddView("http_api_client_request_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = CanonicalTimeBuckets })
+                .AddView("task_result_size_bytes_histogram", new ExplicitBucketHistogramConfiguration { Boundaries = CanonicalSizeBuckets })
+                .AddView("workflow_input_size_bytes_histogram", new ExplicitBucketHistogramConfiguration { Boundaries = CanonicalSizeBuckets })
                 .AddPrometheusHttpListener(options =>
                 {
                     options.UriPrefixes = new[] { $"http://*:{port}/" };
@@ -304,11 +326,16 @@ namespace Conductor.Client.Telemetry
         public void RecordTaskResultSize(string taskType, double sizeBytes)
         {
             _taskResultSizes[taskType] = sizeBytes;
+            _taskResultSizeBytesHistogram.Record(sizeBytes,
+                new KeyValuePair<string, object>("taskType", taskType));
         }
 
         public void RecordWorkflowInputSize(string workflowType, string version, double sizeBytes)
         {
             _workflowInputSizes[workflowType + "\0" + (version ?? "")] = sizeBytes;
+            _workflowInputSizeBytesHistogram.Record(sizeBytes,
+                new KeyValuePair<string, object>("workflowType", workflowType),
+                new KeyValuePair<string, object>("version", version ?? ""));
         }
 
         // ---------------------------------------------------------------

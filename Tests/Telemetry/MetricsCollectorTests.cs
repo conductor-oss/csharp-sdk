@@ -52,11 +52,11 @@ namespace Tests.Telemetry
         }
 
         // ---------------------------------------------------------------
-        // Counters — dual-emit label checks
+        // Counters
         // ---------------------------------------------------------------
 
         [Fact]
-        public void RecordTaskPoll_EmitsDualLabels()
+        public void RecordTaskPoll_EmitsCanonicalLabels()
         {
             _sut.RecordTaskPoll("my_task");
 
@@ -64,79 +64,69 @@ namespace Tests.Telemetry
             Assert.Equal("task_poll_total", m.Name);
             Assert.Equal(1L, m.Value);
             AssertTag(m, "taskType", "my_task");
-            AssertTag(m, "task_type", "my_task");
         }
 
         [Fact]
-        public void RecordTaskExecutionStarted_EmitsDualLabels()
+        public void RecordTaskExecutionStarted_EmitsCanonicalLabels()
         {
             _sut.RecordTaskExecutionStarted("my_task");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_execution_started_total", m.Name);
             AssertTag(m, "taskType", "my_task");
-            AssertTag(m, "task_type", "my_task");
         }
 
         [Fact]
-        public void RecordTaskPollError_EmitsDualLabels()
+        public void RecordTaskPollError_EmitsCanonicalLabels()
         {
             _sut.RecordTaskPollError("my_task", "TimeoutException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_poll_error_total", m.Name);
             AssertTag(m, "taskType", "my_task");
-            AssertTag(m, "task_type", "my_task");
             AssertTag(m, "exception", "TimeoutException");
-            AssertTag(m, "error_type", "TimeoutException");
         }
 
         [Fact]
-        public void RecordTaskExecuteError_EmitsDualLabels()
+        public void RecordTaskExecuteError_EmitsCanonicalLabels()
         {
             _sut.RecordTaskExecuteError("task_a", "NullReferenceException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_execute_error_total", m.Name);
             AssertTag(m, "taskType", "task_a");
-            AssertTag(m, "task_type", "task_a");
             AssertTag(m, "exception", "NullReferenceException");
-            AssertTag(m, "error_type", "NullReferenceException");
         }
 
         [Fact]
-        public void RecordTaskUpdateError_EmitsExceptionAndDualLabels()
+        public void RecordTaskUpdateError_EmitsCanonicalLabels()
         {
             _sut.RecordTaskUpdateError("task_b", "HttpRequestException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_update_error_total", m.Name);
             AssertTag(m, "taskType", "task_b");
-            AssertTag(m, "task_type", "task_b");
             AssertTag(m, "exception", "HttpRequestException");
-            AssertTag(m, "error_type", "HttpRequestException");
         }
 
         [Fact]
-        public void RecordTaskPaused_EmitsDualLabels()
+        public void RecordTaskPaused_EmitsCanonicalLabels()
         {
             _sut.RecordTaskPaused("paused_task");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_paused_total", m.Name);
             AssertTag(m, "taskType", "paused_task");
-            AssertTag(m, "task_type", "paused_task");
         }
 
         [Fact]
-        public void RecordTaskExecutionQueueFull_EmitsDualLabels()
+        public void RecordTaskExecutionQueueFull_EmitsCanonicalLabels()
         {
             _sut.RecordTaskExecutionQueueFull("busy_task");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_execution_queue_full_total", m.Name);
             AssertTag(m, "taskType", "busy_task");
-            AssertTag(m, "task_type", "busy_task");
         }
 
         [Fact]
@@ -151,51 +141,47 @@ namespace Tests.Telemetry
         }
 
         [Fact]
-        public void RecordWorkflowStartError_EmitsExceptionAndDualLabels()
+        public void RecordWorkflowStartError_EmitsCanonicalLabels()
         {
             _sut.RecordWorkflowStartError("my_workflow", "ApiException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("workflow_start_error_total", m.Name);
             AssertTag(m, "workflowType", "my_workflow");
-            AssertTag(m, "workflow_type", "my_workflow");
             AssertTag(m, "exception", "ApiException");
         }
 
         [Fact]
-        public void RecordExternalPayloadUsed_EmitsDualLabels()
+        public void RecordExternalPayloadUsed_EmitsCanonicalLabels()
         {
             _sut.RecordExternalPayloadUsed("entity", "READ", "TASK_INPUT");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("external_payload_used_total", m.Name);
             AssertTag(m, "entityName", "entity");
-            AssertTag(m, "entity_name", "entity");
             AssertTag(m, "operation", "READ");
-            AssertTag(m, "payload_type", "TASK_INPUT");
+            AssertTag(m, "payloadType", "TASK_INPUT");
         }
 
         [Fact]
-        public void RecordTaskAckError_EmitsDualLabels()
+        public void RecordTaskAckError_EmitsCanonicalLabels()
         {
             _sut.RecordTaskAckError("my_task", "HttpRequestException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_ack_error_total", m.Name);
             AssertTag(m, "taskType", "my_task");
-            AssertTag(m, "task_type", "my_task");
             AssertTag(m, "exception", "HttpRequestException");
         }
 
         [Fact]
-        public void RecordTaskAckFailed_EmitsDualLabels()
+        public void RecordTaskAckFailed_EmitsCanonicalLabels()
         {
             _sut.RecordTaskAckFailed("my_task");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_ack_failed_total", m.Name);
             AssertTag(m, "taskType", "my_task");
-            AssertTag(m, "task_type", "my_task");
         }
 
         // ---------------------------------------------------------------
@@ -211,7 +197,6 @@ namespace Tests.Telemetry
             Assert.Equal("task_poll_time_seconds", m.Name);
             Assert.Equal(0.123, m.Value);
             AssertTag(m, "taskType", "fast_task");
-            AssertTag(m, "task_type", "fast_task");
             AssertTag(m, "status", "SUCCESS");
         }
 
@@ -224,7 +209,6 @@ namespace Tests.Telemetry
             Assert.Equal("task_execute_time_seconds", m.Name);
             Assert.Equal(5.5, m.Value);
             AssertTag(m, "taskType", "slow_task");
-            AssertTag(m, "task_type", "slow_task");
             AssertTag(m, "status", "FAILURE");
         }
 
@@ -237,7 +221,6 @@ namespace Tests.Telemetry
             Assert.Equal("task_update_time_seconds", m.Name);
             Assert.Equal(0.05, m.Value);
             AssertTag(m, "taskType", "task_c");
-            AssertTag(m, "task_type", "task_c");
             AssertTag(m, "status", "SUCCESS");
         }
 
@@ -255,11 +238,11 @@ namespace Tests.Telemetry
         }
 
         // ---------------------------------------------------------------
-        // Size metrics — gauge + deprecated histogram
+        // Size metrics — gauge + histogram
         // ---------------------------------------------------------------
 
         [Fact]
-        public void RecordTaskResultSize_EmitsDeprecatedHistogram()
+        public void RecordTaskResultSize_EmitsHistogram()
         {
             _sut.RecordTaskResultSize("task_d", 1024.0);
 
@@ -267,7 +250,6 @@ namespace Tests.Telemetry
             Assert.Equal("task_result_size_bytes_histogram", m.Name);
             Assert.Equal(1024.0, m.Value);
             AssertTag(m, "taskType", "task_d");
-            AssertTag(m, "task_type", "task_d");
         }
 
         [Fact]
@@ -291,11 +273,10 @@ namespace Tests.Telemetry
             var match = Assert.Single(gaugeValues);
             Assert.Equal(2048.0, (double)match.Value);
             AssertTag(match, "taskType", "task_d");
-            AssertTag(match, "task_type", "task_d");
         }
 
         [Fact]
-        public void RecordWorkflowInputSize_EmitsDeprecatedHistogram()
+        public void RecordWorkflowInputSize_EmitsHistogram()
         {
             _sut.RecordWorkflowInputSize("wf_type", "2", 2048.0);
 
@@ -303,7 +284,6 @@ namespace Tests.Telemetry
             Assert.Equal("workflow_input_size_bytes_histogram", m.Name);
             Assert.Equal(2048.0, m.Value);
             AssertTag(m, "workflowType", "wf_type");
-            AssertTag(m, "workflow_type", "wf_type");
             AssertTag(m, "version", "2");
         }
 
@@ -328,7 +308,6 @@ namespace Tests.Telemetry
             var match = Assert.Single(gaugeValues);
             Assert.Equal(4096.0, (double)match.Value);
             AssertTag(match, "workflowType", "wf_type");
-            AssertTag(match, "workflow_type", "wf_type");
             AssertTag(match, "version", "v2");
         }
 
@@ -337,7 +316,7 @@ namespace Tests.Telemetry
         // ---------------------------------------------------------------
 
         [Fact]
-        public void RecordActiveWorkers_ExposedViaObservableGaugeWithDualLabels()
+        public void RecordActiveWorkers_ExposedViaObservableGauge()
         {
             _sut.RecordActiveWorkers("task_x", 3);
             _sut.RecordActiveWorkers("task_y", 7);
@@ -358,12 +337,10 @@ namespace Tests.Telemetry
             Assert.Equal(2, gaugeValues.Count);
             Assert.Contains(gaugeValues, g =>
                 (int)g.Value == 3
-                && g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "task_x")
-                && g.Tags.Any(t => t.Key == "task_type" && (string)t.Value == "task_x"));
+                && g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "task_x"));
             Assert.Contains(gaugeValues, g =>
                 (int)g.Value == 7
-                && g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "task_y")
-                && g.Tags.Any(t => t.Key == "task_type" && (string)t.Value == "task_y"));
+                && g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "task_y"));
         }
 
         [Fact]
