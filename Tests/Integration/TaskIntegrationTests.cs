@@ -17,6 +17,7 @@ using Conductor.Definition.TaskType;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
+using WorkflowModel = Conductor.Client.Models.Workflow;
 
 namespace Tests.Integration
 {
@@ -72,7 +73,7 @@ namespace Tests.Integration
             });
 
             var workflow = _workflowClient.GetExecutionStatus(workflowId);
-            Assert.Equal(Workflow.StatusEnum.COMPLETED, workflow.Status);
+            Assert.Equal(WorkflowModel.StatusEnum.COMPLETED, workflow.Status);
         }
 
         [Fact]
@@ -93,7 +94,7 @@ namespace Tests.Integration
             });
 
             var workflow = _workflowClient.GetExecutionStatus(workflowId);
-            Assert.Equal(Workflow.StatusEnum.FAILED, workflow.Status);
+            Assert.Equal(WorkflowModel.StatusEnum.FAILED, workflow.Status);
         }
 
         private void RegisterWorkflow()

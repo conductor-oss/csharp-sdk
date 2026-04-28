@@ -13,8 +13,8 @@
 using Conductor.Client;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
-using System.Threading.Tasks;
 using Xunit;
+using SystemTask = System.Threading.Tasks.Task;
 
 namespace Tests.Integration
 {
@@ -46,7 +46,7 @@ namespace Tests.Integration
                 .Build();
         }
 
-        public async Task InitializeAsync()
+        public async SystemTask InitializeAsync()
         {
             await _container.StartAsync();
             var host = _container.Hostname;
@@ -54,7 +54,7 @@ namespace Tests.Integration
             Configuration = new Configuration { BasePath = $"http://{host}:{port}/api" };
         }
 
-        public async Task DisposeAsync()
+        public async SystemTask DisposeAsync()
         {
             await _container.DisposeAsync();
         }

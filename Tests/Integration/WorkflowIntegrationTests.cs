@@ -16,6 +16,7 @@ using Conductor.Definition;
 using Conductor.Definition.TaskType;
 using System.Collections.Generic;
 using Xunit;
+using WorkflowModel = Conductor.Client.Models.Workflow;
 
 namespace Tests.Integration
 {
@@ -52,7 +53,7 @@ namespace Tests.Integration
         {
             var id = _workflowClient.StartWorkflow(new StartWorkflowRequest(name: WorkflowName));
             var workflow = _workflowClient.GetExecutionStatus(id);
-            Assert.Equal(Workflow.StatusEnum.RUNNING, workflow.Status);
+            Assert.Equal(WorkflowModel.StatusEnum.RUNNING, workflow.Status);
         }
 
         [Fact]
@@ -62,10 +63,10 @@ namespace Tests.Integration
             var id = _workflowClient.StartWorkflow(new StartWorkflowRequest(name: WorkflowName));
 
             _workflowClient.PauseWorkflow(id);
-            Assert.Equal(Workflow.StatusEnum.PAUSED, _workflowClient.GetExecutionStatus(id).Status);
+            Assert.Equal(WorkflowModel.StatusEnum.PAUSED, _workflowClient.GetExecutionStatus(id).Status);
 
             _workflowClient.ResumeWorkflow(id);
-            Assert.Equal(Workflow.StatusEnum.RUNNING, _workflowClient.GetExecutionStatus(id).Status);
+            Assert.Equal(WorkflowModel.StatusEnum.RUNNING, _workflowClient.GetExecutionStatus(id).Status);
         }
 
         [Fact]
@@ -74,7 +75,7 @@ namespace Tests.Integration
         {
             var id = _workflowClient.StartWorkflow(new StartWorkflowRequest(name: WorkflowName));
             _workflowClient.Terminate(id);
-            Assert.Equal(Workflow.StatusEnum.TERMINATED, _workflowClient.GetExecutionStatus(id).Status);
+            Assert.Equal(WorkflowModel.StatusEnum.TERMINATED, _workflowClient.GetExecutionStatus(id).Status);
         }
 
         private void RegisterWorkflow()
