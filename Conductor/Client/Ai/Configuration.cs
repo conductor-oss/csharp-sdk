@@ -47,6 +47,48 @@ namespace Conductor.Client.Ai
             /// </summary>
             [EnumMember(Value = "huggingface")]
             HUGGING_FACE = 4,
+
+            /// <summary>
+            /// Enum ANTHROPIC for value: anthropic
+            /// </summary>
+            [EnumMember(Value = "anthropic")]
+            ANTHROPIC = 5,
+
+            /// <summary>
+            /// Enum AWS_BEDROCK for value: aws_bedrock
+            /// </summary>
+            [EnumMember(Value = "aws_bedrock")]
+            AWS_BEDROCK = 6,
+
+            /// <summary>
+            /// Enum COHERE for value: cohere
+            /// </summary>
+            [EnumMember(Value = "cohere")]
+            COHERE = 7,
+
+            /// <summary>
+            /// Enum GROK for value: grok
+            /// </summary>
+            [EnumMember(Value = "grok")]
+            GROK = 8,
+
+            /// <summary>
+            /// Enum MISTRAL for value: mistral
+            /// </summary>
+            [EnumMember(Value = "mistral")]
+            MISTRAL = 9,
+
+            /// <summary>
+            /// Enum OLLAMA for value: ollama
+            /// </summary>
+            [EnumMember(Value = "ollama")]
+            OLLAMA = 10,
+
+            /// <summary>
+            /// Enum PERPLEXITY for value: perplexity
+            /// </summary>
+            [EnumMember(Value = "perplexity")]
+            PERPLEXITY = 11,
         }
 
         /// <summary>
@@ -66,6 +108,18 @@ namespace Conductor.Client.Ai
             /// </summary>
             [EnumMember(Value = "weaviatedb")]
             WEAVIATE_DB = 2,
+
+            /// <summary>
+            /// Enum POSTGRES_DB for value: postgresdb
+            /// </summary>
+            [EnumMember(Value = "postgresdb")]
+            POSTGRES_DB = 3,
+
+            /// <summary>
+            /// Enum MONGO_DB for value: mongodb
+            /// </summary>
+            [EnumMember(Value = "mongodb")]
+            MONGO_DB = 4,
         }
     }
 }

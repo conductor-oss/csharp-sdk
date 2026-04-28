@@ -201,4 +201,206 @@ namespace Conductor.Client.Ai
             };
         }
     }
+
+    /// <summary>
+    /// Configuration class for Anthropic integration.
+    /// </summary>
+    public class AnthropicConfig : IntegrationConfig
+    {
+        public string ApiKey { get; set; }
+
+        public AnthropicConfig(string apiKey = null)
+        {
+            ApiKey = apiKey ?? EnvironmentInstance.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        }
+
+        public override Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                { Constants.APIKEY, ApiKey }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Configuration class for AWS Bedrock integration.
+    /// </summary>
+    public class AwsBedrockConfig : IntegrationConfig
+    {
+        public string AccessKeyId { get; set; }
+        public string SecretAccessKey { get; set; }
+        public string Region { get; set; }
+
+        public AwsBedrockConfig(string accessKeyId = null, string secretAccessKey = null, string region = null)
+        {
+            AccessKeyId = accessKeyId ?? EnvironmentInstance.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
+            SecretAccessKey = secretAccessKey ?? EnvironmentInstance.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
+            Region = region ?? EnvironmentInstance.GetEnvironmentVariable("AWS_REGION") ?? "us-east-1";
+        }
+
+        public override Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                { "accessKeyId", AccessKeyId },
+                { "secretAccessKey", SecretAccessKey },
+                { "region", Region }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Configuration class for Cohere integration.
+    /// </summary>
+    public class CohereConfig : IntegrationConfig
+    {
+        public string ApiKey { get; set; }
+
+        public CohereConfig(string apiKey = null)
+        {
+            ApiKey = apiKey ?? EnvironmentInstance.GetEnvironmentVariable("COHERE_API_KEY");
+        }
+
+        public override Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                { Constants.APIKEY, ApiKey }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Configuration class for Grok integration.
+    /// </summary>
+    public class GrokConfig : IntegrationConfig
+    {
+        public string ApiKey { get; set; }
+
+        public GrokConfig(string apiKey = null)
+        {
+            ApiKey = apiKey ?? EnvironmentInstance.GetEnvironmentVariable("GROK_API_KEY");
+        }
+
+        public override Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                { Constants.APIKEY, ApiKey }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Configuration class for Mistral integration.
+    /// </summary>
+    public class MistralConfig : IntegrationConfig
+    {
+        public string ApiKey { get; set; }
+
+        public MistralConfig(string apiKey = null)
+        {
+            ApiKey = apiKey ?? EnvironmentInstance.GetEnvironmentVariable("MISTRAL_API_KEY");
+        }
+
+        public override Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                { Constants.APIKEY, ApiKey }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Configuration class for Ollama integration.
+    /// </summary>
+    public class OllamaConfig : IntegrationConfig
+    {
+        public string Endpoint { get; set; }
+
+        public OllamaConfig(string endpoint = null)
+        {
+            Endpoint = endpoint ?? EnvironmentInstance.GetEnvironmentVariable("OLLAMA_ENDPOINT") ?? "http://localhost:11434";
+        }
+
+        public override Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                { Constants.ENDPOINT, Endpoint }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Configuration class for Perplexity integration.
+    /// </summary>
+    public class PerplexityConfig : IntegrationConfig
+    {
+        public string ApiKey { get; set; }
+
+        public PerplexityConfig(string apiKey = null)
+        {
+            ApiKey = apiKey ?? EnvironmentInstance.GetEnvironmentVariable("PERPLEXITY_API_KEY");
+        }
+
+        public override Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                { Constants.APIKEY, ApiKey }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Configuration class for PostgreSQL/pgvector integration.
+    /// </summary>
+    public class PostgresConfig : IntegrationConfig
+    {
+        public string ConnectionString { get; set; }
+
+        public PostgresConfig(string connectionString = null)
+        {
+            ConnectionString = connectionString ?? EnvironmentInstance.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING");
+        }
+
+        public override Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                { "connectionString", ConnectionString }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Configuration class for MongoDB vector DB integration.
+    /// </summary>
+    public class MongoDbConfig : IntegrationConfig
+    {
+        public string ConnectionString { get; set; }
+        public string DatabaseName { get; set; }
+        public string CollectionName { get; set; }
+
+        public MongoDbConfig(string connectionString = null, string databaseName = null, string collectionName = null)
+        {
+            ConnectionString = connectionString ?? EnvironmentInstance.GetEnvironmentVariable("MONGODB_CONNECTION_STRING");
+            DatabaseName = databaseName;
+            CollectionName = collectionName;
+        }
+
+        public override Dictionary<string, object> ToDictionary()
+        {
+            var dict = new Dictionary<string, object>
+            {
+                { "connectionString", ConnectionString }
+            };
+            if (DatabaseName != null) dict["databaseName"] = DatabaseName;
+            if (CollectionName != null) dict["collectionName"] = CollectionName;
+            return dict;
+        }
+    }
 }

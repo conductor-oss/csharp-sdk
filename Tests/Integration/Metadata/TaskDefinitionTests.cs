@@ -19,7 +19,7 @@ using Xunit;
 namespace Tests.Integration.Metadata
 {
     [Collection("Integration")]
-    [Trait("Category", "Integration")]
+    [Trait("Category", "CloudIntegration")]
     public class TaskDefinitionTests : IClassFixture<ConductorFixture>
     {
         private readonly MetadataResourceApi _metadataClient;

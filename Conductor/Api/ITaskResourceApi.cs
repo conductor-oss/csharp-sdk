@@ -241,6 +241,15 @@ namespace conductor_csharp.Api
         Workflow UpdateTaskSync(Dictionary<string, Object> output, string workflowId, string taskRefName, TaskResult.StatusEnum status, string workerid = null);
 
 
+        /// <summary>
+        /// Update a task (v2) — updates the result and returns the next available task in one call.
+        /// Supported on newer Conductor servers. Falls back gracefully on older servers.
+        /// </summary>
+        /// <param name="body">Task result to submit</param>
+        /// <param name="workerid">Worker identifier (optional)</param>
+        /// <returns>Next task to process, or null if none available or server does not support v2</returns>
+        Task UpdateTaskV2(TaskResult body, string workerid = null);
+
         #endregion Synchronous Operations
 
         #region Asynchronous Operations
@@ -458,6 +467,11 @@ namespace conductor_csharp.Api
         /// <param name="workerid"> (optional)</param>
         /// <returns>Workflow</returns>
         ThreadTask.Task<Workflow> UpdateTaskSyncAsync(Dictionary<string, Object> output, string workflowId, string taskRefName, TaskResult.StatusEnum status, string workerid = null);
+
+        /// <summary>
+        /// Asynchronous update a task (v2) — updates the result and returns the next available task.
+        /// </summary>
+        ThreadTask.Task<Task> UpdateTaskV2Async(TaskResult body, string workerid = null);
 
         #endregion Asynchronous Operations
     }

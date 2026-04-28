@@ -19,7 +19,7 @@ using Xunit;
 namespace Tests.Integration.Event
 {
     [Collection("Integration")]
-    [Trait("Category", "Integration")]
+    [Trait("Category", "CloudIntegration")]
     public class EventHandlerTests : IClassFixture<ConductorFixture>
     {
         private readonly EventResourceApi _eventClient;

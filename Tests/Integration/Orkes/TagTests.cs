@@ -21,7 +21,7 @@ using Xunit;
 namespace Tests.Integration.Orkes
 {
     [Collection("Integration")]
-    [Trait("Category", "Integration")]
+    [Trait("Category", "CloudIntegration")]
     public class TagTests : IClassFixture<ConductorFixture>
     {
         private readonly TagsApi _tagsClient;

@@ -1,68 +1,202 @@
 # Writing Workers with the C# SDK
 
-A worker is responsible for executing a task. 
-Operator and System tasks are handled by the Conductor server, while user defined tasks needs to have a worker created that awaits the work to be scheduled by the server for it to be executed.
+## Overview
 
-Worker framework provides features such as polling threads, metrics and server communication.
+A worker is responsible for executing a task. Operator and system tasks are handled by the Conductor server, while user-defined tasks need a worker that polls the server for work.
 
-### Design Principles for Workers
-Each worker embodies design pattern and follows certain basic principles:
+The worker framework provides polling, metrics, error handling, health checks, and server communication.
 
-1. Workers are stateless and do not implement a workflow specific logic. 
-2. Each worker executes a very specific task and produces well-defined output given specific inputs. 
-3. Workers are meant to be idempotent (or should handle cases where the task that partially executed gets rescheduled due to timeouts etc.)
-4. Workers do not implement the logic to handle retries etc, that is taken care by the Conductor server.
+## Design Principles
 
-### Creating Task Workers
-Example worker
+1. Workers are **stateless** and do not implement workflow-specific logic
+2. Each worker executes a **specific task** and produces well-defined output given specific inputs
+3. Workers should be **idempotent** (handle cases where a partially executed task gets rescheduled)
+4. Workers do not implement retry logic — that is handled by the Conductor server
+
+## Creating a Worker
+
+Implement the `IWorkflowTask` interface:
 
 ```csharp
-public class SimpleWorker : IWorkflowTask
-{
-    public string TaskType { get; }
-    public WorkflowTaskExecutorConfiguration WorkerSettings { get; }
+using Conductor.Client.Interfaces;
+using Conductor.Client.Models;
+using Conductor.Client.Worker;
 
-    public SimpleWorker(string taskType = "test-sdk-csharp-task")
-    {
-        TaskType = taskType;
-        WorkerSettings = new WorkflowTaskExecutorConfiguration();
-    }
+public class GreetWorker : IWorkflowTask
+{
+    public string TaskType => "greet";
+    public WorkflowTaskExecutorConfiguration WorkerSettings { get; } = new();
 
     public TaskResult Execute(Task task)
     {
+        var name = task.InputData.GetValueOrDefault("name", "World");
+        task.OutputData["greeting"] = $"Hello, {name}!";
         return task.Completed();
     }
 }
 ```
 
-## Starting Workers
-You can use `WorkflowTaskHost` to create a worker host, it requires a configuration object and then you can add your workers.
+### Task Result Status
+
+Return the appropriate status from your worker:
 
 ```csharp
-using Conductor.Client.Worker;
-using System;
-using System.Threading.Thread;
+// Success
+return task.Completed();
 
-var host = WorkflowTaskHost.CreateWorkerHost(configuration, new SimpleWorker());
-await host.startAsync();
-Thread.Sleep(TimeSpan.FromSeconds(100));
+// Failure (will retry based on task definition)
+return task.Failed("Something went wrong");
+
+// Failure with terminal error (no retry)
+return task.FailedWithTerminalError("Unrecoverable error");
+
+// In progress (task will be polled again later)
+return task.InProgress("Still processing...");
 ```
 
-Check out our [integration tests](https://github.com/conductor-oss/csharp-sdk/blob/main/Tests/Worker/WorkerTests.cs) for more examples
+## Starting Workers
 
-Worker SDK collects the following metrics:
+Use `WorkflowTaskHost` to manage worker lifecycle:
 
+```csharp
+using Conductor.Client;
+using Conductor.Client.Worker;
 
-| Name               | Purpose                                      | Tags                             |
-| ------------------ | :------------------------------------------- | -------------------------------- |
-| task_poll_error    | Client error when polling for a task queue   | taskType, includeRetries, status |
-| task_execute_error | Execution error                              | taskType                         |
-| task_update_error  | Task status cannot be updated back to server | taskType                         |
-| task_poll_counter  | Incremented each time polling is done        | taskType                         |
-| task_poll_time     | Time to poll for a batch of tasks            | taskType                         |
-| task_execute_time  | Time to execute a task                       | taskType                         |
-| task_result_size   | Records output payload size of a task        | taskType                         |
+var configuration = new Configuration
+{
+    BasePath = "http://localhost:8080/api"
+};
 
-Metrics on client side supplements the one collected from server in identifying the network as well as client side issues.
+var host = WorkflowTaskHost.CreateWorkerHost(
+    configuration,
+    new GreetWorker(),
+    new ProcessWorker(),
+    new NotifyWorker()
+);
 
-### Next: [Create and Execute Workflows](https://github.com/conductor-oss/csharp-sdk/blob/main/docs/readme/workflow.md)
+await host.StartAsync();
+```
+
+## Configuring Workers
+
+Each worker can customize its behavior:
+
+```csharp
+public class BatchWorker : IWorkflowTask
+{
+    public string TaskType => "batch_task";
+    public WorkflowTaskExecutorConfiguration WorkerSettings { get; }
+
+    public BatchWorker()
+    {
+        WorkerSettings = new WorkflowTaskExecutorConfiguration
+        {
+            BatchSize = 10,                                          // Poll 10 tasks at once
+            PollInterval = TimeSpan.FromMilliseconds(500),          // Poll every 500ms
+            Domain = "production",                                   // Task domain
+            MaxPollBackoffInterval = TimeSpan.FromSeconds(30),      // Max backoff on empty queue
+            PollBackoffMultiplier = 2.0,                             // Exponential backoff multiplier
+            MaxRestartAttempts = 5,                                  // Auto-restart on failure
+            RestartDelay = TimeSpan.FromSeconds(10),                // Delay between restarts
+            LeaseExtensionEnabled = true,                            // Extend lease for long tasks
+            LeaseExtensionThreshold = TimeSpan.FromSeconds(60),     // Extend if > 60s
+        };
+    }
+
+    public TaskResult Execute(Task task) => task.Completed();
+}
+```
+
+See [Worker Configuration Guide](worker_configuration.md) for full details.
+
+## Worker Auto-Discovery
+
+Discover workers by scanning assemblies:
+
+```csharp
+using System.Reflection;
+
+var assembly = Assembly.GetExecutingAssembly();
+var workerTypes = assembly.GetTypes()
+    .Where(t => typeof(IWorkflowTask).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+    .ToList();
+
+foreach (var type in workerTypes)
+{
+    var worker = (IWorkflowTask)Activator.CreateInstance(type);
+    Console.WriteLine($"Found worker: {worker.TaskType}");
+}
+```
+
+## Annotated Workers
+
+Use attributes for simpler worker definitions:
+
+```csharp
+public class AnnotatedWorkers
+{
+    [WorkerTask("send_email", 5, "default", 200)]
+    public static TaskResult SendEmail(Task task)
+    {
+        // Send email logic
+        return task.Completed();
+    }
+}
+```
+
+## Metrics
+
+The worker framework collects metrics automatically:
+
+| Metric | Description |
+|--------|-------------|
+| `conductor.task.poll.count` | Polls performed per task type |
+| `conductor.task.poll.latency` | Time to poll for tasks |
+| `conductor.task.execution.count` | Tasks executed (success/failure) |
+| `conductor.task.execution.latency` | Task execution time |
+| `conductor.task.update.count` | Task status updates sent |
+| `conductor.task.update.latency` | Time to update task status |
+| `conductor.task.payload.size` | Input/output payload sizes |
+
+See [Metrics Guide](metrics.md) for configuration and export options.
+
+## Health Checks
+
+Monitor worker health at runtime:
+
+```csharp
+// Check if all workers are healthy
+bool allHealthy = coordinator.IsHealthy();
+
+// Get per-worker health details
+var statuses = coordinator.GetHealthStatuses();
+```
+
+## Event Listeners
+
+Monitor worker events for logging, alerting, or custom metrics:
+
+```csharp
+using Conductor.Client.Events;
+
+public class MyTaskListener : ITaskRunnerEventListener
+{
+    public void OnPolling(string taskType, string workerId, string domain) { }
+    public void OnPollSuccess(string taskType, string workerId, List<Task> tasks) { }
+    public void OnPollEmpty(string taskType, string workerId) { }
+    public void OnPollError(string taskType, string workerId, Exception ex) { }
+    public void OnTaskExecutionStarted(string taskType, Task task) { }
+    public void OnTaskExecutionCompleted(string taskType, Task task, TaskResult result) { }
+    public void OnTaskExecutionFailed(string taskType, Task task, Exception ex) { }
+    public void OnTaskUpdateSent(string taskType, TaskResult result) { }
+    public void OnTaskUpdateFailed(string taskType, TaskResult result, Exception ex) { }
+}
+
+EventDispatcher.Instance.Register(new MyTaskListener());
+```
+
+## Next
+
+- [Workflows Guide](workflow.md) — Define and execute workflows
+- [Worker Configuration](worker_configuration.md) — Advanced configuration
+- [Metrics Guide](metrics.md) — Telemetry and monitoring

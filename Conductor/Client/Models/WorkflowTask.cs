@@ -182,7 +182,57 @@ namespace Conductor.Client.Models
             /// Enum WAITFORWEBHOOK for value: WAIT_FOR_WEBHOOK
             /// </summary>
             [EnumMember(Value = "WAIT_FOR_WEBHOOK")]
-            WAITFORWEBHOOK = 30
+            WAITFORWEBHOOK = 30,
+            /// <summary>
+            /// Enum HTTPPOLL for value: HTTP_POLL
+            /// </summary>
+            [EnumMember(Value = "HTTP_POLL")]
+            HTTPPOLL = 31,
+            /// <summary>
+            /// Enum LLMSTOREEMBEDDINGS for value: LLM_STORE_EMBEDDINGS
+            /// </summary>
+            [EnumMember(Value = "LLM_STORE_EMBEDDINGS")]
+            LLMSTOREEMBEDDINGS = 32,
+            /// <summary>
+            /// Enum LLMSEARCHEMBEDDINGS for value: LLM_SEARCH_EMBEDDINGS
+            /// </summary>
+            [EnumMember(Value = "LLM_SEARCH_EMBEDDINGS")]
+            LLMSEARCHEMBEDDINGS = 33,
+            /// <summary>
+            /// Enum GETDOCUMENT for value: GET_DOCUMENT
+            /// </summary>
+            [EnumMember(Value = "GET_DOCUMENT")]
+            GETDOCUMENT = 34,
+            /// <summary>
+            /// Enum GENERATEIMAGE for value: GENERATE_IMAGE
+            /// </summary>
+            [EnumMember(Value = "GENERATE_IMAGE")]
+            GENERATEIMAGE = 35,
+            /// <summary>
+            /// Enum GENERATEAUDIO for value: GENERATE_AUDIO
+            /// </summary>
+            [EnumMember(Value = "GENERATE_AUDIO")]
+            GENERATEAUDIO = 36,
+            /// <summary>
+            /// Enum LISTMCPTOOLS for value: LIST_MCP_TOOLS
+            /// </summary>
+            [EnumMember(Value = "LIST_MCP_TOOLS")]
+            LISTMCPTOOLS = 37,
+            /// <summary>
+            /// Enum CALLMCPTOOL for value: CALL_MCP_TOOL
+            /// </summary>
+            [EnumMember(Value = "CALL_MCP_TOOL")]
+            CALLMCPTOOL = 38,
+            /// <summary>
+            /// Enum TOOLCALL for value: TOOL_CALL
+            /// </summary>
+            [EnumMember(Value = "TOOL_CALL")]
+            TOOLCALL = 39,
+            /// <summary>
+            /// Enum TOOLSPEC for value: TOOL_SPEC
+            /// </summary>
+            [EnumMember(Value = "TOOL_SPEC")]
+            TOOLSPEC = 40
         }
         /// <summary>
         /// Gets or Sets WorkflowTaskType

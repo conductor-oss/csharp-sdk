@@ -20,6 +20,7 @@ namespace Conductor.Client.Worker
     public class WorkflowTaskHttpClient : IWorkflowTaskClient
     {
         private readonly TaskResourceApi _client;
+
         public WorkflowTaskHttpClient(Configuration configuration)
         {
             _client = configuration.GetClient<TaskResourceApi>();
@@ -33,6 +34,16 @@ namespace Conductor.Client.Worker
         public string UpdateTask(TaskResult result)
         {
             return _client.UpdateTask(result);
+        }
+
+        /// <summary>
+        /// Update task and retrieve the next task in one call (task-update-v2).
+        /// Throws ApiException with 404/405 if the server does not support v2 —
+        /// the caller (WorkflowTaskExecutor) is responsible for the v1 fallback.
+        /// </summary>
+        public Task UpdateTaskAndGetNext(TaskResult result, string taskType, string workerId, string domain)
+        {
+            return _client.UpdateTaskV2(result, workerId);
         }
     }
 }

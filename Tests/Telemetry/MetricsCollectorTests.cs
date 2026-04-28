@@ -29,7 +29,10 @@ namespace Tests.Telemetry
         {
             _listener.InstrumentPublished = (instrument, listener) =>
             {
-                if (instrument.Meter.Name == MetricsCollector.MeterName)
+                // Exclude ConductorMetrics instruments (all prefixed "conductor.") to avoid
+                // cross-test interference when parallel test classes emit on the same meter.
+                if (instrument.Meter.Name == MetricsCollector.MeterName
+                    && !instrument.Name.StartsWith("conductor."))
                     listener.EnableMeasurementEvents(instrument);
             };
 

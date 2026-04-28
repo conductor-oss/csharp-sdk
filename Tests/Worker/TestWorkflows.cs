@@ -23,7 +23,7 @@ using Xunit;
 
 namespace Test.Worker
 {
-    [Xunit.Trait("Category", "CloudIntegration")]
+    [Trait("Category", "CloudIntegration")]
     public class TestWorkflows
     {
         private readonly WorkflowResourceApi workflowClient;

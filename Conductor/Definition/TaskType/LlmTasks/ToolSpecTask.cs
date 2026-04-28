@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 2024 Conductor Authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
@@ -10,15 +10,18 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-using Conductor.Client.Worker;
-using System.Threading;
-using System.Threading.Tasks;
+using Conductor.Client.Models;
+using System.Collections.Generic;
 
-namespace Conductor.Client.Interfaces
+namespace Conductor.Definition.TaskType.LlmTasks
 {
-    public interface IWorkflowTaskCoordinator
+    public class ToolSpecTask : Task
     {
-        Task Start(CancellationToken token = default);
-        void RegisterWorker(IWorkflowTask worker);
+        public ToolSpecTask(string taskReferenceName, string name, string description, Dictionary<string, object> inputSchema = null) : base(taskReferenceName, WorkflowTask.WorkflowTaskTypeEnum.TOOLSPEC)
+        {
+            WithInput("name", name);
+            WithInput("description", description);
+            if (inputSchema != null) WithInput("inputSchema", inputSchema);
+        }
     }
 }

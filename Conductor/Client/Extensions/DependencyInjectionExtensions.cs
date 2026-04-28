@@ -11,6 +11,7 @@
  * specific language governing permissions and limitations under the License.
  */
 using Conductor.Client.Interfaces;
+using Conductor.Client.Orkes;
 using Conductor.Client.Telemetry;
 using Conductor.Client.Worker;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,6 +42,18 @@ namespace Conductor.Client.Extensions
             services.AddSingleton<IWorkflowTaskClient, WorkflowTaskHttpClient>();
             services.AddSingleton<MetricsCollector>();
             services.AddTransient<IWorkflowTaskCoordinator, WorkflowTaskCoordinator>();
+            return services;
+        }
+
+        /// <summary>
+        /// Adds Conductor worker services with automatic task definition registration support.
+        /// Workers annotated with <c>[WorkerTask(RegisterTaskDef = true)]</c> will have their
+        /// task definitions registered on startup.
+        /// </summary>
+        public static IServiceCollection AddConductorWorkerWithMetadata(this IServiceCollection services, Configuration configuration = null)
+        {
+            services.AddConductorWorker(configuration);
+            services.AddSingleton<IMetadataClient>(sp => new OrkesMetadataClient(sp.GetRequiredService<Configuration>()));
             return services;
         }
 

@@ -19,5 +19,24 @@ namespace Conductor.Client.Interfaces
         void IncrementRunningWorker();
         int GetRunningWorkers();
         void RunningWorkerDone();
+        void RecordPollSuccess(int taskCount);
+        void RecordPollError();
+        void RecordTaskSuccess();
+        void RecordTaskError();
+        bool IsHealthy();
+        WorkerHealthStatus GetHealthStatus();
+    }
+
+    public class WorkerHealthStatus
+    {
+        public bool IsHealthy { get; set; }
+        public int RunningWorkers { get; set; }
+        public int ConsecutivePollErrors { get; set; }
+        public int TotalTasksProcessed { get; set; }
+        public int TotalTaskErrors { get; set; }
+        public int TotalPollErrors { get; set; }
+        public System.DateTime? LastPollTime { get; set; }
+        public System.DateTime? LastTaskCompletedTime { get; set; }
+        public System.DateTime? LastErrorTime { get; set; }
     }
 }

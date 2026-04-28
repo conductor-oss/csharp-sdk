@@ -21,7 +21,7 @@ using Xunit;
 namespace Tests.Integration.Scheduler
 {
     [Collection("Integration")]
-    [Trait("Category", "Integration")]
+    [Trait("Category", "CloudIntegration")]
     public class SchedulerTests : IClassFixture<ConductorFixture>
     {
         private readonly SchedulerResourceApi _schedulerClient;

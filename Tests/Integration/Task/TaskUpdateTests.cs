@@ -21,7 +21,7 @@ using Xunit;
 namespace Tests.Integration.Task
 {
     [Collection("Integration")]
-    [Trait("Category", "Integration")]
+    [Trait("Category", "CloudIntegration")]
     public class TaskUpdateTests : IClassFixture<ConductorFixture>
     {
         private readonly WorkflowResourceApi _workflowClient;

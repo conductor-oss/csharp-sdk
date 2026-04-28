@@ -15,7 +15,7 @@ using Conductor.Definition.TaskType;
 using Conductor.Definition.TaskType.LlmTasks.Utils;
 using System.Collections.Generic;
 
-namespace Conductor.DefinitaskNametion.TaskType.LlmTasks
+namespace Conductor.Definition.TaskType.LlmTasks
 {
     /// <summary>
     /// LlmIndexText
