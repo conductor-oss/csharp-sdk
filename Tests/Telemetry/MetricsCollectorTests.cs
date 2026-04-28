@@ -160,7 +160,7 @@ namespace Tests.Telemetry
             Assert.Equal("external_payload_used_total", m.Name);
             AssertTag(m, "entityName", "entity");
             AssertTag(m, "operation", "READ");
-            AssertTag(m, "payload_type", "TASK_INPUT");
+            AssertTag(m, "payloadType", "TASK_INPUT");
         }
 
         [Fact]

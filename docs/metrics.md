@@ -40,7 +40,7 @@ All metrics are registered under the meter named `Conductor.Client`.
 | `task_execution_queue_full_total` | Counter | `taskType` | Polls returning zero capacity (all workers busy) |
 | `thread_uncaught_exceptions_total` | Counter | `exception` | Uncaught exceptions in worker threads |
 | `workflow_start_error_total` | Counter | `workflowType`, `exception` | Errors starting workflows |
-| `external_payload_used_total` | Counter | `entityName`, `operation`, `payload_type` | External payload storage usage |
+| `external_payload_used_total` | Counter | `entityName`, `operation`, `payloadType` | External payload storage usage |
 | `task_poll_time_seconds` | Histogram | `taskType`, `status` | Task poll round-trip duration (seconds) |
 | `task_execute_time_seconds` | Histogram | `taskType`, `status` | Task execution duration (seconds) |
 | `task_update_time_seconds` | Histogram | `taskType`, `status` | Task result update duration (seconds) |
@@ -155,7 +155,7 @@ Monotonically increasing values. Prometheus exposes them with a `_total` suffix.
 | `task_execution_queue_full_total` | `taskType` | Incremented when a poll is skipped because all workers are busy (batch size reached). |
 | `thread_uncaught_exceptions_total` | `exception` | Incremented on any exception in the top-level poll loop that is not an `OperationCanceledException`. |
 | `workflow_start_error_total` | `workflowType`, `exception` | Incremented when a `WorkflowExecutor.StartWorkflow()` call fails. |
-| `external_payload_used_total` | `entityName`, `operation`, `payload_type` | Incremented when external payload storage is used. |
+| `external_payload_used_total` | `entityName`, `operation`, `payloadType` | Incremented when external payload storage is used. |
 
 ### Histograms
 
@@ -192,13 +192,14 @@ The C# SDK uses the canonical label names defined by the cross-SDK metrics harmo
 | `method` | `http_api_client_request_seconds` | HTTP verb (`GET`, `POST`, etc.). |
 | `uri` | `http_api_client_request_seconds` | Request path (interpolated, not templated). |
 | `operation` | `external_payload_used_total` | `READ` or `WRITE`. |
-| `payload_type` | `external_payload_used_total` | `TASK_INPUT`, `TASK_OUTPUT`, `WORKFLOW_INPUT`, or `WORKFLOW_OUTPUT`. |
+| `payloadType` | `external_payload_used_total` | `TASK_INPUT`, `TASK_OUTPUT`, `WORKFLOW_INPUT`, or `WORKFLOW_OUTPUT`. |
 | `version` | `workflow_input_size_bytes` | Workflow version string. |
 
 **Label naming convention.** Labels referencing Conductor domain entities (`taskType`,
 `workflowType`, `entityName`) use camelCase to match the Conductor API's JSON field names.
 Generic observability labels (`status`, `method`, `uri`, `exception`, `operation`,
-`payload_type`, `version`) follow the standard Prometheus snake_case / lowercase convention.
+`version`) follow the standard Prometheus snake_case / lowercase convention.
+`payloadType` uses camelCase to match other Conductor domain-entity labels.
 
 > **Note:** Unlike some other Conductor SDKs that are undergoing a migration from legacy
 > label names, the C# SDK's metrics surface is entirely new and emits only canonical labels.
