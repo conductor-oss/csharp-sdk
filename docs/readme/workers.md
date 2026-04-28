@@ -50,19 +50,8 @@ Thread.Sleep(TimeSpan.FromSeconds(100));
 
 Check out our [integration tests](https://github.com/conductor-oss/csharp-sdk/blob/main/Tests/Worker/WorkerTests.cs) for more examples
 
-Worker SDK collects the following metrics:
-
-
-| Name               | Purpose                                      | Tags                             |
-| ------------------ | :------------------------------------------- | -------------------------------- |
-| task_poll_error    | Client error when polling for a task queue   | taskType, includeRetries, status |
-| task_execute_error | Execution error                              | taskType                         |
-| task_update_error  | Task status cannot be updated back to server | taskType                         |
-| task_poll_counter  | Incremented each time polling is done        | taskType                         |
-| task_poll_time     | Time to poll for a batch of tasks            | taskType                         |
-| task_execute_time  | Time to execute a task                       | taskType                         |
-| task_result_size   | Records output payload size of a task        | taskType                         |
-
-Metrics on client side supplements the one collected from server in identifying the network as well as client side issues.
+The worker SDK collects metrics for poll latency, execution time, update time, error rates, queue
+utilization, and more. See [metrics.md](../metrics.md) for the full list of metrics, labels,
+configuration options, and example Prometheus output.
 
 ### Next: [Create and Execute Workflows](https://github.com/conductor-oss/csharp-sdk/blob/main/docs/readme/workflow.md)

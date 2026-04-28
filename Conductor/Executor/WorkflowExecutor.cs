@@ -13,26 +13,32 @@
 using Conductor.Api;
 using Conductor.Client;
 using Conductor.Client.Models;
+using Conductor.Client.Telemetry;
 using Conductor.Definition;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 
 namespace Conductor.Executor
 {
     public class WorkflowExecutor
     {
-        private WorkflowResourceApi _workflowClient;
-        private MetadataResourceApi _metadataClient;
+        private readonly WorkflowResourceApi _workflowClient;
+        private readonly MetadataResourceApi _metadataClient;
+        private readonly MetricsCollector _metrics;
 
-        public WorkflowExecutor(Configuration configuration)
+        public WorkflowExecutor(Configuration configuration, MetricsCollector metrics = null)
         {
             _workflowClient = configuration.GetClient<WorkflowResourceApi>();
             _metadataClient = configuration.GetClient<MetadataResourceApi>();
+            _metrics = metrics;
         }
 
-        public WorkflowExecutor(WorkflowResourceApi workflowClient, MetadataResourceApi metadataClient)
+        public WorkflowExecutor(WorkflowResourceApi workflowClient, MetadataResourceApi metadataClient, MetricsCollector metrics = null)
         {
             _workflowClient = workflowClient;
             _metadataClient = metadataClient;
+            _metrics = metrics;
         }
 
         public void RegisterWorkflow(WorkflowDef workflow, bool overwrite)
@@ -54,7 +60,41 @@ namespace Conductor.Executor
 
         public string StartWorkflow(StartWorkflowRequest startWorkflowRequest)
         {
-            return _workflowClient.StartWorkflow(startWorkflowRequest);
+            RecordInputSize(startWorkflowRequest);
+            try
+            {
+                return _workflowClient.StartWorkflow(startWorkflowRequest);
+            }
+            catch (Exception ex)
+            {
+                _metrics?.RecordWorkflowStartError(
+                    startWorkflowRequest.Name ?? "",
+                    ex.GetType().Name);
+                throw;
+            }
+        }
+
+        private void RecordInputSize(StartWorkflowRequest request)
+        {
+            if (_metrics == null)
+                return;
+            try
+            {
+                double size = 0;
+                if (request.Input != null)
+                {
+                    var json = JsonConvert.SerializeObject(request.Input);
+                    size = json.Length;
+                }
+                _metrics.RecordWorkflowInputSize(
+                    request.Name ?? "",
+                    request.Version?.ToString() ?? "",
+                    size);
+            }
+            catch
+            {
+                // Don't let metrics serialization failures disrupt workflow start.
+            }
         }
     }
 }

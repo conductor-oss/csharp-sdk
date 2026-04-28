@@ -39,7 +39,12 @@ namespace Conductor.Client.Extensions
             }
             services.AddSingleton<Configuration>(configuration);
             services.AddSingleton<IWorkflowTaskClient, WorkflowTaskHttpClient>();
-            services.AddSingleton<MetricsCollector>();
+            services.AddSingleton<MetricsCollector>(sp =>
+            {
+                var collector = new MetricsCollector();
+                ApiClient.Metrics = collector;
+                return collector;
+            });
             services.AddTransient<IWorkflowTaskCoordinator, WorkflowTaskCoordinator>();
             return services;
         }
