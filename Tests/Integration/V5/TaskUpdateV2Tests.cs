@@ -26,7 +26,7 @@ namespace Tests.Integration.V5
     /// Runs only against v5 — excluded from v4 CI job via Version!=V5Only filter.
     /// </summary>
     [Collection("Integration")]
-    [Trait("Category", "Integration")]
+    [Trait("Category", "CloudIntegration")]
     [Trait("Version", "V5Only")]
     public class TaskUpdateV2Tests : IClassFixture<ConductorFixture>
     {

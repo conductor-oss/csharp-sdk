@@ -22,7 +22,7 @@ using Xunit;
 namespace Tests.Integration.Workflow
 {
     [Collection("Integration")]
-    [Trait("Category", "Integration")]
+    [Trait("Category", "CloudIntegration")]
     public class WorkflowBulkTests : IClassFixture<ConductorFixture>
     {
         private readonly WorkflowResourceApi _workflowClient;

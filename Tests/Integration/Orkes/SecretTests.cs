@@ -17,7 +17,7 @@ using Xunit;
 namespace Tests.Integration.Orkes
 {
     [Collection("Integration")]
-    [Trait("Category", "Integration")]
+    [Trait("Category", "CloudIntegration")]
     public class SecretTests : IClassFixture<ConductorFixture>
     {
         private readonly SecretResourceApi _secretClient;

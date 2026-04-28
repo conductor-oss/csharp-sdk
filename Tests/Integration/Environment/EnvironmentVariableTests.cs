@@ -17,7 +17,7 @@ using Xunit;
 namespace Tests.Integration.Environment
 {
     [Collection("Integration")]
-    [Trait("Category", "Integration")]
+    [Trait("Category", "CloudIntegration")]
     public class EnvironmentVariableTests : IClassFixture<ConductorFixture>
     {
         private readonly EnvironmentResourceApi _envClient;
