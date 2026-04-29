@@ -10,12 +10,14 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
+using Conductor.Client.Telemetry;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RestSharp;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -29,6 +31,12 @@ namespace Conductor.Client
     /// </summary>
     public partial class ApiClient
     {
+        /// <summary>
+        /// Optional metrics collector for recording http_api_client_request_seconds.
+        /// Set once via DI or startup; safe to leave null.
+        /// </summary>
+        public static MetricsCollector Metrics { get; set; }
+
         public JsonSerializerSettings serializerSettings = new JsonSerializerSettings
         {
             ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor
@@ -179,11 +187,30 @@ namespace Conductor.Client
             Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
             String contentType, Configuration configuration)
         {
-            int retryCount = 0;
-            RestResponse response = RetryRestClientCallApi(path, method, queryParams, postBody, headerParams,
-                formParams, fileParams, pathParams, contentType, configuration, ref retryCount);
-
-            return (Object)response;
+            var sw = Stopwatch.StartNew();
+            string statusCode = "0";
+            try
+            {
+                int retryCount = 0;
+                RestResponse response = RetryRestClientCallApi(path, method, queryParams, postBody, headerParams,
+                    formParams, fileParams, pathParams, contentType, configuration, ref retryCount);
+                statusCode = ((int)response.StatusCode).ToString();
+                return (Object)response;
+            }
+            catch
+            {
+                statusCode = "0";
+                throw;
+            }
+            finally
+            {
+                sw.Stop();
+                var resolvedUri = path;
+                foreach (var param in pathParams)
+                    resolvedUri = resolvedUri.Replace("{" + param.Key + "}", param.Value);
+                var basePath = RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "";
+                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + resolvedUri, statusCode, sw.Elapsed.TotalSeconds);
+            }
         }
 
         private RestResponse RetryRestClientCallApi(String path, Method method, List<KeyValuePair<String, String>> queryParams, Object postBody,
@@ -226,15 +253,35 @@ namespace Conductor.Client
             Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
             String contentType)
         {
-            var request = PrepareRequest(
-                path, method, queryParams, postBody, headerParams, formParams, fileParams,
-                pathParams, contentType);
+            var sw = Stopwatch.StartNew();
+            string statusCode = "0";
+            try
+            {
+                var request = PrepareRequest(
+                    path, method, queryParams, postBody, headerParams, formParams, fileParams,
+                    pathParams, contentType);
 
-            InterceptRequest(request);
-            var response = await RestClient.ExecuteAsync(request, method);
-            InterceptResponse(request, response);
-            FormatHeaders(response);
-            return (object)response;
+                InterceptRequest(request);
+                var response = await RestClient.ExecuteAsync(request, method);
+                InterceptResponse(request, response);
+                FormatHeaders(response);
+                statusCode = ((int)response.StatusCode).ToString();
+                return (object)response;
+            }
+            catch
+            {
+                statusCode = "0";
+                throw;
+            }
+            finally
+            {
+                sw.Stop();
+                var resolvedUri = path;
+                foreach (var param in pathParams)
+                    resolvedUri = resolvedUri.Replace("{" + param.Key + "}", param.Value);
+                var basePath = RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "";
+                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + resolvedUri, statusCode, sw.Elapsed.TotalSeconds);
+            }
         }
 
         /// <summary>

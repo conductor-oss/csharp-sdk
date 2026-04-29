@@ -45,143 +45,201 @@ namespace Tests.Telemetry
             _listener.Start();
         }
 
-        public void Dispose() => _listener.Dispose();
+        public void Dispose()
+        {
+            _sut.Dispose();
+            _listener.Dispose();
+        }
 
         // ---------------------------------------------------------------
         // Counters
         // ---------------------------------------------------------------
 
         [Fact]
-        public void RecordTaskPoll_EmitsCounterWithTaskType()
+        public void RecordTaskPoll_EmitsCanonicalLabels()
         {
             _sut.RecordTaskPoll("my_task");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_poll_total", m.Name);
             Assert.Equal(1L, m.Value);
-            AssertTag(m, "task_type", "my_task");
+            AssertTag(m, "taskType", "my_task");
         }
 
         [Fact]
-        public void RecordTaskPollError_EmitsCounterWithBothTags()
+        public void RecordTaskExecutionStarted_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskExecutionStarted("my_task");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_execution_started_total", m.Name);
+            AssertTag(m, "taskType", "my_task");
+        }
+
+        [Fact]
+        public void RecordTaskPollError_EmitsCanonicalLabels()
         {
             _sut.RecordTaskPollError("my_task", "TimeoutException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_poll_error_total", m.Name);
-            AssertTag(m, "task_type", "my_task");
-            AssertTag(m, "error_type", "TimeoutException");
+            AssertTag(m, "taskType", "my_task");
+            AssertTag(m, "exception", "TimeoutException");
         }
 
         [Fact]
-        public void RecordTaskExecuteError_EmitsCounterWithBothTags()
+        public void RecordTaskExecuteError_EmitsCanonicalLabels()
         {
             _sut.RecordTaskExecuteError("task_a", "NullReferenceException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_execute_error_total", m.Name);
-            AssertTag(m, "task_type", "task_a");
-            AssertTag(m, "error_type", "NullReferenceException");
+            AssertTag(m, "taskType", "task_a");
+            AssertTag(m, "exception", "NullReferenceException");
         }
 
         [Fact]
-        public void RecordTaskUpdateError_EmitsCounter()
+        public void RecordTaskUpdateError_EmitsCanonicalLabels()
         {
-            _sut.RecordTaskUpdateError("task_b");
+            _sut.RecordTaskUpdateError("task_b", "HttpRequestException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_update_error_total", m.Name);
-            AssertTag(m, "task_type", "task_b");
+            AssertTag(m, "taskType", "task_b");
+            AssertTag(m, "exception", "HttpRequestException");
         }
 
         [Fact]
-        public void RecordTaskPaused_EmitsCounter()
+        public void RecordTaskAckError_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskAckError("my_task", "HttpRequestException");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_ack_error_total", m.Name);
+            AssertTag(m, "taskType", "my_task");
+            AssertTag(m, "exception", "HttpRequestException");
+        }
+
+        [Fact]
+        public void RecordTaskAckFailed_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskAckFailed("my_task");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_ack_failed_total", m.Name);
+            AssertTag(m, "taskType", "my_task");
+        }
+
+        [Fact]
+        public void RecordTaskPaused_EmitsCanonicalLabels()
         {
             _sut.RecordTaskPaused("paused_task");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_paused_total", m.Name);
-            AssertTag(m, "task_type", "paused_task");
+            AssertTag(m, "taskType", "paused_task");
         }
 
         [Fact]
-        public void RecordTaskExecutionQueueFull_EmitsCounter()
+        public void RecordTaskExecutionQueueFull_EmitsCanonicalLabels()
         {
             _sut.RecordTaskExecutionQueueFull("busy_task");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_execution_queue_full_total", m.Name);
-            AssertTag(m, "task_type", "busy_task");
+            AssertTag(m, "taskType", "busy_task");
         }
 
         [Fact]
-        public void RecordUncaughtException_EmitsCounterWithNoTags()
+        public void RecordUncaughtException_EmitsExceptionLabel()
         {
-            _sut.RecordUncaughtException();
+            _sut.RecordUncaughtException("InvalidOperationException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("thread_uncaught_exceptions_total", m.Name);
             Assert.Equal(1L, m.Value);
+            AssertTag(m, "exception", "InvalidOperationException");
         }
 
         [Fact]
-        public void RecordWorkflowStartError_EmitsCounter()
+        public void RecordWorkflowStartError_EmitsCanonicalLabels()
         {
-            _sut.RecordWorkflowStartError("my_workflow");
+            _sut.RecordWorkflowStartError("my_workflow", "ApiException");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("workflow_start_error_total", m.Name);
-            AssertTag(m, "workflow_type", "my_workflow");
+            AssertTag(m, "workflowType", "my_workflow");
+            AssertTag(m, "exception", "ApiException");
         }
 
         [Fact]
-        public void RecordExternalPayloadUsed_EmitsCounterWithThreeTags()
+        public void RecordExternalPayloadUsed_EmitsCanonicalLabels()
         {
-            _sut.RecordExternalPayloadUsed("entity", "read", "input");
+            _sut.RecordExternalPayloadUsed("entity", "READ", "TASK_INPUT");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("external_payload_used_total", m.Name);
-            AssertTag(m, "entity_name", "entity");
-            AssertTag(m, "operation", "read");
-            AssertTag(m, "payload_type", "input");
+            AssertTag(m, "entityName", "entity");
+            AssertTag(m, "operation", "READ");
+            AssertTag(m, "payloadType", "TASK_INPUT");
         }
 
         // ---------------------------------------------------------------
-        // Histograms
+        // Time histograms -- status label
         // ---------------------------------------------------------------
 
         [Fact]
-        public void RecordTaskPollTime_RecordsDuration()
+        public void RecordTaskPollTime_IncludesStatusLabel()
         {
-            _sut.RecordTaskPollTime("fast_task", 0.123);
+            _sut.RecordTaskPollTime("fast_task", 0.123, "SUCCESS");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_poll_time_seconds", m.Name);
             Assert.Equal(0.123, m.Value);
-            AssertTag(m, "task_type", "fast_task");
+            AssertTag(m, "taskType", "fast_task");
+            AssertTag(m, "status", "SUCCESS");
         }
 
         [Fact]
-        public void RecordTaskExecuteTime_RecordsDuration()
+        public void RecordTaskExecuteTime_IncludesStatusLabel()
         {
-            _sut.RecordTaskExecuteTime("slow_task", 5.5);
+            _sut.RecordTaskExecuteTime("slow_task", 5.5, "FAILURE");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_execute_time_seconds", m.Name);
             Assert.Equal(5.5, m.Value);
-            AssertTag(m, "task_type", "slow_task");
+            AssertTag(m, "taskType", "slow_task");
+            AssertTag(m, "status", "FAILURE");
         }
 
         [Fact]
-        public void RecordTaskUpdateTime_RecordsDuration()
+        public void RecordTaskUpdateTime_IncludesStatusLabel()
         {
-            _sut.RecordTaskUpdateTime("task_c", 0.05);
+            _sut.RecordTaskUpdateTime("task_c", 0.05, "SUCCESS");
 
             var m = Assert.Single(_recorded);
             Assert.Equal("task_update_time_seconds", m.Name);
             Assert.Equal(0.05, m.Value);
-            AssertTag(m, "task_type", "task_c");
+            AssertTag(m, "taskType", "task_c");
+            AssertTag(m, "status", "SUCCESS");
         }
+
+        [Fact]
+        public void RecordHttpApiClientRequest_RecordsDuration()
+        {
+            _sut.RecordHttpApiClientRequest("GET", "/api/tasks/poll/batch/my_task", "200", 0.042);
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("http_api_client_request_seconds", m.Name);
+            Assert.Equal(0.042, m.Value);
+            AssertTag(m, "method", "GET");
+            AssertTag(m, "uri", "/api/tasks/poll/batch/my_task");
+            AssertTag(m, "status", "200");
+        }
+
+        // ---------------------------------------------------------------
+        // Size histograms
+        // ---------------------------------------------------------------
 
         [Fact]
         public void RecordTaskResultSize_RecordsBytes()
@@ -191,19 +249,19 @@ namespace Tests.Telemetry
             var m = Assert.Single(_recorded);
             Assert.Equal("task_result_size_bytes", m.Name);
             Assert.Equal(1024.0, m.Value);
-            AssertTag(m, "task_type", "task_d");
+            AssertTag(m, "taskType", "task_d");
         }
 
         [Fact]
         public void RecordWorkflowInputSize_RecordsBytesWithVersionTag()
         {
-            _sut.RecordWorkflowInputSize("wf_type", "v2", 2048.0);
+            _sut.RecordWorkflowInputSize("wf_type", "2", 2048.0);
 
             var m = Assert.Single(_recorded);
             Assert.Equal("workflow_input_size_bytes", m.Name);
             Assert.Equal(2048.0, m.Value);
-            AssertTag(m, "workflow_type", "wf_type");
-            AssertTag(m, "version", "v2");
+            AssertTag(m, "workflowType", "wf_type");
+            AssertTag(m, "version", "2");
         }
 
         // ---------------------------------------------------------------
@@ -231,9 +289,9 @@ namespace Tests.Telemetry
 
             Assert.Equal(2, gaugeValues.Count);
             Assert.Contains(gaugeValues, g =>
-                (int)g.Value == 3 && g.Tags.Any(t => t.Key == "task_type" && (string)t.Value == "task_x"));
+                (int)g.Value == 3 && g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "task_x"));
             Assert.Contains(gaugeValues, g =>
-                (int)g.Value == 7 && g.Tags.Any(t => t.Key == "task_type" && (string)t.Value == "task_y"));
+                (int)g.Value == 7 && g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "task_y"));
         }
 
         [Fact]
@@ -256,7 +314,7 @@ namespace Tests.Telemetry
             gaugeListener.RecordObservableInstruments();
 
             var match = gaugeValues.Where(g =>
-                g.Tags.Any(t => t.Key == "task_type" && (string)t.Value == "overwrite_test_task")).ToList();
+                g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "overwrite_test_task")).ToList();
             var single = Assert.Single(match);
             Assert.Equal(10, (int)single.Value);
         }

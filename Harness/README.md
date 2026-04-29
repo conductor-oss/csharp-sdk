@@ -58,7 +58,7 @@ All resource names use a `csharp_` prefix so multiple SDK harnesses (Python, Jav
 ### Metrics
 
 The harness exposes Prometheus metrics at `http://localhost:9991/metrics` via the OpenTelemetry
-Prometheus exporter. See [METRICS.md](../METRICS.md) for the full list of metrics, labels, and
+Prometheus exporter. See [docs/metrics.md](../docs/metrics.md) for the full list of metrics, labels, and
 configuration options.
 
 ### Environment Variables
