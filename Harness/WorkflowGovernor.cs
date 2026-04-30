@@ -42,7 +42,7 @@ namespace Harness
                     for (var i = 0; i < _workflowsPerSecond; i++)
                     {
                         _workflowExecutor.StartWorkflow(
-                            new Conductor.Client.Models.StartWorkflowRequest(name: _workflowName));
+                            new Conductor.Client.Models.StartWorkflowRequest(name: _workflowName, version: 1));
                     }
 
                     _logger.LogInformation("Governor: started {Count} workflow(s)", _workflowsPerSecond);
