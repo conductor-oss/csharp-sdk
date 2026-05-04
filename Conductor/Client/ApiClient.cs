@@ -62,7 +62,7 @@ namespace Conductor.Client
         public ApiClient(int timeOut)
         {
             Configuration = Conductor.Client.Configuration.Default;
-            RestClient = new RestClient(options: new RestClientOptions() { BaseUrl = new Uri("https://play.orkes.io/api"), MaxTimeout = timeOut });
+            RestClient = new RestClient(options: new RestClientOptions() { BaseUrl = new Uri("https://play.orkes.io/api"), Timeout = TimeSpan.FromMilliseconds(timeOut) });
         }
 
         /// <summary>

@@ -138,7 +138,7 @@ namespace Conductor.Client
             }
             set
             {
-                ApiClient.RestClient = new RestClient(new RestClientOptions() { BaseUrl = new Uri(value), MaxTimeout = Timeout });
+                ApiClient.RestClient = new RestClient(new RestClientOptions() { BaseUrl = new Uri(value), Timeout = TimeSpan.FromMilliseconds(Timeout) });
             }
         }
 
