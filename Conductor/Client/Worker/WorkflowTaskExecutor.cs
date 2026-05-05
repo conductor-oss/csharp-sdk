@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 2024 Conductor Authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
@@ -93,7 +93,7 @@ namespace Conductor.Client.Worker
                     if (token != CancellationToken.None)
                         token.ThrowIfCancellationRequested();
 
-                    WorkOnce(token);
+                    WorkOnce(token).GetAwaiter().GetResult();
                 }
                 catch (System.OperationCanceledException canceledException)
                 {
@@ -120,7 +120,7 @@ namespace Conductor.Client.Worker
             }
         }
 
-        private async void WorkOnce(CancellationToken token)
+        private async System.Threading.Tasks.Task WorkOnce(CancellationToken token)
         {
             if (token != CancellationToken.None)
                 token.ThrowIfCancellationRequested();
@@ -201,7 +201,7 @@ namespace Conductor.Client.Worker
             }
         }
 
-        private async void ProcessTasks(List<Models.Task> tasks, CancellationToken token)
+        private async System.Threading.Tasks.Task ProcessTasks(List<Models.Task> tasks, CancellationToken token)
         {
             List<System.Threading.Tasks.Task> threads = new List<System.Threading.Tasks.Task>();
             if (tasks == null || tasks.Count == 0)
@@ -221,7 +221,7 @@ namespace Conductor.Client.Worker
             await System.Threading.Tasks.Task.WhenAll(threads);
         }
 
-        private async void ProcessTask(Models.Task task, CancellationToken token)
+        private async System.Threading.Tasks.Task ProcessTask(Models.Task task, CancellationToken token)
         {
             if (token != CancellationToken.None)
                 token.ThrowIfCancellationRequested();
@@ -341,7 +341,7 @@ namespace Conductor.Client.Worker
 
         private void Sleep(TimeSpan timeSpan)
         {
-            _logger.LogDebug($"[{_workerSettings.WorkerId}] Sleeping for {timeSpan.Milliseconds}ms");
+            _logger.LogDebug($"[{_workerSettings.WorkerId}] Sleeping for {timeSpan.TotalMilliseconds}ms");
             Thread.Sleep(timeSpan);
         }
 
