@@ -33,6 +33,14 @@ namespace Conductor.Client.Authentication
 
         public string GetToken(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient)
         {
+            // OSS Conductor: if no credentials are configured, skip token exchange entirely.
+            if (authenticationSettings == null ||
+                string.IsNullOrEmpty(authenticationSettings.KeyId) ||
+                string.IsNullOrEmpty(authenticationSettings.KeySecret))
+            {
+                return null;
+            }
+
             string token = (string)_memoryCache.Get(authenticationSettings);
             if (token != null)
             {
@@ -43,6 +51,14 @@ namespace Conductor.Client.Authentication
 
         public string RefreshToken(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient)
         {
+            // OSS Conductor: if no credentials are configured, skip token exchange entirely.
+            if (authenticationSettings == null ||
+                string.IsNullOrEmpty(authenticationSettings.KeyId) ||
+                string.IsNullOrEmpty(authenticationSettings.KeySecret))
+            {
+                return null;
+            }
+
             lock (_lockObject)
             {
                 string token = GetTokenFromServer(authenticationSettings, tokenClient);
