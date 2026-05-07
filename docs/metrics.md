@@ -7,6 +7,12 @@ compatible with any .NET metrics listener -- most notably the
 The SDK also includes a built-in Prometheus HTTP listener via `MetricsCollector.StartServer(port)`
 with canonical bucket boundaries pre-configured.
 
+The C# SDK implements the cross-SDK canonical metrics catalog directly. Because the C# metrics
+surface was not released before harmonization, there is no legacy mode and no
+`WORKER_CANONICAL_METRICS` environment variable. Other Conductor SDKs (Python, Go, Java,
+JavaScript, Ruby) that had previously released metrics offer a gated switchout between legacy
+and canonical implementations -- that distinction does not apply here.
+
 ## Table of Contents
 
 - [Quick Reference](#quick-reference)
@@ -21,9 +27,11 @@ with canonical bucket boundaries pre-configured.
   - [Time Histograms](#time-histograms)
   - [Size Histograms](#size-histograms)
   - [Gauges](#gauges)
+- [Non-Applicable Metrics](#non-applicable-metrics)
 - [Labels](#labels)
 - [Bucket Boundaries](#bucket-boundaries)
 - [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
 
 ## Quick Reference
 
@@ -217,6 +225,23 @@ Point-in-time values sampled by the metrics listener.
 |---|---|---|
 | `active_workers` | `taskType` | Number of concurrent task executions in progress. Updated on every poll cycle. |
 
+## Non-Applicable Metrics
+
+The cross-SDK canonical catalog defines additional metrics that are registered in
+`MetricsCollector` as public API surface but are never incremented by the internal worker
+runner. They are available for user code that layers on its own semantics.
+
+| Canonical metric | Why N/A for the internal runner |
+|---|---|
+| `task_ack_error_total` | The batch-poll response serves as the ack; there is no separate ack call. |
+| `task_ack_failed_total` | Same reason. |
+| `worker_restart_total` | Python-only. Its multi-process supervisor restarts child processes. The .NET SDK uses async tasks. |
+| `external_payload_used_total` | The C# client does not yet integrate with Conductor's external-payload-storage API. The counter is registered so user code can call `RecordExternalPayloadUsed()` if it implements its own integration. |
+
+Users cross-referencing the harmonization spec or documentation from other Conductor SDKs may
+notice these metrics in other catalogs. Their absence from the C# worker runner's output is
+intentional.
+
 ## Labels
 
 All labels use **camelCase** per the cross-SDK canonical specification.
@@ -225,14 +250,25 @@ All labels use **camelCase** per the cross-SDK canonical specification.
 |---|---|---|
 | `taskType` | Most metrics | Task definition name (e.g. `"my_worker"`) |
 | `exception` | Error counters, `thread_uncaught_exceptions_total` | Exception class name (e.g. `"HttpRequestException"`) |
-| `status` | Time histograms | `"SUCCESS"` or `"FAILURE"` |
+| `status` | Task time histograms | `"SUCCESS"` or `"FAILURE"`. For `http_api_client_request_seconds`, the HTTP status code as a string (or `"0"` on network failure). |
 | `workflowType` | `workflow_start_error_total`, `workflow_input_size_bytes` | Workflow definition name |
-| `version` | `workflow_input_size_bytes` | Workflow version string |
+| `version` | `workflow_input_size_bytes` | Workflow version as a string. Empty string when the version is absent. |
 | `entityName` | `external_payload_used_total` | Entity name |
 | `operation` | `external_payload_used_total` | `"READ"` or `"WRITE"` |
 | `payloadType` | `external_payload_used_total` | `"TASK_INPUT"`, `"TASK_OUTPUT"`, `"WORKFLOW_INPUT"`, `"WORKFLOW_OUTPUT"` |
 | `method` | `http_api_client_request_seconds` | HTTP verb (e.g. `"GET"`, `"POST"`) |
-| `uri` | `http_api_client_request_seconds` | Request path |
+| `uri` | `http_api_client_request_seconds` | Request path (interpolated, not templated -- see note below) |
+
+The OpenTelemetry .NET SDK is the [recommended way](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-collection) to export `System.Diagnostics.Metrics` to Prometheus (.NET has no built-in Prometheus exporter). As a result, the OTel exporter adds `otel_scope_name="Conductor.Client"` to every metric series
+to identify the originating `Meter`. This label does not appear in the output of other Conductor
+SDKs, which use native Prometheus client libraries that do not have this convention. There is
+currently no configuration option to suppress it
+([opentelemetry-dotnet#5725](https://github.com/open-telemetry/opentelemetry-dotnet/issues/5725)).
+
+The `uri` label on `http_api_client_request_seconds` currently contains the interpolated request
+path (e.g. `/api/tasks/poll/batch/my_task_type`) rather than a templated form
+(`/api/tasks/poll/batch/{taskType}`). Operators who need bounded cardinality on this label can
+apply Prometheus `metric_relabel_configs` at scrape time.
 
 ## Bucket Boundaries
 
@@ -270,3 +306,30 @@ MetricsCollector.CanonicalSizeBuckets
 6. **The `MetricsCollector` is available as a singleton via DI.** You can inject it into your
    own services to record `workflow_start_error_total`, `external_payload_used_total`, or any
    other metrics that occur outside the poll loop.
+
+## Troubleshooting
+
+### Metrics Are Empty
+
+- Verify that `MetricsCollector` is registered. When using `AddConductorWorker()`, it is
+  registered automatically as a singleton.
+- Verify workers have polled or executed tasks. Metrics are created lazily when the
+  corresponding event occurs.
+- Confirm the scrape endpoint is reachable at the expected host and port.
+
+### Missing HTTP or Workflow Metrics
+
+- `http_api_client_request_seconds` is recorded inside `ApiClient.CallApi()` /
+  `CallApiAsync()`. It requires a `MetricsCollector` to be injected via DI. If you are
+  constructing `ApiClient` manually (outside `AddConductorWorker()`), ensure a
+  `MetricsCollector` instance is available in the service provider.
+- `workflow_start_error_total` and `workflow_input_size_bytes` are recorded in
+  `WorkflowExecutor.StartWorkflow()` and require the optional `MetricsCollector` parameter.
+  When using DI, the executor resolves `MetricsCollector` from the container automatically.
+
+### High Cardinality
+
+- Watch the `uri` label on `http_api_client_request_seconds`. The SDK records the
+  interpolated request path, which includes task type names and workflow IDs in the URL.
+- Avoid embedding user identifiers or unbounded values in task type, workflow type, or
+  external payload labels.
