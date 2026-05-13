@@ -34,15 +34,17 @@ namespace Tests.Executor
     /// </summary>
     public class WorkflowExecutorMetricsTests : IDisposable
     {
-        private readonly MetricsCollector _metrics = new();
+        private readonly string _meterName = $"Conductor.Client.Test.{Guid.NewGuid()}";
+        private readonly MetricsCollector _metrics;
         private readonly MeterListener _listener = new();
         private readonly List<RecordedMeasurement> _recorded = new();
 
         public WorkflowExecutorMetricsTests()
         {
+            _metrics = new MetricsCollector(_meterName);
             _listener.InstrumentPublished = (instrument, listener) =>
             {
-                if (instrument.Meter.Name == MetricsCollector.MeterName)
+                if (instrument.Meter.Name == _meterName)
                     listener.EnableMeasurementEvents(instrument);
             };
 

@@ -26,11 +26,13 @@ namespace Tests.Telemetry
     public class PrometheusOutputTests : IDisposable
     {
         private const int TestPort = 19991;
-        private readonly MetricsCollector _metrics = new();
+        private readonly string _meterName = $"Conductor.Client.Test.{Guid.NewGuid()}";
+        private readonly MetricsCollector _metrics;
         private readonly HttpClient _http = new();
 
         public PrometheusOutputTests()
         {
+            _metrics = new MetricsCollector(_meterName);
             _metrics.StartServer(TestPort);
         }
 
@@ -120,7 +122,7 @@ namespace Tests.Telemetry
 
             var body = await ScrapeMetrics();
 
-            Assert.Contains($"otel_scope_name=\"{MetricsCollector.MeterName}\"", body);
+            Assert.Contains($"otel_scope_name=\"{_meterName}\"", body);
         }
 
         [Fact]

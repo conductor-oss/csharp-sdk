@@ -53,6 +53,7 @@ namespace Conductor.Client.Telemetry
         public bool RecordInputSizeEnabled { get; set; } = true;
 
         private readonly Meter _meter;
+        private readonly string _meterName;
         private MeterProvider _meterProvider;
 
         // --- counters ---
@@ -82,9 +83,10 @@ namespace Conductor.Client.Telemetry
         // --- gauges ---
         private readonly ConcurrentDictionary<string, int> _activeWorkerCounts = new ConcurrentDictionary<string, int>();
 
-        public MetricsCollector()
+        public MetricsCollector(string meterName = MeterName)
         {
-            _meter = new Meter(MeterName);
+            _meterName = meterName;
+            _meter = new Meter(meterName);
 
             // --- counters ---
 
@@ -202,7 +204,7 @@ namespace Conductor.Client.Telemetry
                 throw new InvalidOperationException("Metrics server already started");
 
             _meterProvider = Sdk.CreateMeterProviderBuilder()
-                .AddMeter(MeterName)
+                .AddMeter(_meterName)
                 .AddView("task_poll_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = CanonicalTimeBuckets })
                 .AddView("task_execute_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = CanonicalTimeBuckets })
                 .AddView("task_update_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = CanonicalTimeBuckets })

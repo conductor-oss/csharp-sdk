@@ -27,15 +27,17 @@ namespace Tests.Telemetry
     /// </summary>
     public class MetricsRecordingTests : IDisposable
     {
-        private readonly MetricsCollector _sut = new();
+        private readonly string _meterName = $"Conductor.Client.Test.{Guid.NewGuid()}";
+        private readonly MetricsCollector _sut;
         private readonly MeterListener _listener = new();
         private readonly List<RecordedMeasurement> _recorded = new();
 
         public MetricsRecordingTests()
         {
+            _sut = new MetricsCollector(_meterName);
             _listener.InstrumentPublished = (instrument, listener) =>
             {
-                if (instrument.Meter.Name == MetricsCollector.MeterName)
+                if (instrument.Meter.Name == _meterName)
                     listener.EnableMeasurementEvents(instrument);
             };
 
@@ -131,7 +133,7 @@ namespace Tests.Telemetry
             using var gaugeListener = new MeterListener();
             gaugeListener.InstrumentPublished = (instrument, l) =>
             {
-                if (instrument.Meter.Name == MetricsCollector.MeterName
+                if (instrument.Meter.Name == _meterName
                     && instrument.Name == "active_workers")
                     l.EnableMeasurementEvents(instrument);
             };
