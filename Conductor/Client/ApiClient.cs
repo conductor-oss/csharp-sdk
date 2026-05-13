@@ -342,6 +342,56 @@ namespace Conductor.Client
             return response;
         }
 
+        public ApiResponse<T> Execute<T>(
+            String path, Method method, List<KeyValuePair<String, String>> queryParams, Object postBody,
+            Dictionary<String, String> headerParams, Dictionary<String, String> formParams,
+            Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
+            String contentType, Configuration configuration,
+            ExceptionFactory exceptionFactory, string operationName)
+        {
+            if (!String.IsNullOrEmpty(configuration.AccessToken))
+                headerParams["X-Authorization"] = configuration.AccessToken;
+
+            var response = (RestResponse)CallApi(path, method, queryParams, postBody, headerParams,
+                formParams, fileParams, pathParams, contentType, configuration);
+
+            int statusCode = (int)response.StatusCode;
+            if (exceptionFactory != null)
+            {
+                Exception exception = exceptionFactory(operationName, response);
+                if (exception != null) throw exception;
+            }
+
+            return new ApiResponse<T>(statusCode,
+                response.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
+                (T)Deserialize(response, typeof(T)));
+        }
+
+        public async Task<ApiResponse<T>> ExecuteAsync<T>(
+            String path, Method method, List<KeyValuePair<String, String>> queryParams, Object postBody,
+            Dictionary<String, String> headerParams, Dictionary<String, String> formParams,
+            Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
+            String contentType, Configuration configuration,
+            ExceptionFactory exceptionFactory, string operationName)
+        {
+            if (!String.IsNullOrEmpty(configuration.AccessToken))
+                headerParams["X-Authorization"] = configuration.AccessToken;
+
+            var response = (RestResponse)await CallApiAsync(path, method, queryParams, postBody, headerParams,
+                formParams, fileParams, pathParams, contentType, configuration);
+
+            int statusCode = (int)response.StatusCode;
+            if (exceptionFactory != null)
+            {
+                Exception exception = exceptionFactory(operationName, response);
+                if (exception != null) throw exception;
+            }
+
+            return new ApiResponse<T>(statusCode,
+                response.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
+                (T)Deserialize(response, typeof(T)));
+        }
+
         /// <summary>
         /// To combine the header of same key with different value into one.
         /// </summary>
