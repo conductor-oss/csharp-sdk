@@ -76,7 +76,7 @@ namespace Conductor.Executor
 
         private void RecordInputSize(StartWorkflowRequest request)
         {
-            if (_metrics == null)
+            if (_metrics == null || !_metrics.RecordInputSizeEnabled)
                 return;
             try
             {

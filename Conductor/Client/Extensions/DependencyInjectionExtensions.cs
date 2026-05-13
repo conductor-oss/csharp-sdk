@@ -42,7 +42,7 @@ namespace Conductor.Client.Extensions
             services.AddSingleton<MetricsCollector>(sp =>
             {
                 var collector = new MetricsCollector();
-                ApiClient.Metrics = collector;
+                sp.GetRequiredService<Configuration>().ApiClient.Metrics = collector;
                 return collector;
             });
             services.AddTransient<IWorkflowTaskCoordinator, WorkflowTaskCoordinator>();

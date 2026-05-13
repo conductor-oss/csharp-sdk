@@ -33,9 +33,10 @@ namespace Conductor.Client
     {
         /// <summary>
         /// Optional metrics collector for recording http_api_client_request_seconds.
-        /// Set once via DI or startup; safe to leave null.
+        /// Assigned automatically when using DI via <c>AddConductorWorker()</c>;
+        /// set manually when constructing <see cref="ApiClient"/> outside DI.
         /// </summary>
-        public static MetricsCollector Metrics { get; set; }
+        public MetricsCollector Metrics { get; set; }
 
         public JsonSerializerSettings serializerSettings = new JsonSerializerSettings
         {

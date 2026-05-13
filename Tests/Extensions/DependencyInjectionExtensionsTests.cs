@@ -32,6 +32,9 @@ namespace Tests.Extensions
 
             var metrics2 = provider.GetService<MetricsCollector>();
             Assert.Same(metrics, metrics2);
+
+            var config = provider.GetRequiredService<Conductor.Client.Configuration>();
+            Assert.Same(metrics, config.ApiClient.Metrics);
         }
 
         [Fact]

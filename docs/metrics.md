@@ -214,7 +214,7 @@ Canonical bucket boundaries: `{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 
 | Name | Labels | Unit | Description |
 |---|---|---|---|
 | `task_result_size_bytes` | `taskType` | bytes | JSON-serialized size of `TaskResult.OutputData`. |
-| `workflow_input_size_bytes` | `workflowType`, `version` | bytes | Workflow input payload size. |
+| `workflow_input_size_bytes` | `workflowType`, `version` | bytes | Workflow input payload size. Measured by JSON-serializing the input; disable with `MetricsCollector.RecordInputSizeEnabled = false`. |
 
 Canonical bucket boundaries: `{100, 1000, 10000, 100000, 1000000, 10000000}`
 
@@ -294,7 +294,14 @@ MetricsCollector.CanonicalSizeBuckets
    rate(task_poll_total{taskType="my_worker"}[5m])
    ```
 
-5. **Track p99 execution latency** using histogram quantiles:
+5. **Disable input-size serialization for large payloads.** `workflow_input_size_bytes`
+   works by JSON-serializing the workflow input on every `StartWorkflow` call. If your
+   inputs are routinely large (MB-scale), this adds CPU and GC overhead. Opt out with:
+   ```csharp
+   metricsCollector.RecordInputSizeEnabled = false;
+   ```
+
+6. **Track p99 execution latency** using histogram quantiles:
    ```promql
    histogram_quantile(0.99, rate(task_execute_time_seconds_bucket[5m]))
    ```
@@ -323,11 +330,12 @@ MetricsCollector.CanonicalSizeBuckets
 ### Missing HTTP Metrics
 
 - `http_api_client_request_seconds` is recorded inside `ApiClient.CallApi()` /
-  `CallApiAsync()`. It requires `ApiClient.Metrics` to be set to a `MetricsCollector`
-  instance. When using DI via `AddConductorWorker()`, this is assigned automatically.
+  `CallApiAsync()`. It requires the `Metrics` property on the `ApiClient` instance to be set
+  to a `MetricsCollector`. When using DI via `AddConductorWorker()`, this is assigned
+  automatically.
 - If you are constructing `ApiClient` manually (outside `AddConductorWorker()`), you must set
-  `ApiClient.Metrics = myMetricsCollector` yourself. Without this, HTTP metrics are silently
-  skipped (null-check on the `?.` operator).
+  `myConfiguration.ApiClient.Metrics = myMetricsCollector` yourself. Without this, HTTP
+  metrics are silently skipped (null-check on the `?.` operator).
 
 ### Missing Workflow Metrics
 
@@ -374,11 +382,12 @@ unreleased metrics harmonization work. For a summary, see the project
     with canonical bucket views into the SDK so consumers no longer have to wire OTel
     manually. Calls `Sdk.CreateMeterProviderBuilder()` internally with `AddView()` for each
     histogram and `AddPrometheusHttpListener()`.
-  - `ApiClient` records `http_api_client_request_seconds` for every call via a new static
-    `ApiClient.Metrics` property. The `uri` label uses the path template
+  - `ApiClient` records `http_api_client_request_seconds` for every call via its
+    `Metrics` instance property. The `uri` label uses the path template
     (e.g. `/workflow/{workflowId}`) for bounded cardinality.
   - DI registration (`AddConductorWorker()`) assigns the singleton `MetricsCollector` to
-    `ApiClient.Metrics` so HTTP-client metrics flow without further wiring.
+    the `Configuration`'s `ApiClient.Metrics` so HTTP-client metrics flow without further
+    wiring.
   - `WorkflowExecutor` accepts an optional `MetricsCollector` and records
     `workflow_input_size_bytes` (JSON-serialized input length) and
     `workflow_start_error_total` (on exception) from `StartWorkflow`.
@@ -402,8 +411,14 @@ unreleased metrics harmonization work. For a summary, see the project
     the actual last exception type from the retry loop rather than a hardcoded string.
   - OpenTelemetry dependencies moved into the main SDK package:
     `OpenTelemetry 1.15.1`, `OpenTelemetry.Exporter.Prometheus.HttpListener 1.15.1-beta.1`.
+    The Prometheus exporter is a pre-release package because the
+    [OTel Prometheus exporter spec](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/metrics/sdk_exporters/prometheus.md)
+    has never been finalized; no stable release exists or is expected
+    ([tracking issue](https://github.com/open-telemetry/opentelemetry-dotnet/issues/2622)).
+    This is the standard approach used across the .NET ecosystem.
     `Microsoft.Extensions.Logging` bumped `6.0.0` -> `10.0.0`;
-    `System.Diagnostics.DiagnosticSource` bumped `8.0.1` -> `10.0.0`.
+    `System.Diagnostics.DiagnosticSource` bumped `8.0.1` -> `10.0.0`
+    (required by OpenTelemetry 1.15.x for `netstandard2.0` targets).
   - `WorkflowTaskMonitor` implements `IDisposable` to properly dispose its
     `ReaderWriterLockSlim`.
   - `WorkflowTaskExecutor.Work4Ever` now breaks out of its loop on

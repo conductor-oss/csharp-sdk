@@ -45,6 +45,13 @@ namespace Conductor.Client.Telemetry
         public static readonly double[] CanonicalSizeBuckets =
             { 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000 };
 
+        /// <summary>
+        /// When true (the default), <c>workflow_input_size_bytes</c> is recorded by
+        /// JSON-serializing the workflow input to measure its size.  Set to false to
+        /// skip serialization if the overhead is unacceptable for large payloads.
+        /// </summary>
+        public bool RecordInputSizeEnabled { get; set; } = true;
+
         private readonly Meter _meter;
         private MeterProvider _meterProvider;
 
