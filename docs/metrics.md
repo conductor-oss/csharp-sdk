@@ -32,6 +32,7 @@ and canonical implementations -- that distinction does not apply here.
 - [Bucket Boundaries](#bucket-boundaries)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
+- [Detailed Technical Notes -- Unreleased](#detailed-technical-notes--unreleased)
 
 ## Quick Reference
 
@@ -257,18 +258,13 @@ All labels use **camelCase** per the cross-SDK canonical specification.
 | `operation` | `external_payload_used_total` | `"READ"` or `"WRITE"` |
 | `payloadType` | `external_payload_used_total` | `"TASK_INPUT"`, `"TASK_OUTPUT"`, `"WORKFLOW_INPUT"`, `"WORKFLOW_OUTPUT"` |
 | `method` | `http_api_client_request_seconds` | HTTP verb (e.g. `"GET"`, `"POST"`) |
-| `uri` | `http_api_client_request_seconds` | Request path (interpolated, not templated -- see note below) |
+| `uri` | `http_api_client_request_seconds` | Request path template (e.g. `/workflow/{workflowId}`) |
 
 The OpenTelemetry .NET SDK is the [recommended way](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-collection) to export `System.Diagnostics.Metrics` to Prometheus (.NET has no built-in Prometheus exporter). As a result, the OTel exporter adds `otel_scope_name="Conductor.Client"` to every metric series
 to identify the originating `Meter`. This label does not appear in the output of other Conductor
 SDKs, which use native Prometheus client libraries that do not have this convention. There is
 currently no configuration option to suppress it
 ([opentelemetry-dotnet#5725](https://github.com/open-telemetry/opentelemetry-dotnet/issues/5725)).
-
-The `uri` label on `http_api_client_request_seconds` currently contains the interpolated request
-path (e.g. `/api/tasks/poll/batch/my_task_type`) rather than a templated form
-(`/api/tasks/poll/batch/{taskType}`). Operators who need bounded cardinality on this label can
-apply Prometheus `metric_relabel_configs` at scrape time.
 
 ## Bucket Boundaries
 
@@ -309,27 +305,119 @@ MetricsCollector.CanonicalSizeBuckets
 
 ## Troubleshooting
 
-### Metrics Are Empty
+### Metrics Are Empty / No Output
 
 - Verify that `MetricsCollector` is registered. When using `AddConductorWorker()`, it is
   registered automatically as a singleton.
+- Verify that `StartServer(port)` has been called. Without it, no Prometheus endpoint is
+  exposed (metrics are still written to `System.Diagnostics.Metrics` and visible to any
+  attached `MeterListener` or `MeterProvider`).
 - Verify workers have polled or executed tasks. Metrics are created lazily when the
   corresponding event occurs.
-- Confirm the scrape endpoint is reachable at the expected host and port.
+- Confirm the scrape endpoint is reachable at the expected host and port. By default,
+  `StartServer` binds to `http://*:{port}/` -- ensure the port is not blocked by a firewall
+  and that Prometheus is configured with the correct target.
+- If running behind a container or load balancer, verify that the `/metrics` path is not being
+  intercepted or redirected.
 
-### Missing HTTP or Workflow Metrics
+### Missing HTTP Metrics
 
 - `http_api_client_request_seconds` is recorded inside `ApiClient.CallApi()` /
-  `CallApiAsync()`. It requires a `MetricsCollector` to be injected via DI. If you are
-  constructing `ApiClient` manually (outside `AddConductorWorker()`), ensure a
-  `MetricsCollector` instance is available in the service provider.
+  `CallApiAsync()`. It requires `ApiClient.Metrics` to be set to a `MetricsCollector`
+  instance. When using DI via `AddConductorWorker()`, this is assigned automatically.
+- If you are constructing `ApiClient` manually (outside `AddConductorWorker()`), you must set
+  `ApiClient.Metrics = myMetricsCollector` yourself. Without this, HTTP metrics are silently
+  skipped (null-check on the `?.` operator).
+
+### Missing Workflow Metrics
+
 - `workflow_start_error_total` and `workflow_input_size_bytes` are recorded in
   `WorkflowExecutor.StartWorkflow()` and require the optional `MetricsCollector` parameter.
-  When using DI, the executor resolves `MetricsCollector` from the container automatically.
+  When using DI, pass the `MetricsCollector` singleton to the `WorkflowExecutor` constructor.
+- If you are calling `WorkflowResourceApi.StartWorkflow()` directly (bypassing
+  `WorkflowExecutor`), no workflow metrics are recorded. Use `WorkflowExecutor` to get metrics.
 
 ### High Cardinality
 
-- Watch the `uri` label on `http_api_client_request_seconds`. The SDK records the
-  interpolated request path, which includes task type names and workflow IDs in the URL.
+- The `uri` label on `http_api_client_request_seconds` uses the path template
+  (e.g. `/workflow/{workflowId}`) rather than the resolved path. This bounds cardinality by the
+  number of API endpoints. If you see resolved UUIDs in the `uri` label, check whether custom
+  code is passing pre-interpolated paths to `ApiClient.CallApi()`.
 - Avoid embedding user identifiers or unbounded values in task type, workflow type, or
   external payload labels.
+
+---
+
+## Detailed Technical Notes -- Unreleased
+
+Implementation details, internal design decisions, and migration notes for the
+unreleased metrics harmonization work. For a summary, see the project
+[CHANGELOG](../CHANGELOG.md).
+
+### Added
+
+- **Metrics harmonization** -- canonical metric surface aligned with the cross-SDK catalog.
+  No `WORKER_CANONICAL_METRICS` env var; the C# metrics surface was unreleased so consumers
+  move directly to canonical without a gate.
+  - `Conductor.Client.Telemetry.MetricsCollector` emits the harmonized cross-SDK catalog
+    under meter `Conductor.Client`: 12 counters (`task_poll_total`,
+    `task_execution_started_total`, `task_poll_error_total`, `task_execute_error_total`,
+    `task_update_error_total`, `task_ack_error_total`, `task_ack_failed_total`,
+    `task_paused_total`, `task_execution_queue_full_total`,
+    `thread_uncaught_exceptions_total`, `workflow_start_error_total`,
+    `external_payload_used_total`), 4 time histograms (`task_poll_time_seconds`,
+    `task_execute_time_seconds`, `task_update_time_seconds`,
+    `http_api_client_request_seconds`), 2 size histograms (`task_result_size_bytes`,
+    `workflow_input_size_bytes`), and 1 observable gauge (`active_workers`). Time histograms
+    use buckets `0.001...10s`; size histograms use `100...10_000_000` bytes.
+  - `MetricsCollector.StartServer(port)` bundles the OpenTelemetry Prometheus HTTP listener
+    with canonical bucket views into the SDK so consumers no longer have to wire OTel
+    manually. Calls `Sdk.CreateMeterProviderBuilder()` internally with `AddView()` for each
+    histogram and `AddPrometheusHttpListener()`.
+  - `ApiClient` records `http_api_client_request_seconds` for every call via a new static
+    `ApiClient.Metrics` property. The `uri` label uses the path template
+    (e.g. `/workflow/{workflowId}`) for bounded cardinality.
+  - DI registration (`AddConductorWorker()`) assigns the singleton `MetricsCollector` to
+    `ApiClient.Metrics` so HTTP-client metrics flow without further wiring.
+  - `WorkflowExecutor` accepts an optional `MetricsCollector` and records
+    `workflow_input_size_bytes` (JSON-serialized input length) and
+    `workflow_start_error_total` (on exception) from `StartWorkflow`.
+  - Harness gains a `WorkflowStatusProbe` (opt-in via `HARNESS_PROBE_RATE_PER_SEC`) that
+    exercises UUID-bearing workflow lookup endpoints to validate bounded-cardinality `uri`
+    labels. `WorkflowGovernor` feeds workflow IDs to the probe via an `Action<string> idSink`
+    callback.
+
+### Changed
+
+- **Metrics harmonization** -- label/API renames; no legacy mode. Other Conductor SDKs that
+  did release metrics (Python, Go, Java, JavaScript, Ruby) ship a gated switch via
+  `WORKER_CANONICAL_METRICS`; the C# SDK skips straight to canonical.
+  - **Metrics labels are now camelCase** to match the canonical cross-SDK catalog:
+    `task_type` -> `taskType`, `error_type` -> `exception`, `workflow_type` ->
+    `workflowType`, `payload_type` -> `payloadType`, `entity_name` -> `entityName`.
+  - `MetricsCollector` is now `IDisposable`. Disposing it releases the `MeterProvider` (if
+    `StartServer` was called) and the `Meter`.
+  - `RecordUncaughtException`, `RecordTaskUpdateError`, and `RecordWorkflowStartError` now
+    take an `exception` label argument (exception class name). `RecordTaskUpdateError` uses
+    the actual last exception type from the retry loop rather than a hardcoded string.
+  - OpenTelemetry dependencies moved into the main SDK package:
+    `OpenTelemetry 1.15.1`, `OpenTelemetry.Exporter.Prometheus.HttpListener 1.15.1-beta.1`.
+    `Microsoft.Extensions.Logging` bumped `6.0.0` -> `10.0.0`;
+    `System.Diagnostics.DiagnosticSource` bumped `8.0.1` -> `10.0.0`.
+  - `WorkflowTaskMonitor` implements `IDisposable` to properly dispose its
+    `ReaderWriterLockSlim`.
+  - `WorkflowTaskExecutor.Work4Ever` now breaks out of its loop on
+    `OperationCanceledException` for clean shutdown instead of sleeping and retrying.
+  - Harness uses `MetricsCollector.StartServer(port)` instead of inline OTel bootstrap;
+    `WorkflowGovernor` switches to `WorkflowExecutor.StartWorkflow` so workflow metrics get
+    recorded automatically.
+  - RestSharp `MaxTimeout` calls replaced with `Timeout = TimeSpan.FromMilliseconds(...)` to
+    fix a deprecation warning.
+  - `UpdateWorkflowVariablesWithHttpInfo` fixed from C# string interpolation
+    (`$"/workflow/{workflowId}/variables"`) to the standard path-template + pathParams
+    pattern used by all other API methods, ensuring the `uri` metric label is bounded.
+  - `docs/readme/workers.md` and `Harness/README.md` updated to point at `docs/metrics.md`.
+
+### Removed
+
+- Top-level `METRICS.md` (252 lines, snake_case catalog) replaced by `docs/metrics.md`.

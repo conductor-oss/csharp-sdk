@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Task = System.Threading.Tasks.Task;
 
 namespace Harness
 {
@@ -40,6 +41,11 @@ namespace Harness
                 Environment.GetEnvironmentVariable("HARNESS_POLL_INTERVAL_MS"), out var pi) ? pi : 100;
             var metricsPort = int.TryParse(
                 Environment.GetEnvironmentVariable("HARNESS_METRICS_PORT"), out var mp) ? mp : DefaultMetricsPort;
+            var probeRate = int.TryParse(
+                Environment.GetEnvironmentVariable("HARNESS_PROBE_RATE_PER_SEC"), out var pr) ? pr : 0;
+
+            var workflowClient = config.GetClient<WorkflowResourceApi>();
+            WorkflowStatusProbe probe = null;
 
             var host = new HostBuilder()
                 .ConfigureServices(services =>
@@ -51,12 +57,19 @@ namespace Harness
                     services.WithHostedService();
 
                     services.AddSingleton(config);
-                    services.AddHostedService(sp => new WorkflowGovernor(
-                        config,
-                        sp.GetRequiredService<ILogger<WorkflowGovernor>>(),
-                        WorkflowName,
-                        workflowsPerSec,
-                        sp.GetRequiredService<MetricsCollector>()));
+                    services.AddHostedService(sp =>
+                    {
+                        probe = new WorkflowStatusProbe(
+                            workflowClient, probeRate,
+                            sp.GetRequiredService<ILoggerFactory>().CreateLogger<WorkflowStatusProbe>());
+                        return new WorkflowGovernor(
+                            config,
+                            sp.GetRequiredService<ILogger<WorkflowGovernor>>(),
+                            WorkflowName,
+                            workflowsPerSec,
+                            sp.GetRequiredService<MetricsCollector>(),
+                            idSink: probe.Offer);
+                    });
                 })
                 .ConfigureLogging(logging =>
                 {
@@ -75,6 +88,7 @@ namespace Harness
             }
             finally
             {
+                probe?.Dispose();
                 metricsCollector?.Dispose();
             }
         }

@@ -95,16 +95,14 @@ namespace Conductor.Client.Worker
 
                     WorkOnce(token);
                 }
-                catch (System.OperationCanceledException canceledException)
+                catch (System.OperationCanceledException)
                 {
-                    //Do nothing the operation was cancelled
-                    _logger.LogTrace(
-                        $"[{_workerSettings.WorkerId}] Operation Cancelled: {canceledException.Message}"
+                    _logger.LogInformation(
+                        $"[{_workerSettings.WorkerId}] Worker shutting down"
                         + $", taskName: {_worker.TaskType}"
                         + $", domain: {_worker.WorkerSettings.Domain}"
-                        + $", batchSize: {_workerSettings.BatchSize}"
                     );
-                    Sleep(SLEEP_FOR_TIME_SPAN_ON_WORKER_ERROR);
+                    break;
                 }
                 catch (Exception e)
                 {
@@ -286,6 +284,7 @@ namespace Conductor.Client.Worker
             taskResult.WorkerId = taskResult.WorkerId ?? _workerSettings.WorkerId;
             RecordTaskResultSize(taskResult);
             var updateStopwatch = Stopwatch.StartNew();
+            Exception lastException = null;
             for (var attemptCounter = 0; attemptCounter < UPDATE_TASK_RETRY_COUNT_LIMIT; attemptCounter += 1)
             {
                 try
@@ -310,6 +309,7 @@ namespace Conductor.Client.Worker
                 }
                 catch (Exception e)
                 {
+                    lastException = e;
                     _logger.LogError(
                         $"[{_workerSettings.WorkerId}] Failed to update task, reason: {e.Message}"
                         + $", taskType: {_worker.TaskType}"
@@ -322,8 +322,8 @@ namespace Conductor.Client.Worker
 
             updateStopwatch.Stop();
             _metrics?.RecordTaskUpdateTime(_worker.TaskType, updateStopwatch.Elapsed.TotalSeconds, "FAILURE");
-            _metrics?.RecordTaskUpdateError(_worker.TaskType, "RetryExhaustedException");
-            throw new Exception("Failed to update task after retries");
+            _metrics?.RecordTaskUpdateError(_worker.TaskType, lastException?.GetType().Name ?? "UnknownException");
+            throw new Exception("Failed to update task after retries", lastException);
         }
 
         private void RecordTaskResultSize(Models.TaskResult taskResult)

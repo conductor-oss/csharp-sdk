@@ -205,11 +205,8 @@ namespace Conductor.Client
             finally
             {
                 sw.Stop();
-                var resolvedUri = path;
-                foreach (var param in pathParams)
-                    resolvedUri = resolvedUri.Replace("{" + param.Key + "}", param.Value);
                 var basePath = RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "";
-                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + resolvedUri, statusCode, sw.Elapsed.TotalSeconds);
+                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + path, statusCode, sw.Elapsed.TotalSeconds);
             }
         }
 
@@ -276,11 +273,8 @@ namespace Conductor.Client
             finally
             {
                 sw.Stop();
-                var resolvedUri = path;
-                foreach (var param in pathParams)
-                    resolvedUri = resolvedUri.Replace("{" + param.Key + "}", param.Value);
                 var basePath = RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "";
-                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + resolvedUri, statusCode, sw.Elapsed.TotalSeconds);
+                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + path, statusCode, sw.Elapsed.TotalSeconds);
             }
         }
 

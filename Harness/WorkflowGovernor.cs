@@ -15,18 +15,21 @@ namespace Harness
         private readonly ILogger<WorkflowGovernor> _logger;
         private readonly string _workflowName;
         private readonly int _workflowsPerSecond;
+        private readonly Action<string> _idSink;
 
         public WorkflowGovernor(
             Configuration config,
             ILogger<WorkflowGovernor> logger,
             string workflowName,
             int workflowsPerSecond,
-            MetricsCollector metrics = null)
+            MetricsCollector metrics = null,
+            Action<string> idSink = null)
         {
             _workflowExecutor = new WorkflowExecutor(config, metrics);
             _logger = logger;
             _workflowName = workflowName;
             _workflowsPerSecond = workflowsPerSecond;
+            _idSink = idSink;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -41,8 +44,9 @@ namespace Harness
                 {
                     for (var i = 0; i < _workflowsPerSecond; i++)
                     {
-                        _workflowExecutor.StartWorkflow(
+                        var workflowId = _workflowExecutor.StartWorkflow(
                             new Conductor.Client.Models.StartWorkflowRequest(name: _workflowName, version: 1));
+                        _idSink?.Invoke(workflowId);
                     }
 
                     _logger.LogInformation("Governor: started {Count} workflow(s)", _workflowsPerSecond);
