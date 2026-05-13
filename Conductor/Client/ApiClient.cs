@@ -279,6 +279,69 @@ namespace Conductor.Client
             }
         }
 
+        public async Task<object> CallApiAsync(
+            String path, Method method, List<KeyValuePair<String, String>> queryParams, Object postBody,
+            Dictionary<String, String> headerParams, Dictionary<String, String> formParams,
+            Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
+            String contentType, Configuration configuration)
+        {
+            var sw = Stopwatch.StartNew();
+            string statusCode = "0";
+            try
+            {
+                RestResponse response = await RetryRestClientCallApiAsync(path, method, queryParams, postBody, headerParams,
+                    formParams, fileParams, pathParams, contentType, configuration);
+                statusCode = ((int)response.StatusCode).ToString();
+                return (object)response;
+            }
+            catch
+            {
+                statusCode = "0";
+                throw;
+            }
+            finally
+            {
+                sw.Stop();
+                var basePath = RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "";
+                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + path, statusCode, sw.Elapsed.TotalSeconds);
+            }
+        }
+
+        private async Task<RestResponse> RetryRestClientCallApiAsync(String path, Method method, List<KeyValuePair<String, String>> queryParams, Object postBody,
+            Dictionary<String, String> headerParams, Dictionary<String, String> formParams,
+            Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
+            String contentType, Configuration configuration)
+        {
+            RestResponse response = null;
+            int retryCount = 0;
+            while (retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
+            {
+                var request = PrepareRequest(
+                    path, method, queryParams, postBody, headerParams, formParams, fileParams,
+                    pathParams, contentType);
+
+                InterceptRequest(request);
+                response = await RestClient.ExecuteAsync(request, method);
+                InterceptResponse(request, response);
+                FormatHeaders(response);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    var jsonContent = JsonConvert.DeserializeObject<JObject>(response.Content);
+
+                    if (jsonContent["error"].ToString() == "EXPIRED_TOKEN")
+                    {
+                        string refreshToken = configuration.GetRefreshToken();
+                        headerParams["X-Authorization"] = refreshToken;
+                        retryCount++;
+                        continue;
+                    }
+                }
+                break;
+            }
+            return response;
+        }
+
         /// <summary>
         /// To combine the header of same key with different value into one.
         /// </summary>
