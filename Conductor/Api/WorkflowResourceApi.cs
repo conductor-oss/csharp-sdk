@@ -415,7 +415,7 @@ namespace Conductor.Api
             if (variables == null)
                 throw new ApiException(400, "Missing required parameter 'variables' when calling WorkflowResourceApi->UpdateWorkflowVariables");
 
-            var localVarPath = $"/workflow/{workflowId}/variables";
+            var localVarPath = "/workflow/{workflowId}/variables";
             var localVarPathParams = new Dictionary<String, String>();
             var localVarQueryParams = new List<KeyValuePair<String, String>>();
             var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
@@ -436,6 +436,8 @@ namespace Conductor.Api
             String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
             if (localVarHttpHeaderAccept != null)
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (workflowId != null) localVarPathParams.Add("workflowId", this.Configuration.ApiClient.ParameterToString(workflowId));
 
             localVarPostBody = this.Configuration.ApiClient.Serialize(variables);
 

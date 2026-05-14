@@ -6,11 +6,10 @@ using Conductor.Definition;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using OpenTelemetry;
-using OpenTelemetry.Metrics;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Task = System.Threading.Tasks.Task;
 
 namespace Harness
 {
@@ -42,24 +41,11 @@ namespace Harness
                 Environment.GetEnvironmentVariable("HARNESS_POLL_INTERVAL_MS"), out var pi) ? pi : 100;
             var metricsPort = int.TryParse(
                 Environment.GetEnvironmentVariable("HARNESS_METRICS_PORT"), out var mp) ? mp : DefaultMetricsPort;
+            var probeRate = int.TryParse(
+                Environment.GetEnvironmentVariable("HARNESS_PROBE_RATE_PER_SEC"), out var pr) ? pr : 0;
 
-            var timeBuckets = new double[] { 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10 };
-            var sizeBuckets = new double[] { 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000 };
-
-            var meterProvider = Sdk.CreateMeterProviderBuilder()
-                .AddMeter(MetricsCollector.MeterName)
-                .AddView("task_poll_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = timeBuckets })
-                .AddView("task_execute_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = timeBuckets })
-                .AddView("task_update_time_seconds", new ExplicitBucketHistogramConfiguration { Boundaries = timeBuckets })
-                .AddView("task_result_size_bytes", new ExplicitBucketHistogramConfiguration { Boundaries = sizeBuckets })
-                .AddView("workflow_input_size_bytes", new ExplicitBucketHistogramConfiguration { Boundaries = sizeBuckets })
-                .AddPrometheusHttpListener(options =>
-                {
-                    options.UriPrefixes = new[] { $"http://*:{metricsPort}/" };
-                })
-                .Build();
-
-            Console.WriteLine($"Prometheus metrics server started on port {metricsPort}");
+            var workflowClient = config.GetClient<WorkflowResourceApi>();
+            WorkflowStatusProbe probe = null;
 
             var host = new HostBuilder()
                 .ConfigureServices(services =>
@@ -71,12 +57,19 @@ namespace Harness
                     services.WithHostedService();
 
                     services.AddSingleton(config);
-                    services.AddHostedService(sp => new WorkflowGovernor(
-                        config,
-                        sp.GetRequiredService<ILogger<WorkflowGovernor>>(),
-                        WorkflowName,
-                        workflowsPerSec,
-                        sp.GetRequiredService<MetricsCollector>()));
+                    services.AddHostedService(sp =>
+                    {
+                        probe = new WorkflowStatusProbe(
+                            workflowClient, probeRate,
+                            sp.GetRequiredService<ILoggerFactory>().CreateLogger<WorkflowStatusProbe>());
+                        return new WorkflowGovernor(
+                            config,
+                            sp.GetRequiredService<ILogger<WorkflowGovernor>>(),
+                            WorkflowName,
+                            workflowsPerSec,
+                            sp.GetRequiredService<MetricsCollector>(),
+                            idSink: probe.Offer);
+                    });
                 })
                 .ConfigureLogging(logging =>
                 {
@@ -85,13 +78,18 @@ namespace Harness
                 })
                 .Build();
 
+            var metricsCollector = host.Services.GetRequiredService<MetricsCollector>();
+            metricsCollector.StartServer(metricsPort);
+            Console.WriteLine($"Prometheus metrics server started on port {metricsPort}");
+
             try
             {
                 await host.RunAsync();
             }
             finally
             {
-                meterProvider?.Dispose();
+                probe?.Dispose();
+                metricsCollector?.Dispose();
             }
         }
 

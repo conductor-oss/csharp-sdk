@@ -10,12 +10,14 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
+using Conductor.Client.Telemetry;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RestSharp;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -29,6 +31,13 @@ namespace Conductor.Client
     /// </summary>
     public partial class ApiClient
     {
+        /// <summary>
+        /// Optional metrics collector for recording http_api_client_request_seconds.
+        /// Assigned automatically when using DI via <c>AddConductorWorker()</c>;
+        /// set manually when constructing <see cref="ApiClient"/> outside DI.
+        /// </summary>
+        public MetricsCollector Metrics { get; set; }
+
         public JsonSerializerSettings serializerSettings = new JsonSerializerSettings
         {
             ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor
@@ -54,7 +63,7 @@ namespace Conductor.Client
         public ApiClient(int timeOut)
         {
             Configuration = Conductor.Client.Configuration.Default;
-            RestClient = new RestClient(options: new RestClientOptions() { BaseUrl = new Uri("https://play.orkes.io/api"), MaxTimeout = timeOut });
+            RestClient = new RestClient(options: new RestClientOptions() { BaseUrl = new Uri("https://play.orkes.io/api"), Timeout = TimeSpan.FromMilliseconds(timeOut) });
         }
 
         /// <summary>
@@ -182,7 +191,6 @@ namespace Conductor.Client
             int retryCount = 0;
             RestResponse response = RetryRestClientCallApi(path, method, queryParams, postBody, headerParams,
                 formParams, fileParams, pathParams, contentType, configuration, ref retryCount);
-
             return (Object)response;
         }
 
@@ -191,17 +199,36 @@ namespace Conductor.Client
             Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
             String contentType, Configuration configuration, ref int retryCount)
         {
+            var methodStr = method.ToString().ToUpperInvariant();
+            var metricsUri = path;
+
             RestResponse response = null;
             while (retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
             {
-                var request = PrepareRequest(
-                path, method, queryParams, postBody, headerParams, formParams, fileParams,
-                pathParams, contentType);
+                var sw = Stopwatch.StartNew();
+                string statusCode = "0";
+                try
+                {
+                    var request = PrepareRequest(
+                        path, method, queryParams, postBody, headerParams, formParams, fileParams,
+                        pathParams, contentType);
 
-                InterceptRequest(request);
-                response = RestClient.Execute(request, method);
-                InterceptResponse(request, response);
-                FormatHeaders(response);
+                    InterceptRequest(request);
+                    response = RestClient.Execute(request, method);
+                    InterceptResponse(request, response);
+                    FormatHeaders(response);
+                    statusCode = ((int)response.StatusCode).ToString();
+                }
+                catch
+                {
+                    statusCode = "0";
+                    throw;
+                }
+                finally
+                {
+                    sw.Stop();
+                    Metrics?.RecordHttpApiClientRequest(methodStr, metricsUri, statusCode, sw.Elapsed.TotalSeconds);
+                }
 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
@@ -226,15 +253,31 @@ namespace Conductor.Client
             Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
             String contentType)
         {
-            var request = PrepareRequest(
-                path, method, queryParams, postBody, headerParams, formParams, fileParams,
-                pathParams, contentType);
+            var sw = Stopwatch.StartNew();
+            string statusCode = "0";
+            try
+            {
+                var request = PrepareRequest(
+                    path, method, queryParams, postBody, headerParams, formParams, fileParams,
+                    pathParams, contentType);
 
-            InterceptRequest(request);
-            var response = await RestClient.ExecuteAsync(request, method);
-            InterceptResponse(request, response);
-            FormatHeaders(response);
-            return (object)response;
+                InterceptRequest(request);
+                var response = await RestClient.ExecuteAsync(request, method);
+                InterceptResponse(request, response);
+                FormatHeaders(response);
+                statusCode = ((int)response.StatusCode).ToString();
+                return (object)response;
+            }
+            catch
+            {
+                statusCode = "0";
+                throw;
+            }
+            finally
+            {
+                sw.Stop();
+                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), path, statusCode, sw.Elapsed.TotalSeconds);
+            }
         }
 
         /// <summary>

@@ -11,11 +11,12 @@
  * specific language governing permissions and limitations under the License.
  */
 using Microsoft.Extensions.Logging;
+using System;
 using System.Threading;
 
 namespace Conductor.Client.Interfaces
 {
-    public class WorkflowTaskMonitor : IWorkflowTaskMonitor
+    public class WorkflowTaskMonitor : IWorkflowTaskMonitor, IDisposable
     {
         private readonly ILogger<WorkflowTaskMonitor> _logger;
         private readonly ReaderWriterLockSlim _mutex;
@@ -67,6 +68,11 @@ namespace Conductor.Client.Interfaces
             {
                 _mutex.ExitWriteLock();
             }
+        }
+
+        public void Dispose()
+        {
+            _mutex?.Dispose();
         }
     }
 }
