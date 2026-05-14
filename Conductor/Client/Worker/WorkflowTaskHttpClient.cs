@@ -34,5 +34,15 @@ namespace Conductor.Client.Worker
         {
             return _client.UpdateTask(result);
         }
+
+        public async System.Threading.Tasks.Task<List<Task>> PollTaskAsync(string taskType, string workerId, string domain, int count = 1)
+        {
+            return await _client.BatchPollAsync(taskType, workerId, domain, count);
+        }
+
+        public async System.Threading.Tasks.Task<string> UpdateTaskAsync(TaskResult result)
+        {
+            return await _client.UpdateTaskAsync(result);
+        }
     }
 }

@@ -19,5 +19,7 @@ namespace Conductor.Client.Interfaces
     {
         List<Task> PollTask(string taskType, string workerId, string domain, int count);
         string UpdateTask(TaskResult result);
+        System.Threading.Tasks.Task<List<Task>> PollTaskAsync(string taskType, string workerId, string domain, int count);
+        System.Threading.Tasks.Task<string> UpdateTaskAsync(TaskResult result);
     }
 }
