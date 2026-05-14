@@ -49,13 +49,12 @@ All label names use **camelCase** to align with the cross-SDK canonical specific
 | `task_poll_error_total` | `taskType`, `exception` | Total task poll errors |
 | `task_execute_error_total` | `taskType`, `exception` | Total task execution errors |
 | `task_update_error_total` | `taskType`, `exception` | Total task update errors (after all retries) |
-| `task_ack_error_total` | `taskType`, `exception` | Task ack client-side errors |
-| `task_ack_failed_total` | `taskType` | Task ack declined by server |
-| `task_paused_total` | `taskType` | Polls skipped because the worker is paused |
 | `task_execution_queue_full_total` | `taskType` | Polls returning zero capacity (all workers busy) |
 | `thread_uncaught_exceptions_total` | `exception` | Uncaught exceptions in worker threads |
 | `workflow_start_error_total` | `workflowType`, `exception` | Errors starting workflows |
-| `external_payload_used_total` | `entityName`, `operation`, `payloadType` | External payload storage usage |
+
+See also [Non-Applicable Metrics](#non-applicable-metrics) for canonical catalog entries that are
+registered but not instrumented by the internal worker runner.
 
 ### Time Histograms
 
@@ -64,7 +63,7 @@ All label names use **camelCase** to align with the cross-SDK canonical specific
 | `task_poll_time_seconds` | `taskType`, `status` | Task poll round-trip duration (seconds) |
 | `task_execute_time_seconds` | `taskType`, `status` | Task execution duration (seconds) |
 | `task_update_time_seconds` | `taskType`, `status` | Task result update duration (seconds) |
-| `http_api_client_request_seconds` | `method`, `uri`, `status` | HTTP API client request duration (seconds) |
+| `http_api_client_request_seconds` | `method`, `uri`, `status` | HTTP API client request duration (seconds, per attempt) |
 
 ### Size Histograms
 
@@ -187,13 +186,9 @@ Monotonically increasing values. Prometheus exposes them with a `_total` suffix.
 | `task_poll_error_total` | `taskType`, `exception` | Incremented when a poll HTTP call fails. `exception` is the exception class name. |
 | `task_execute_error_total` | `taskType`, `exception` | Incremented when `Execute()` throws. `exception` is the exception class name. |
 | `task_update_error_total` | `taskType`, `exception` | Incremented when all update retries are exhausted. `exception` is the exception class name. |
-| `task_ack_error_total` | `taskType`, `exception` | Incremented when the server-side ack throws an exception client-side. |
-| `task_ack_failed_total` | `taskType` | Incremented when the server returns a non-success ack response. |
-| `task_paused_total` | `taskType` | Incremented when a poll is skipped because the worker is paused. |
 | `task_execution_queue_full_total` | `taskType` | Incremented when a poll is skipped because all workers are busy (batch size reached). |
 | `thread_uncaught_exceptions_total` | `exception` | Incremented on any exception in the top-level poll loop that is not an `OperationCanceledException`. |
 | `workflow_start_error_total` | `workflowType`, `exception` | Incremented when a workflow start call fails. |
-| `external_payload_used_total` | `entityName`, `operation`, `payloadType` | Incremented when external payload storage is used. `operation` is `READ` or `WRITE`. `payloadType` is one of `TASK_INPUT`, `TASK_OUTPUT`, `WORKFLOW_INPUT`, `WORKFLOW_OUTPUT`. |
 
 ### Time Histograms
 
@@ -205,7 +200,7 @@ The `status` label is `"SUCCESS"` or `"FAILURE"`.
 | `task_poll_time_seconds` | `taskType`, `status` | Wall-clock time for the poll HTTP call. `status=SUCCESS` even when the response is empty. |
 | `task_execute_time_seconds` | `taskType`, `status` | Wall-clock time inside `worker.Execute()`. `status=FAILURE` if it throws. |
 | `task_update_time_seconds` | `taskType`, `status` | Wall-clock time for the update call (including retries). |
-| `http_api_client_request_seconds` | `method`, `uri`, `status` | Latency of every HTTP request made by the API client. `method` is the HTTP verb, `uri` is the request path, `status` is the HTTP status code as a string (or `"0"` on network failure). |
+| `http_api_client_request_seconds` | `method`, `uri`, `status` | Latency of every HTTP request made by the API client. `method` is the HTTP verb, `uri` is the path template before parameter substitution (e.g. `/workflow/{workflowId}`), `status` is the HTTP status code as a string (or `"0"` on network failure). One observation is recorded **per HTTP attempt**; if a request triggers a token-refresh retry (e.g. after a 401), both the original attempt and the retry are recorded as separate observations. This is consistent with the Python SDK's behavior. |
 
 Canonical bucket boundaries: `{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10}`
 
@@ -234,8 +229,9 @@ runner. They are available for user code that layers on its own semantics.
 
 | Canonical metric | Why N/A for the internal runner |
 |---|---|
-| `task_ack_error_total` | The batch-poll response serves as the ack; there is no separate ack call. |
-| `task_ack_failed_total` | Same reason. |
+| `task_ack_error_total` | The batch-poll response serves as the ack; there is no separate ack call. The counter is registered so user code can call `RecordTaskAckError()` if needed. |
+| `task_ack_failed_total` | Same reason. The counter is registered so user code can call `RecordTaskAckFailed()` if needed. |
+| `task_paused_total` | The C# worker runner has no pause/resume mechanism. The counter is registered so user code can call `RecordTaskPaused()` if it implements its own gate. |
 | `worker_restart_total` | Python-only. Its multi-process supervisor restarts child processes. The .NET SDK uses async tasks. |
 | `external_payload_used_total` | The C# client does not yet integrate with Conductor's external-payload-storage API. The counter is registered so user code can call `RecordExternalPayloadUsed()` if it implements its own integration. |
 
@@ -254,11 +250,11 @@ All labels use **camelCase** per the cross-SDK canonical specification.
 | `status` | Task time histograms | `"SUCCESS"` or `"FAILURE"`. For `http_api_client_request_seconds`, the HTTP status code as a string (or `"0"` on network failure). |
 | `workflowType` | `workflow_start_error_total`, `workflow_input_size_bytes` | Workflow definition name |
 | `version` | `workflow_input_size_bytes` | Workflow version as a string. Empty string when the version is absent. |
-| `entityName` | `external_payload_used_total` | Entity name |
-| `operation` | `external_payload_used_total` | `"READ"` or `"WRITE"` |
-| `payloadType` | `external_payload_used_total` | `"TASK_INPUT"`, `"TASK_OUTPUT"`, `"WORKFLOW_INPUT"`, `"WORKFLOW_OUTPUT"` |
+| `entityName` | `external_payload_used_total` (N/A) | Entity name |
+| `operation` | `external_payload_used_total` (N/A) | `"READ"` or `"WRITE"` |
+| `payloadType` | `external_payload_used_total` (N/A) | `"TASK_INPUT"`, `"TASK_OUTPUT"`, `"WORKFLOW_INPUT"`, `"WORKFLOW_OUTPUT"` |
 | `method` | `http_api_client_request_seconds` | HTTP verb (e.g. `"GET"`, `"POST"`) |
-| `uri` | `http_api_client_request_seconds` | Request path template (e.g. `/workflow/{workflowId}`) |
+| `uri` | `http_api_client_request_seconds` | Path template before parameter substitution (e.g. `/workflow/{workflowId}`) |
 
 The OpenTelemetry .NET SDK is the [recommended way](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-collection) to export `System.Diagnostics.Metrics` to Prometheus (.NET has no built-in Prometheus exporter). As a result, the OTel exporter adds `otel_scope_name="Conductor.Client"` to every metric series
 to identify the originating `Meter`. This label does not appear in the output of other Conductor
@@ -307,8 +303,10 @@ MetricsCollector.CanonicalSizeBuckets
    ```
 
 6. **The `MetricsCollector` is available as a singleton via DI.** You can inject it into your
-   own services to record `workflow_start_error_total`, `external_payload_used_total`, or any
-   other metrics that occur outside the poll loop.
+   own services to record `workflow_start_error_total` or any other metrics that occur outside
+   the poll loop. The [non-applicable metrics](#non-applicable-metrics) (`task_ack_error_total`,
+   `task_ack_failed_total`, `task_paused_total`, `external_payload_used_total`) are also
+   available for user code that needs them.
 
 ## Troubleshooting
 
@@ -382,9 +380,10 @@ unreleased metrics harmonization work. For a summary, see the project
     with canonical bucket views into the SDK so consumers no longer have to wire OTel
     manually. Calls `Sdk.CreateMeterProviderBuilder()` internally with `AddView()` for each
     histogram and `AddPrometheusHttpListener()`.
-  - `ApiClient` records `http_api_client_request_seconds` for every call via its
-    `Metrics` instance property. The `uri` label uses the path template
-    (e.g. `/workflow/{workflowId}`) for bounded cardinality.
+  - `ApiClient` records `http_api_client_request_seconds` for every HTTP attempt via its
+    `Metrics` instance property. The `uri` label uses the raw path template
+    (e.g. `/workflow/{workflowId}`) for bounded cardinality. Token-refresh retries
+    (e.g. after a 401) each record a separate observation.
   - DI registration (`AddConductorWorker()`) assigns the singleton `MetricsCollector` to
     the `Configuration`'s `ApiClient.Metrics` so HTTP-client metrics flow without further
     wiring.

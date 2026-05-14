@@ -200,7 +200,7 @@ namespace Conductor.Client
             String contentType, Configuration configuration, ref int retryCount)
         {
             var methodStr = method.ToString().ToUpperInvariant();
-            var metricsUri = (RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "") + path;
+            var metricsUri = path;
 
             RestResponse response = null;
             while (retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
@@ -276,8 +276,7 @@ namespace Conductor.Client
             finally
             {
                 sw.Stop();
-                var basePath = RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "";
-                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + path, statusCode, sw.Elapsed.TotalSeconds);
+                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), path, statusCode, sw.Elapsed.TotalSeconds);
             }
         }
 
