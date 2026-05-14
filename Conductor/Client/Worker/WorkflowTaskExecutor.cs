@@ -95,16 +95,14 @@ namespace Conductor.Client.Worker
 
                     WorkOnce(token);
                 }
-                catch (System.OperationCanceledException canceledException)
+                catch (System.OperationCanceledException)
                 {
-                    //Do nothing the operation was cancelled
-                    _logger.LogTrace(
-                        $"[{_workerSettings.WorkerId}] Operation Cancelled: {canceledException.Message}"
+                    _logger.LogInformation(
+                        $"[{_workerSettings.WorkerId}] Worker shutting down"
                         + $", taskName: {_worker.TaskType}"
                         + $", domain: {_worker.WorkerSettings.Domain}"
-                        + $", batchSize: {_workerSettings.BatchSize}"
                     );
-                    Sleep(SLEEP_FOR_TIME_SPAN_ON_WORKER_ERROR);
+                    break;
                 }
                 catch (Exception e)
                 {

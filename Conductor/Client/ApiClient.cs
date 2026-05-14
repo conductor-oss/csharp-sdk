@@ -188,27 +188,10 @@ namespace Conductor.Client
             Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
             String contentType, Configuration configuration)
         {
-            var sw = Stopwatch.StartNew();
-            string statusCode = "0";
-            try
-            {
-                int retryCount = 0;
-                RestResponse response = RetryRestClientCallApi(path, method, queryParams, postBody, headerParams,
-                    formParams, fileParams, pathParams, contentType, configuration, ref retryCount);
-                statusCode = ((int)response.StatusCode).ToString();
-                return (Object)response;
-            }
-            catch
-            {
-                statusCode = "0";
-                throw;
-            }
-            finally
-            {
-                sw.Stop();
-                var basePath = RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "";
-                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + path, statusCode, sw.Elapsed.TotalSeconds);
-            }
+            int retryCount = 0;
+            RestResponse response = RetryRestClientCallApi(path, method, queryParams, postBody, headerParams,
+                formParams, fileParams, pathParams, contentType, configuration, ref retryCount);
+            return (Object)response;
         }
 
         private RestResponse RetryRestClientCallApi(String path, Method method, List<KeyValuePair<String, String>> queryParams, Object postBody,
@@ -216,17 +199,36 @@ namespace Conductor.Client
             Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
             String contentType, Configuration configuration, ref int retryCount)
         {
+            var methodStr = method.ToString().ToUpperInvariant();
+            var metricsUri = (RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "") + path;
+
             RestResponse response = null;
             while (retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
             {
-                var request = PrepareRequest(
-                path, method, queryParams, postBody, headerParams, formParams, fileParams,
-                pathParams, contentType);
+                var sw = Stopwatch.StartNew();
+                string statusCode = "0";
+                try
+                {
+                    var request = PrepareRequest(
+                        path, method, queryParams, postBody, headerParams, formParams, fileParams,
+                        pathParams, contentType);
 
-                InterceptRequest(request);
-                response = RestClient.Execute(request, method);
-                InterceptResponse(request, response);
-                FormatHeaders(response);
+                    InterceptRequest(request);
+                    response = RestClient.Execute(request, method);
+                    InterceptResponse(request, response);
+                    FormatHeaders(response);
+                    statusCode = ((int)response.StatusCode).ToString();
+                }
+                catch
+                {
+                    statusCode = "0";
+                    throw;
+                }
+                finally
+                {
+                    sw.Stop();
+                    Metrics?.RecordHttpApiClientRequest(methodStr, metricsUri, statusCode, sw.Elapsed.TotalSeconds);
+                }
 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
