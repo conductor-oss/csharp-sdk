@@ -157,7 +157,7 @@ namespace Conductor.Api
             return (await this.Configuration.ApiClient.ExecuteAsync<Token>(localVarPath,
                 Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
-                ExceptionFactory, "GenerateToken")).Data;
+                ExceptionFactory, "GenerateToken", skipAuth: true)).Data;
         }
 
         /// <summary>
@@ -206,7 +206,7 @@ namespace Conductor.Api
             return this.Configuration.ApiClient.Execute<Token>(localVarPath,
                 Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
-                ExceptionFactory, "GenerateToken");
+                ExceptionFactory, "GenerateToken", skipAuth: true);
         }
 
         /// <summary>
@@ -255,7 +255,7 @@ namespace Conductor.Api
             return (await this.Configuration.ApiClient.ExecuteAsync<Object>(localVarPath,
                 Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
-                ExceptionFactory, "GetUserInfo")).Data;
+                ExceptionFactory, "GetUserInfo", skipAuth: true)).Data;
         }
 
         /// <summary>
@@ -293,7 +293,7 @@ namespace Conductor.Api
             return this.Configuration.ApiClient.Execute<Object>(localVarPath,
                 Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
-                ExceptionFactory, "GetUserInfo");
+                ExceptionFactory, "GetUserInfo", skipAuth: true);
         }
     }
 }

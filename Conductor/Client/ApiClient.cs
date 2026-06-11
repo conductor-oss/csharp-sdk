@@ -362,9 +362,9 @@ namespace Conductor.Client
             Dictionary<String, String> headerParams, Dictionary<String, String> formParams,
             Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
             String contentType, Configuration configuration,
-            ExceptionFactory exceptionFactory, string operationName)
+            ExceptionFactory exceptionFactory, string operationName, bool skipAuth = false)
         {
-            if (!String.IsNullOrEmpty(configuration.AccessToken))
+            if (!skipAuth && !String.IsNullOrEmpty(configuration.AccessToken))
                 headerParams["X-Authorization"] = configuration.AccessToken;
 
             var response = (RestResponse)CallApi(path, method, queryParams, postBody, headerParams,
@@ -387,9 +387,9 @@ namespace Conductor.Client
             Dictionary<String, String> headerParams, Dictionary<String, String> formParams,
             Dictionary<String, FileParameter> fileParams, Dictionary<String, String> pathParams,
             String contentType, Configuration configuration,
-            ExceptionFactory exceptionFactory, string operationName)
+            ExceptionFactory exceptionFactory, string operationName, bool skipAuth = false)
         {
-            if (!String.IsNullOrEmpty(configuration.AccessToken))
+            if (!skipAuth && !String.IsNullOrEmpty(configuration.AccessToken))
                 headerParams["X-Authorization"] = configuration.AccessToken;
 
             var response = (RestResponse)await CallApiAsync(path, method, queryParams, postBody, headerParams,

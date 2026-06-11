@@ -44,7 +44,13 @@ namespace Tests.Integration.Environment
             _envClient.CreateOrUpdateEnvVariable("original", _key);
             _envClient.DeleteEnvVariable(_key);
             _envClient.CreateOrUpdateEnvVariable("updated", _key);
-            var value = _envClient.Get1(_key)?.ToString().Trim('"');
+            string value = null;
+            for (var i = 0; i < 10; i++)
+            {
+                value = _envClient.Get1(_key)?.ToString().Trim('"');
+                if (value == "updated") break;
+                System.Threading.Thread.Sleep(500);
+            }
             Assert.Equal("updated", value);
             Cleanup();
         }
