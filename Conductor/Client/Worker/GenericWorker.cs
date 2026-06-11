@@ -111,7 +111,7 @@ namespace Conductor.Client.Worker
                 };
                 result.Logs = new List<TaskExecLog> { taskExecLog };
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 throw new Exception(Constants.RUNTIMEERROR);
             }

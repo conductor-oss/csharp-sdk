@@ -1817,10 +1817,6 @@ namespace Conductor.Api
             // verify the required parameter 'taskRefName' is set
             if (taskRefName == null)
                 throw new ApiException(400, "Missing required parameter 'taskRefName' when calling TaskResourceApi->UpdateTask");
-            // verify the required parameter 'status' is set
-            if (status == null)
-                throw new ApiException(400, "Missing required parameter 'status' when calling TaskResourceApi->UpdateTask");
-
             var localVarPath = "/tasks/{workflowId}/{taskRefName}/{status}/sync";
             var localVarPathParams = new Dictionary<String, String>();
             var localVarQueryParams = new List<KeyValuePair<String, String>>();
@@ -1850,7 +1846,7 @@ namespace Conductor.Api
 
             if (workflowId != null) localVarPathParams.Add("workflowId", this.Configuration.ApiClient.ParameterToString(workflowId)); // path parameter
             if (taskRefName != null) localVarPathParams.Add("taskRefName", this.Configuration.ApiClient.ParameterToString(taskRefName)); // path parameter
-            if (status != null) localVarPathParams.Add("status", this.Configuration.ApiClient.ParameterToString(status)); // path parameter
+            localVarPathParams.Add("status", this.Configuration.ApiClient.ParameterToString(status)); // path parameter
             if (workerid != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "workerid", workerid)); // query parameter
             if (output != null && output.GetType() != typeof(byte[]))
             {
@@ -1887,10 +1883,6 @@ namespace Conductor.Api
             // verify the required parameter 'taskRefName' is set
             if (taskRefName == null)
                 throw new ApiException(400, "Missing required parameter 'taskRefName' when calling TaskResourceApi->UpdateTask");
-            // verify the required parameter 'status' is set
-            if (status == null)
-                throw new ApiException(400, "Missing required parameter 'status' when calling TaskResourceApi->UpdateTask");
-
             var localVarPath = "/tasks/{workflowId}/{taskRefName}/{status}/sync";
             var localVarPathParams = new Dictionary<String, String>();
             var localVarQueryParams = new List<KeyValuePair<String, String>>();
@@ -1920,7 +1912,7 @@ namespace Conductor.Api
 
             if (workflowId != null) localVarPathParams.Add("workflowId", this.Configuration.ApiClient.ParameterToString(workflowId)); // path parameter
             if (taskRefName != null) localVarPathParams.Add("taskRefName", this.Configuration.ApiClient.ParameterToString(taskRefName)); // path parameter
-            if (status != null) localVarPathParams.Add("status", this.Configuration.ApiClient.ParameterToString(status)); // path parameter
+            localVarPathParams.Add("status", this.Configuration.ApiClient.ParameterToString(status)); // path parameter
             if (workerid != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "workerid", workerid)); // query parameter
             if (output != null && output.GetType() != typeof(byte[]))
             {
