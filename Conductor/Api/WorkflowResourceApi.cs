@@ -942,7 +942,7 @@ namespace Conductor.Api
             if (version != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "version", version)); // query parameter
             if (startTime != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "startTime", startTime)); // query parameter
             if (endTime != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "endTime", endTime)); // query parameter
-            return (await this.Configuration.ApiClient.ExecuteAsync<List<string>(localVarPath,
+            return (await this.Configuration.ApiClient.ExecuteAsync<List<string>>(localVarPath,
                 Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetRunningWorkflow")).Data;
@@ -988,7 +988,7 @@ namespace Conductor.Api
             if (version != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "version", version)); // query parameter
             if (startTime != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "startTime", startTime)); // query parameter
             if (endTime != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "endTime", endTime)); // query parameter
-            return this.Configuration.ApiClient.Execute<List<string>(localVarPath,
+            return this.Configuration.ApiClient.Execute<List<string>>(localVarPath,
                 Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetRunningWorkflow");
@@ -1162,7 +1162,7 @@ namespace Conductor.Api
             {
                 localVarPostBody = body; // byte array
             }
-            return (await this.Configuration.ApiClient.ExecuteAsync<Dictionary<string, List<Workflow>(localVarPath,
+            return (await this.Configuration.ApiClient.ExecuteAsync<Dictionary<string, List<Workflow>>>(localVarPath,
                 Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetWorkflows")).Data;
@@ -1219,7 +1219,7 @@ namespace Conductor.Api
             {
                 localVarPostBody = body; // byte array
             }
-            return this.Configuration.ApiClient.Execute<Dictionary<string, List<Workflow>(localVarPath,
+            return this.Configuration.ApiClient.Execute<Dictionary<string, List<Workflow>>>(localVarPath,
                 Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetWorkflows");
@@ -1285,7 +1285,7 @@ namespace Conductor.Api
             {
                 localVarPostBody = body; // byte array
             }
-            return (await this.Configuration.ApiClient.ExecuteAsync<Dictionary<string, List<Workflow>(localVarPath,
+            return (await this.Configuration.ApiClient.ExecuteAsync<Dictionary<string, List<Workflow>>>(localVarPath,
                 Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetWorkflows")).Data;
@@ -1337,7 +1337,7 @@ namespace Conductor.Api
             {
                 localVarPostBody = body; // byte array
             }
-            return this.Configuration.ApiClient.Execute<Dictionary<string, List<Workflow>(localVarPath,
+            return this.Configuration.ApiClient.Execute<Dictionary<string, List<Workflow>>>(localVarPath,
                 Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetWorkflows");
@@ -1401,7 +1401,7 @@ namespace Conductor.Api
             if (correlationId != null) localVarPathParams.Add("correlationId", this.Configuration.ApiClient.ParameterToString(correlationId)); // path parameter
             if (includeClosed != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "includeClosed", includeClosed)); // query parameter
             if (includeTasks != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "includeTasks", includeTasks)); // query parameter
-            return (await this.Configuration.ApiClient.ExecuteAsync<List<Workflow>(localVarPath,
+            return (await this.Configuration.ApiClient.ExecuteAsync<List<Workflow>>(localVarPath,
                 Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetWorkflows")).Data;
@@ -1450,7 +1450,7 @@ namespace Conductor.Api
             if (correlationId != null) localVarPathParams.Add("correlationId", this.Configuration.ApiClient.ParameterToString(correlationId)); // path parameter
             if (includeClosed != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "includeClosed", includeClosed)); // query parameter
             if (includeTasks != null) localVarQueryParams.AddRange(this.Configuration.ApiClient.ParameterToKeyValuePairs("", "includeTasks", includeTasks)); // query parameter
-            return this.Configuration.ApiClient.Execute<List<Workflow>(localVarPath,
+            return this.Configuration.ApiClient.Execute<List<Workflow>>(localVarPath,
                 Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetWorkflows");

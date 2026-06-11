@@ -434,7 +434,7 @@ namespace conductor_csharp.Api
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="workflowId"></param>
         /// <returns></returns>
-        void DecideAsync(string workflowId);
+        ThreadTask.Task DecideAsync(string workflowId);
 
         /// <summary>
         /// Asynchronous Removes the workflow from the system
@@ -446,7 +446,7 @@ namespace conductor_csharp.Api
         /// <param name="workflowId"></param>
         /// <param name="archiveWorkflow"> (optional, default to true)</param>
         /// <returns></returns>
-        void DeleteAsync(string workflowId, bool? archiveWorkflow = null);
+        ThreadTask.Task DeleteAsync(string workflowId, bool? archiveWorkflow = null);
 
         /// <summary>
         /// Asynchronous Execute a workflow 
@@ -601,7 +601,7 @@ namespace conductor_csharp.Api
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="workflowId"></param>
         /// <returns></returns>
-        void PauseWorkflowAsync(string workflowId);
+        ThreadTask.Task PauseWorkflowAsync(string workflowId);
 
         /// <summary>
         /// Asynchronous Jump workflow execution to given task
@@ -614,7 +614,7 @@ namespace conductor_csharp.Api
         /// <param name="workflowId"></param>
         /// <param name="taskReferenceName"> (optional)</param>
         /// <returns></returns>
-        void JumpToTaskAsync(string workflowId, Dictionary<string, Object> input, string taskReferenceName = null);
+        ThreadTask.Task JumpToTaskAsync(string workflowId, Dictionary<string, Object> input, string taskReferenceName = null);
 
 
         /// <summary>
@@ -638,7 +638,7 @@ namespace conductor_csharp.Api
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="workflowId"></param>
         /// <returns></returns>
-        void ResetWorkflowAsync(string workflowId);
+        ThreadTask.Task ResetWorkflowAsync(string workflowId);
 
         /// <summary>
         /// Asynchronous Restarts a completed workflow
@@ -650,7 +650,7 @@ namespace conductor_csharp.Api
         /// <param name="workflowId"></param>
         /// <param name="useLatestDefinitions"> (optional, default to false)</param>
         /// <returns></returns>
-        void RestartAsync(string workflowId, bool? useLatestDefinitions = null);
+        ThreadTask.Task RestartAsync(string workflowId, bool? useLatestDefinitions = null);
 
         /// <summary>
         /// Asynchronous Resumes the workflow
@@ -661,7 +661,7 @@ namespace conductor_csharp.Api
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="workflowId"></param>
         /// <returns></returns>
-        void ResumeWorkflowAsync(string workflowId);
+        ThreadTask.Task ResumeWorkflowAsync(string workflowId);
 
         /// <summary>
         /// Asynchronous Retries the last failed task
@@ -673,7 +673,7 @@ namespace conductor_csharp.Api
         /// <param name="workflowId"></param>
         /// <param name="resumeSubworkflowTasks"> (optional, default to false)</param>
         /// <returns></returns>
-        void RetryAsync(string workflowId, bool? resumeSubworkflowTasks = null);
+        ThreadTask.Task RetryAsync(string workflowId, bool? resumeSubworkflowTasks = null);
 
         /// <summary>
         /// Asynchronous Search for workflows based on payload and other parameters
@@ -748,7 +748,7 @@ namespace conductor_csharp.Api
         /// <param name="taskReferenceName"></param>
         /// <param name="skipTaskRequest"></param>
         /// <returns></returns>
-        void SkipTaskFromWorkflowAsync(string workflowId, string taskReferenceName, SkipTaskRequest skipTaskRequest);
+        ThreadTask.Task SkipTaskFromWorkflowAsync(string workflowId, string taskReferenceName, SkipTaskRequest skipTaskRequest);
 
         /// <summary>
         /// Asynchronous Start a new workflow with StartWorkflowRequest, which allows task to be executed in a domain
@@ -787,7 +787,7 @@ namespace conductor_csharp.Api
         /// <param name="reason"> (optional)</param>
         /// <param name="triggerFailureWorkflow"> (optional, default to false)</param>
         /// <returns></returns>
-        void TerminateAsync(string workflowId, string reason = null, bool? triggerFailureWorkflow = null);
+        ThreadTask.Task TerminateAsync(string workflowId, string reason = null, bool? triggerFailureWorkflow = null);
 
         /// <summary>
         /// Asynchronous Test workflow execution using mock data
