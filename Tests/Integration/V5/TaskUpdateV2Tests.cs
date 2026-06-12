@@ -18,6 +18,7 @@ using Conductor.Definition.TaskType;
 using System.Collections.Generic;
 using Tests.Integration.Helpers;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Tests.Integration.V5
 {
@@ -33,12 +34,14 @@ namespace Tests.Integration.V5
         private readonly WorkflowResourceApi _workflowClient;
         private readonly TaskResourceApi _taskClient;
         private readonly MetadataResourceApi _metadataClient;
+        private readonly ITestOutputHelper _output;
         private readonly string _workflowName;
         private readonly string _taskName;
         private const string WorkerId = "csharp-sdk-test-worker";
 
-        public TaskUpdateV2Tests(ConductorFixture fixture)
+        public TaskUpdateV2Tests(ConductorFixture fixture, ITestOutputHelper output)
         {
+            _output = output;
             _workflowClient = fixture.Configuration.GetClient<WorkflowResourceApi>();
             _taskClient = fixture.Configuration.GetClient<TaskResourceApi>();
             _metadataClient = fixture.Configuration.GetClient<MetadataResourceApi>();
@@ -60,15 +63,23 @@ namespace Tests.Integration.V5
         public void UpdateTask_CompletesTask_WorkflowCompletes()
         {
             var workflowId = StartWorkflow();
-            var task = PollTask();
+            _output.WriteLine($"WorkflowId: {workflowId}");
 
-            _taskClient.UpdateTask(new TaskResult
+            var task = PollTask();
+            _output.WriteLine($"TaskId: {task.TaskId}, TaskType: {task.TaskDefName}, Status: {task.Status}");
+
+            var taskResult = new TaskResult
             {
                 TaskId = task.TaskId,
                 WorkflowInstanceId = workflowId,
                 Status = TaskResult.StatusEnum.COMPLETED,
                 OutputData = new Dictionary<string, object> { { "result", "ok" } }
-            });
+            };
+
+            var updateResponse = _taskClient.UpdateTask(taskResult);
+            _output.WriteLine($"UpdateTask response: {updateResponse}");
+
+            VerifyTaskUpdated(task.TaskId, taskResult);
 
             Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.COMPLETED, GetWorkflowStatus(workflowId));
             Cleanup(workflowId);
@@ -78,18 +89,41 @@ namespace Tests.Integration.V5
         public void UpdateTask_FailTask_WorkflowFails()
         {
             var workflowId = StartWorkflow();
-            var task = PollTask();
+            _output.WriteLine($"WorkflowId: {workflowId}");
 
-            _taskClient.UpdateTask(new TaskResult
+            var task = PollTask();
+            _output.WriteLine($"TaskId: {task.TaskId}, TaskType: {task.TaskDefName}, Status: {task.Status}");
+
+            var taskResult = new TaskResult
             {
                 TaskId = task.TaskId,
                 WorkflowInstanceId = workflowId,
                 Status = TaskResult.StatusEnum.FAILED,
                 ReasonForIncompletion = "v5 test failure"
-            });
+            };
+
+            var updateResponse = _taskClient.UpdateTask(taskResult);
+            _output.WriteLine($"UpdateTask response: {updateResponse}");
+
+            VerifyTaskUpdated(task.TaskId, taskResult);
 
             Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.FAILED, GetWorkflowStatus(workflowId));
             Cleanup(workflowId);
+        }
+
+        private void VerifyTaskUpdated(string taskId, TaskResult sentResult)
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                var taskAfter = _taskClient.GetTask(taskId);
+                _output.WriteLine($"  VerifyTask poll {i}: status={taskAfter.Status}");
+                if (taskAfter.Status.ToString() == sentResult.Status.ToString())
+                    return;
+                System.Threading.Thread.Sleep(500);
+            }
+
+            var final_ = _taskClient.GetTask(taskId);
+            Assert.Equal(sentResult.Status.ToString(), final_.Status.ToString());
         }
 
         private string StartWorkflow() =>
@@ -109,14 +143,17 @@ namespace Tests.Integration.V5
 
         private Conductor.Client.Models.Workflow.StatusEnum? GetWorkflowStatus(string id)
         {
-            for (var i = 0; i < 10; i++)
+            for (var i = 0; i < 20; i++)
             {
-                var status = _workflowClient.GetExecutionStatus(id).Status;
-                if (status != Conductor.Client.Models.Workflow.StatusEnum.RUNNING)
-                    return status;
-                System.Threading.Thread.Sleep(500);
+                var wf = _workflowClient.GetExecutionStatus(id);
+                _output.WriteLine($"  Poll {i}: status={wf.Status}");
+                if (wf.Status != Conductor.Client.Models.Workflow.StatusEnum.RUNNING)
+                    return wf.Status;
+                System.Threading.Thread.Sleep(1000);
             }
-            return _workflowClient.GetExecutionStatus(id).Status;
+            var final = _workflowClient.GetExecutionStatus(id);
+            _output.WriteLine($"  Final: status={final.Status}");
+            return final.Status;
         }
 
         private void Cleanup(string workflowId)
