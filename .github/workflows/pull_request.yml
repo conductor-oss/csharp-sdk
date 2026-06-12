@@ -8,10 +8,10 @@ on:
   push:
     branches:
       - main
-      - e2e-with-oss #todo - remove after rebasing to main
   pull_request:
     branches:
       - main
+      - fix/latency-issues #todo - remove after rebasing to main
   workflow_dispatch:
 
 jobs:
