@@ -11,6 +11,7 @@ on:
   pull_request:
     branches:
       - main
+      - gated-metrics-standardization #todo - remove after rebasing to main
   workflow_dispatch:
 
 jobs:
