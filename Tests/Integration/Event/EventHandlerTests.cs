@@ -77,7 +77,13 @@ namespace Tests.Integration.Event
         }
 
         private EventHandler Build() => new EventHandler(
-            actions: new List<Conductor.Client.Models.Action>(),
+            actions: new List<Conductor.Client.Models.Action>
+            {
+                new Conductor.Client.Models.Action
+                {
+                    ActionType = Conductor.Client.Models.Action.ActionEnum.CompleteTask
+                }
+            },
             _event: _eventName,
             name: _handlerName,
             active: true
