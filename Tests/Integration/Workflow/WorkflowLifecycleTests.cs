@@ -133,6 +133,7 @@ namespace Tests.Integration.Workflow
         }
 
         [Fact]
+        [Trait("ServerType", "Orkes")]
         public void UpdateWorkflowVariables_VariablesAreReflected()
         {
             var id = StartWorkflow();

@@ -22,6 +22,7 @@ namespace Tests.Integration.Orkes
 {
     [Collection("Integration")]
     [Trait("Category", "Integration")]
+    [Trait("ServerType", "Orkes")]
     public class TagTests : IClassFixture<ConductorFixture>
     {
         private readonly TagsApi _tagsClient;

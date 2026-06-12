@@ -22,6 +22,7 @@ namespace Tests.Integration.Scheduler
 {
     [Collection("Integration")]
     [Trait("Category", "Integration")]
+    [Trait("Feature", "OSSSchedulerWIP")]
     public class SchedulerTests : IClassFixture<ConductorFixture>
     {
         private readonly SchedulerResourceApi _schedulerClient;
