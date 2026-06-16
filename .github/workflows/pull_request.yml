@@ -84,10 +84,15 @@ jobs:
   integration_tests:
     needs: lint
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        server-version: [v5, v4]
+    name: integration (${{ matrix.server-version }})
     env:
-      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
-      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
-      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
+      CONDUCTOR_SERVER_URL: ${{ matrix.server-version == 'v4' && vars.SM_V4_SERVER_URL || secrets.CONDUCTOR_SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ matrix.server-version == 'v4' && vars.SM_V4_AUTH_KEY || secrets.CONDUCTOR_AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ matrix.server-version == 'v4' && secrets.SM_V4_AUTH_SECRET || secrets.CONDUCTOR_AUTH_SECRET }}
       GITHUB_RUN_ID: ${{ github.run_id }}
     steps:
       - name: Checkout
@@ -100,7 +105,7 @@ jobs:
         run: |
           echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
           echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
-      - name: Run integration tests (v5)
+      - name: Run integration tests (${{ matrix.server-version }})
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
@@ -110,10 +115,19 @@ jobs:
   legacy_integration_tests:
     needs: lint
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - server-version: v5
+            test-filter: "Category=CloudIntegration"
+          - server-version: v4
+            test-filter: "Category=CloudIntegration&Version!=V5Only"
+    name: legacy integration (${{ matrix.server-version }})
     env:
-      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
-      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
-      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
+      CONDUCTOR_SERVER_URL: ${{ matrix.server-version == 'v4' && vars.SM_V4_SERVER_URL || secrets.CONDUCTOR_SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ matrix.server-version == 'v4' && vars.SM_V4_AUTH_KEY || secrets.CONDUCTOR_AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ matrix.server-version == 'v4' && secrets.SM_V4_AUTH_SECRET || secrets.CONDUCTOR_AUTH_SECRET }}
       GITHUB_RUN_ID: ${{ github.run_id }}
     steps:
       - name: Checkout
@@ -126,11 +140,11 @@ jobs:
         run: |
           echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
           echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
-      - name: Run legacy integration tests
+      - name: Run legacy integration tests (${{ matrix.server-version }})
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
-          --filter "Category=CloudIntegration"
+          --filter "${{ matrix.test-filter }}"
           -l "console;verbosity=normal"
 
   integration_tests_oss:

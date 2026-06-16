@@ -13,10 +13,12 @@
 using System;
 using conductor.csharp.Client.Extensions;
 using Conductor.Api;
+using Conductor.Client;
 using Conductor.Client.Extensions;
 using Conductor.Client.Models;
 using Conductor.Definition;
 using Conductor.Definition.TaskType;
+using conductor_csharp.test.Helper;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
@@ -172,142 +174,179 @@ namespace conductor_csharp.test.Api
         [Fact]
         public void TestWorkflowOperations()
         {
-            // Start Workflow
-            var correlationId = Guid.NewGuid().ToString();
-            var startWorkflowRequest = new StartWorkflowRequest
+            const string originalName = "csharp_sync_task_variable_updates";
+            string workflowName;
+            bool createdPrefixed = false;
+
+            try
             {
-                Name = "csharp_sync_task_variable_updates",
-                Version = 1,
-                Input = new Dictionary<string, object>(),
-                CorrelationId = correlationId
-            };
-            var workflowId = _workflowClient.StartWorkflow(startWorkflowRequest);
-            _testOutputHelper.WriteLine($"Started workflow with id {workflowId}");
-
-            // Update a variable inside the workflow 
-            _workflowClient.UpdateWorkflowVariables(workflowId, new Dictionary<string, object> { { "case", "case1" } });
-
-            // Get workflow execution status
-            var workflow = _workflowClient.GetWorkflow(workflowId, true);
-            var lastTask = workflow.Tasks.Last();
-            _testOutputHelper.WriteLine(
-                $"Workflow status is {workflow.Status} and currently running task is {lastTask.ReferenceTaskName}");
-
-            workflow = _taskClient.UpdateTaskSync(new Dictionary<string, object> { { "a", "b" } }, workflowId,
-                lastTask.ReferenceTaskName, TaskResult.StatusEnum.COMPLETED, "test_worker");
-
-            // Get updated workflow status
-            lastTask = workflow.Tasks.Last();
-            Assert.Equal(lastTask.Status, Task.StatusEnum.INPROGRESS);
-            _testOutputHelper.WriteLine(
-                $"Workflow status is {workflow.Status} and currently running task is {lastTask.ReferenceTaskName}");
-
-            // Terminate the workflow
-            _workflowClient.Terminate(workflowId, "testing termination");
-            workflow = _workflowClient.GetWorkflow(workflowId, true);
-            Assert.Equal(Workflow.StatusEnum.TERMINATED, workflow.Status);
-            lastTask = workflow.Tasks.Last();
-            _testOutputHelper.WriteLine(
-                $"Workflow status is {workflow.Status} and status of last task {lastTask.Status}");
-
-            // Retry the workflow
-            _workflowClient.Retry(workflowId);
-            workflow = _workflowClient.GetWorkflow(workflowId, true);
-            Assert.Equal(Workflow.StatusEnum.RUNNING, workflow.Status);
-            lastTask = workflow.Tasks.Last();
-            _testOutputHelper.WriteLine(
-                $"Workflow status is {workflow.Status} and status of last task {lastTask.ReferenceTaskName} is {lastTask.Status}");
-
-            // Mark the WAIT task as completed by calling Task completion API
-            var taskResult = new TaskResult
+                _metadataResourceApi.Get(originalName);
+                workflowName = originalName;
+                _testOutputHelper.WriteLine($"Workflow definition '{originalName}' exists on server, using it directly");
+            }
+            catch (ApiException)
             {
-                WorkflowInstanceId = workflowId,
-                TaskId = lastTask.TaskId,
-                Status = TaskResult.StatusEnum.COMPLETED,
-                OutputData = new Dictionary<string, object> { { "greetings", "hello from Orkes" } }
-            };
-            workflow = _taskClient.UpdateTaskSync(
-                new Dictionary<string, object> { { "greetings", "hello from Orkes" } },
-                workflowId, lastTask.ReferenceTaskName, TaskResult.StatusEnum.COMPLETED, "");
+                var suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+                workflowName = $"csharp_sdk_{suffix}_sync_task_variable_updates";
+                var wfDef = JsonHelper.DeserializeJson<WorkflowDef>("TestData/sync_task_variable_updates_wf.json");
+                wfDef.Name = workflowName;
+                _metadataResourceApi.UpdateWorkflowDefinitions(new List<WorkflowDef> { wfDef }, true);
+                createdPrefixed = true;
+                _testOutputHelper.WriteLine(
+                    $"Workflow definition '{originalName}' not found; registered prefixed copy '{workflowName}' from fixture JSON (will clean up after test)");
+            }
 
-            lastTask = workflow.Tasks.Last();
-            Assert.Equal(Task.StatusEnum.SCHEDULED, lastTask.Status);
-            _testOutputHelper.WriteLine(
-                $"Workflow status is {workflow.Status} and status of last task {lastTask.ReferenceTaskName} is {lastTask.Status}");
-
-            // Terminate the workflow again
-            _workflowClient.Terminate(workflowId, "terminating for testing");
-            workflow = _workflowClient.GetWorkflow(workflowId, true);
-            Assert.Equal(Workflow.StatusEnum.TERMINATED, workflow.Status);
-
-
-            // Rerun workflow from a specific task
-            var rerunRequest = new RerunWorkflowRequest
+            try
             {
-                ReRunFromTaskId = workflow.Tasks[3].TaskId
-            };
-            _workflowClient.Rerun(rerunRequest, workflowId);
-            workflow = _workflowClient.GetWorkflow(workflowId, true);
-            Assert.Equal(Workflow.StatusEnum.RUNNING, workflow.Status);
+                // Start Workflow
+                var correlationId = Guid.NewGuid().ToString();
+                var startWorkflowRequest = new StartWorkflowRequest
+                {
+                    Name = workflowName,
+                    Version = 1,
+                    Input = new Dictionary<string, object>(),
+                    CorrelationId = correlationId
+                };
+                var workflowId = _workflowClient.StartWorkflow(startWorkflowRequest);
+                _testOutputHelper.WriteLine($"Started workflow with id {workflowId}");
 
+                // Update a variable inside the workflow
+                _workflowClient.UpdateWorkflowVariables(workflowId, new Dictionary<string, object> { { "case", "case1" } });
 
-            // Restart the workflow
-            _workflowClient.Terminate(workflowId, "terminating so we can do a restart");
-            workflow = _workflowClient.GetWorkflow(workflowId, true);
-            Assert.Equal(Workflow.StatusEnum.TERMINATED, workflow.Status);
+                // Get workflow execution status
+                var workflow = _workflowClient.GetWorkflow(workflowId, true);
+                var lastTask = workflow.Tasks.Last();
+                _testOutputHelper.WriteLine(
+                    $"Workflow status is {workflow.Status} and currently running task is {lastTask.ReferenceTaskName}");
 
-            _workflowClient.Restart(workflowId);
-            workflow = _workflowClient.GetWorkflow(workflowId, true);
-            Assert.Equal(Workflow.StatusEnum.RUNNING, workflow.Status);
+                workflow = _taskClient.UpdateTaskSync(new Dictionary<string, object> { { "a", "b" } }, workflowId,
+                    lastTask.ReferenceTaskName, TaskResult.StatusEnum.COMPLETED, "test_worker");
 
-            // Pause the workflow
-            _workflowClient.PauseWorkflow(workflowId);
-            workflow = _workflowClient.GetWorkflow(workflowId, true);
-            Assert.Equal(Workflow.StatusEnum.PAUSED, workflow.Status);
-            _testOutputHelper.WriteLine($"Workflow status is {workflow.Status}");
+                // Get updated workflow status
+                lastTask = workflow.Tasks.Last();
+                Assert.Equal(lastTask.Status, Task.StatusEnum.INPROGRESS);
+                _testOutputHelper.WriteLine(
+                    $"Workflow status is {workflow.Status} and currently running task is {lastTask.ReferenceTaskName}");
 
-            workflow = _workflowClient.GetWorkflow(workflowId, true);
-            // Wait task should have completed
-            var waitTask = workflow.Tasks[0];
-            Assert.Equal(Task.StatusEnum.INPROGRESS, waitTask.Status);
-            _testOutputHelper.WriteLine($"Workflow status is {workflow.Status} and wait task is {waitTask.Status}");
+                // Terminate the workflow
+                _workflowClient.Terminate(workflowId, "testing termination");
+                workflow = _workflowClient.GetWorkflow(workflowId, true);
+                Assert.Equal(Workflow.StatusEnum.TERMINATED, workflow.Status);
+                lastTask = workflow.Tasks.Last();
+                _testOutputHelper.WriteLine(
+                    $"Workflow status is {workflow.Status} and status of last task {lastTask.Status}");
 
+                // Retry the workflow
+                _workflowClient.Retry(workflowId);
+                workflow = _workflowClient.GetWorkflow(workflowId, true);
+                Assert.Equal(Workflow.StatusEnum.RUNNING, workflow.Status);
+                lastTask = workflow.Tasks.Last();
+                _testOutputHelper.WriteLine(
+                    $"Workflow status is {workflow.Status} and status of last task {lastTask.ReferenceTaskName} is {lastTask.Status}");
 
-            // Because workflow is paused, no further task should have been scheduled, making WAIT the last task
-            // Expecting only 1 task
-            _testOutputHelper.WriteLine($"Number of tasks in workflow is {workflow.Tasks.Count}");
-            Assert.Single(workflow.Tasks);
+                // Mark the WAIT task as completed by calling Task completion API
+                var taskResult = new TaskResult
+                {
+                    WorkflowInstanceId = workflowId,
+                    TaskId = lastTask.TaskId,
+                    Status = TaskResult.StatusEnum.COMPLETED,
+                    OutputData = new Dictionary<string, object> { { "greetings", "hello from Orkes" } }
+                };
+                workflow = _taskClient.UpdateTaskSync(
+                    new Dictionary<string, object> { { "greetings", "hello from Orkes" } },
+                    workflowId, lastTask.ReferenceTaskName, TaskResult.StatusEnum.COMPLETED, "");
 
-            // Resume the workflow
-            _workflowClient.ResumeWorkflow(workflowId);
-            lastTask = workflow.Tasks.Last();
-            workflow = _taskClient.UpdateTaskSync(new Dictionary<string, object> { { "a", "b" } }, workflowId,
-                lastTask.ReferenceTaskName, TaskResult.StatusEnum.COMPLETED, "test_worker");
+                lastTask = workflow.Tasks.Last();
+                Assert.Equal(Task.StatusEnum.SCHEDULED, lastTask.Status);
+                _testOutputHelper.WriteLine(
+                    $"Workflow status is {workflow.Status} and status of last task {lastTask.ReferenceTaskName} is {lastTask.Status}");
 
-            workflow = _workflowClient.GetWorkflow(workflowId, true);
+                // Terminate the workflow again
+                _workflowClient.Terminate(workflowId, "terminating for testing");
+                workflow = _workflowClient.GetWorkflow(workflowId, true);
+                Assert.Equal(Workflow.StatusEnum.TERMINATED, workflow.Status);
 
-            System.Threading.Thread.Sleep(5000);
+                // Rerun workflow from a specific task
+                var rerunRequest = new RerunWorkflowRequest
+                {
+                    ReRunFromTaskId = workflow.Tasks[3].TaskId
+                };
+                _workflowClient.Rerun(rerunRequest, workflowId);
+                workflow = _workflowClient.GetWorkflow(workflowId, true);
+                Assert.Equal(Workflow.StatusEnum.RUNNING, workflow.Status);
 
-            // There should be 3 tasks
-            _testOutputHelper.WriteLine(
-                $"Number of tasks in workflow is {workflow.Tasks.Count} and last task is {workflow.Tasks.Last().ReferenceTaskName}");
-            Assert.Equal(3, workflow.Tasks.Count);
+                // Restart the workflow
+                _workflowClient.Terminate(workflowId, "terminating so we can do a restart");
+                workflow = _workflowClient.GetWorkflow(workflowId, true);
+                Assert.Equal(Workflow.StatusEnum.TERMINATED, workflow.Status);
 
-            _testOutputHelper.WriteLine("Searching for correlationId " + correlationId);
-            // Search for workflows
-            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds() * 1000;
-            var searchResults = _workflowClient.Search(start: 0, size: 10, freeText: "*",
-                query: $"correlationId = '{correlationId}'");
-            _testOutputHelper.WriteLine(
-                $"Found {searchResults.Results.Count} execution with correlation_id '{correlationId}'");
-            Assert.Single(searchResults.Results);
+                _workflowClient.Restart(workflowId);
+                workflow = _workflowClient.GetWorkflow(workflowId, true);
+                Assert.Equal(Workflow.StatusEnum.RUNNING, workflow.Status);
 
-            correlationId = Guid.NewGuid().ToString();
-            searchResults = _workflowClient.Search(start: 0, size: 100, freeText: "*",
-                query: $"status IN (RUNNING) AND correlationId = \"{correlationId}\"");
-            // Shouldn't find anything!
-            _testOutputHelper.WriteLine(
-                $"Found {searchResults.Results.Count} workflows with correlation id {correlationId}");
+                // Pause the workflow
+                _workflowClient.PauseWorkflow(workflowId);
+                workflow = _workflowClient.GetWorkflow(workflowId, true);
+                Assert.Equal(Workflow.StatusEnum.PAUSED, workflow.Status);
+                _testOutputHelper.WriteLine($"Workflow status is {workflow.Status}");
+
+                workflow = _workflowClient.GetWorkflow(workflowId, true);
+                // Wait task should have completed
+                var waitTask = workflow.Tasks[0];
+                Assert.Equal(Task.StatusEnum.INPROGRESS, waitTask.Status);
+                _testOutputHelper.WriteLine($"Workflow status is {workflow.Status} and wait task is {waitTask.Status}");
+
+                // Because workflow is paused, no further task should have been scheduled, making WAIT the last task
+                // Expecting only 1 task
+                _testOutputHelper.WriteLine($"Number of tasks in workflow is {workflow.Tasks.Count}");
+                Assert.Single(workflow.Tasks);
+
+                // Resume the workflow
+                _workflowClient.ResumeWorkflow(workflowId);
+                lastTask = workflow.Tasks.Last();
+                workflow = _taskClient.UpdateTaskSync(new Dictionary<string, object> { { "a", "b" } }, workflowId,
+                    lastTask.ReferenceTaskName, TaskResult.StatusEnum.COMPLETED, "test_worker");
+
+                workflow = _workflowClient.GetWorkflow(workflowId, true);
+
+                System.Threading.Thread.Sleep(5000);
+
+                // There should be 3 tasks
+                _testOutputHelper.WriteLine(
+                    $"Number of tasks in workflow is {workflow.Tasks.Count} and last task is {workflow.Tasks.Last().ReferenceTaskName}");
+                Assert.Equal(3, workflow.Tasks.Count);
+
+                _testOutputHelper.WriteLine("Searching for correlationId " + correlationId);
+                // Search for workflows
+                var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds() * 1000;
+                var searchResults = _workflowClient.Search(start: 0, size: 10, freeText: "*",
+                    query: $"correlationId = '{correlationId}'");
+                _testOutputHelper.WriteLine(
+                    $"Found {searchResults.Results.Count} execution with correlation_id '{correlationId}'");
+                Assert.Single(searchResults.Results);
+
+                correlationId = Guid.NewGuid().ToString();
+                searchResults = _workflowClient.Search(start: 0, size: 100, freeText: "*",
+                    query: $"status IN (RUNNING) AND correlationId = \"{correlationId}\"");
+                // Shouldn't find anything!
+                _testOutputHelper.WriteLine(
+                    $"Found {searchResults.Results.Count} workflows with correlation id {correlationId}");
+            }
+            finally
+            {
+                if (createdPrefixed)
+                {
+                    try
+                    {
+                        _metadataResourceApi.UnregisterWorkflowDef(workflowName, 1);
+                        _testOutputHelper.WriteLine($"Cleaned up prefixed workflow definition '{workflowName}'");
+                    }
+                    catch (Exception ex)
+                    {
+                        _testOutputHelper.WriteLine($"Failed to clean up workflow definition '{workflowName}': {ex.Message}");
+                    }
+                }
+            }
         }
     }
 }

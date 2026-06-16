@@ -19,6 +19,7 @@ namespace conductor_csharp.test.Api
 {
     [Collection("CloudIntegration")]
     [Trait("Category", "CloudIntegration")]
+    [Trait("Version", "V5Only")]
     public class HumanTaskResourceApiTest
     {
         private readonly HumanTaskResourceApi _humanTaskResourceApi;
