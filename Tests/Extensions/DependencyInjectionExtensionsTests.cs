@@ -20,11 +20,12 @@ namespace Tests.Extensions
     public class DependencyInjectionExtensionsTests
     {
         [Fact]
-        public void AddConductorWorker_RegistersMetricsCollectorAsSingleton()
+        public void AddConductorWorker_WithMetricsEnabled_RegistersMetricsCollectorAsSingleton()
         {
             var services = new ServiceCollection();
+            var config = new Conductor.Client.Configuration { EnableMetrics = true };
 
-            services.AddConductorWorker();
+            services.AddConductorWorker(config);
 
             var provider = services.BuildServiceProvider();
             var metrics = provider.GetService<MetricsCollector>();
@@ -33,8 +34,22 @@ namespace Tests.Extensions
             var metrics2 = provider.GetService<MetricsCollector>();
             Assert.Same(metrics, metrics2);
 
+            var resolvedConfig = provider.GetRequiredService<Conductor.Client.Configuration>();
+            Assert.Same(metrics, resolvedConfig.ApiClient.Metrics);
+        }
+
+        [Fact]
+        public void AddConductorWorker_MetricsDisabledByDefault_DoesNotRegisterMetricsCollector()
+        {
+            var services = new ServiceCollection();
+
+            services.AddConductorWorker();
+
+            var provider = services.BuildServiceProvider();
+            Assert.Null(provider.GetService<MetricsCollector>());
+
             var config = provider.GetRequiredService<Conductor.Client.Configuration>();
-            Assert.Same(metrics, config.ApiClient.Metrics);
+            Assert.Null(config.ApiClient.Metrics);
         }
 
         [Fact]
@@ -47,7 +62,7 @@ namespace Tests.Extensions
             Assert.Same(services, result);
             var provider = services.BuildServiceProvider();
             Assert.NotNull(provider.GetService<Conductor.Client.Configuration>());
-            Assert.NotNull(provider.GetService<MetricsCollector>());
+            Assert.Null(provider.GetService<MetricsCollector>());
         }
 
         [Fact]

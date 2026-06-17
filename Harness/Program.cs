@@ -30,6 +30,8 @@ namespace Harness
         public static async Task Main(string[] args)
         {
             var config = ApiExtensions.GetConfiguration();
+            // Will work with true or false - false just means no metrics will be collected or exposed.
+            config.EnableMetrics = false;
 
             RegisterMetadata(config);
 
@@ -67,7 +69,7 @@ namespace Harness
                             sp.GetRequiredService<ILogger<WorkflowGovernor>>(),
                             WorkflowName,
                             workflowsPerSec,
-                            sp.GetRequiredService<MetricsCollector>(),
+                            sp.GetService<MetricsCollector>(),
                             idSink: probe.Offer);
                     });
                 })
@@ -78,9 +80,16 @@ namespace Harness
                 })
                 .Build();
 
-            var metricsCollector = host.Services.GetRequiredService<MetricsCollector>();
-            metricsCollector.StartServer(metricsPort);
-            Console.WriteLine($"Prometheus metrics server started on port {metricsPort}");
+            var metricsCollector = host.Services.GetService<MetricsCollector>();
+            if (metricsCollector != null)
+            {
+                metricsCollector.StartServer(metricsPort);
+                Console.WriteLine($"Prometheus metrics server started on port {metricsPort}");
+            }
+            else
+            {
+                Console.WriteLine("Metrics disabled (config.EnableMetrics = false); skipping Prometheus server.");
+            }
 
             try
             {

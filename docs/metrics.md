@@ -87,6 +87,8 @@ The simplest way to expose metrics is via the built-in Prometheus HTTP listener:
 ```csharp
 using Conductor.Client.Telemetry;
 
+// Metrics are opt-in: set EnableMetrics = true on the Configuration
+// passed to AddConductorWorker() so the MetricsCollector is registered.
 var metricsCollector = host.Services.GetRequiredService<MetricsCollector>();
 metricsCollector.StartServer(9991);
 
@@ -96,15 +98,19 @@ metricsCollector.StartServer(9991);
 
 ### DI-Based Workers
 
-`MetricsCollector` is automatically registered as a singleton when you call `AddConductorWorker()`.
-No additional setup is needed for the SDK to start recording -- metrics are written to
-`System.Diagnostics.Metrics` instruments immediately.
+Metrics are **opt-in**. Set `Configuration.EnableMetrics = true` on the `Configuration` you pass
+to `AddConductorWorker()`. When enabled, `MetricsCollector` is registered as a singleton and wired
+into the `ApiClient` and worker runner, and metrics are written to `System.Diagnostics.Metrics`
+instruments immediately. When it is left at its default (`false`), no `MetricsCollector` is
+registered and nothing is recorded.
 
 ```csharp
+var config = new Configuration { EnableMetrics = true };
+
 var host = new HostBuilder()
     .ConfigureServices(services =>
     {
-        // MetricsCollector is registered automatically here.
+        // MetricsCollector is registered because config.EnableMetrics is true.
         services.AddConductorWorker(config);
         services.AddConductorWorkflowTask(new MyWorker());
         services.WithHostedService();
@@ -116,12 +122,18 @@ var metrics = host.Services.GetRequiredService<MetricsCollector>();
 metrics.StartServer(9991);
 ```
 
+When metrics are disabled, `MetricsCollector` is not in the container, so
+`GetRequiredService<MetricsCollector>()` throws. Use `GetService<MetricsCollector>()` (nullable) if
+you need to resolve it conditionally.
+
 ### WorkflowTaskHost Convenience API
 
-If you use the one-liner `WorkflowTaskHost.CreateWorkerHost(...)`, metrics are registered
-automatically via the same `AddConductorWorker()` call:
+If you use the one-liner `WorkflowTaskHost.CreateWorkerHost(...)`, metrics follow the same opt-in
+rule via the `Configuration` passed through to `AddConductorWorker()` -- set
+`Configuration.EnableMetrics = true` to register the collector:
 
 ```csharp
+var config = new Configuration { EnableMetrics = true };
 var host = WorkflowTaskHost.CreateWorkerHost(config, workers: new MyWorker());
 await host.RunAsync();
 ```
@@ -312,8 +324,10 @@ MetricsCollector.CanonicalSizeBuckets
 
 ### Metrics Are Empty / No Output
 
-- Verify that `MetricsCollector` is registered. When using `AddConductorWorker()`, it is
-  registered automatically as a singleton.
+- Verify that metrics are enabled. `MetricsCollector` is only registered when
+  `Configuration.EnableMetrics = true` is set on the `Configuration` passed to
+  `AddConductorWorker()`. With the default (`false`), no collector is registered and nothing is
+  recorded.
 - Verify that `StartServer(port)` has been called. Without it, no Prometheus endpoint is
   exposed (metrics are still written to `System.Diagnostics.Metrics` and visible to any
   attached `MeterListener` or `MeterProvider`).
@@ -329,8 +343,10 @@ MetricsCollector.CanonicalSizeBuckets
 
 - `http_api_client_request_seconds` is recorded inside `ApiClient.CallApi()` /
   `CallApiAsync()`. It requires the `Metrics` property on the `ApiClient` instance to be set
-  to a `MetricsCollector`. When using DI via `AddConductorWorker()`, this is assigned
-  automatically.
+  to a `MetricsCollector`. When using DI via `AddConductorWorker()` with
+  `Configuration.EnableMetrics = true`, this is assigned automatically.
+- This wiring only happens when `Configuration.EnableMetrics = true`. With metrics disabled
+  (the default), `ApiClient.Metrics` stays null and HTTP metrics are skipped.
 - If you are constructing `ApiClient` manually (outside `AddConductorWorker()`), you must set
   `myConfiguration.ApiClient.Metrics = myMetricsCollector` yourself. Without this, HTTP
   metrics are silently skipped (null-check on the `?.` operator).
@@ -384,9 +400,10 @@ unreleased metrics harmonization work. For a summary, see the project
     `Metrics` instance property. The `uri` label uses the raw path template
     (e.g. `/workflow/{workflowId}`) for bounded cardinality. Token-refresh retries
     (e.g. after a 401) each record a separate observation.
-  - DI registration (`AddConductorWorker()`) assigns the singleton `MetricsCollector` to
-    the `Configuration`'s `ApiClient.Metrics` so HTTP-client metrics flow without further
-    wiring.
+  - DI registration (`AddConductorWorker()`) registers the singleton `MetricsCollector` and
+    assigns it to the `Configuration`'s `ApiClient.Metrics` so HTTP-client metrics flow without
+    further wiring -- but only when `Configuration.EnableMetrics = true` (opt-in). With the
+    default (`false`), no collector is registered and nothing is recorded.
   - `WorkflowExecutor` accepts an optional `MetricsCollector` and records
     `workflow_input_size_bytes` (JSON-serialized input length) and
     `workflow_start_error_total` (on exception) from `StartWorkflow`.

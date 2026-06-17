@@ -227,7 +227,14 @@ namespace Conductor.Client
                 finally
                 {
                     sw.Stop();
-                    Metrics?.RecordHttpApiClientRequest(methodStr, metricsUri, statusCode, sw.Elapsed.TotalSeconds);
+                    try
+                    {
+                        Metrics?.RecordHttpApiClientRequest(methodStr, metricsUri, statusCode, sw.Elapsed.TotalSeconds);
+                    }
+                    catch
+                    {
+                        // Never let metrics recording break the HTTP path.
+                    }
                 }
 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -276,7 +283,14 @@ namespace Conductor.Client
             finally
             {
                 sw.Stop();
-                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), path, statusCode, sw.Elapsed.TotalSeconds);
+                try
+                {
+                    Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), path, statusCode, sw.Elapsed.TotalSeconds);
+                }
+                catch
+                {
+                    // Never let metrics recording break the HTTP path.
+                }
             }
         }
 
