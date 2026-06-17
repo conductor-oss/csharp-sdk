@@ -31,7 +31,7 @@ namespace Harness
         {
             var config = ApiExtensions.GetConfiguration();
             // Will work with true or false - false just means no metrics will be collected or exposed.
-            config.EnableMetrics = false;
+            config.EnableMetrics = true;
 
             RegisterMetadata(config);
 
