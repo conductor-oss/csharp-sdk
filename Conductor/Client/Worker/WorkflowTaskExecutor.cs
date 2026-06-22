@@ -95,20 +95,18 @@ namespace Conductor.Client.Worker
 
                     WorkOnce(token);
                 }
-                catch (System.OperationCanceledException canceledException)
+                catch (System.OperationCanceledException)
                 {
-                    //Do nothing the operation was cancelled
-                    _logger.LogTrace(
-                        $"[{_workerSettings.WorkerId}] Operation Cancelled: {canceledException.Message}"
+                    _logger.LogInformation(
+                        $"[{_workerSettings.WorkerId}] Worker shutting down"
                         + $", taskName: {_worker.TaskType}"
                         + $", domain: {_worker.WorkerSettings.Domain}"
-                        + $", batchSize: {_workerSettings.BatchSize}"
                     );
-                    Sleep(SLEEP_FOR_TIME_SPAN_ON_WORKER_ERROR);
+                    break;
                 }
                 catch (Exception e)
                 {
-                    _metrics?.RecordUncaughtException();
+                    _metrics?.RecordUncaughtException(e.GetType().Name);
                     _logger.LogError(
                         $"[{_workerSettings.WorkerId}] worker error: {e.Message}"
                         + $", taskName: {_worker.TaskType}"
@@ -171,7 +169,7 @@ namespace Conductor.Client.Worker
                 var tasks = _taskClient.PollTask(_worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain,
                     availableWorkerCounter);
                 pollStopwatch.Stop();
-                _metrics?.RecordTaskPollTime(_worker.TaskType, pollStopwatch.Elapsed.TotalSeconds);
+                _metrics?.RecordTaskPollTime(_worker.TaskType, pollStopwatch.Elapsed.TotalSeconds, "SUCCESS");
 
                 if (tasks == null)
                 {
@@ -189,7 +187,7 @@ namespace Conductor.Client.Worker
             catch (Exception e)
             {
                 pollStopwatch.Stop();
-                _metrics?.RecordTaskPollTime(_worker.TaskType, pollStopwatch.Elapsed.TotalSeconds);
+                _metrics?.RecordTaskPollTime(_worker.TaskType, pollStopwatch.Elapsed.TotalSeconds, "FAILURE");
                 _metrics?.RecordTaskPollError(_worker.TaskType, e.GetType().Name);
                 _logger.LogTrace(
                     $"[{_workerSettings.WorkerId}] Polling error: {e.Message} "
@@ -235,6 +233,7 @@ namespace Conductor.Client.Worker
                 + $", CancelToken: {token}"
             );
 
+            _metrics?.RecordTaskExecutionStarted(_worker.TaskType);
             var executeStopwatch = Stopwatch.StartNew();
             try
             {
@@ -244,7 +243,7 @@ namespace Conductor.Client.Worker
                 taskResult = await _worker.Execute(task, token);
 
                 executeStopwatch.Stop();
-                _metrics?.RecordTaskExecuteTime(_worker.TaskType, executeStopwatch.Elapsed.TotalSeconds);
+                _metrics?.RecordTaskExecuteTime(_worker.TaskType, executeStopwatch.Elapsed.TotalSeconds, "SUCCESS");
 
                 _logger.LogTrace(
                     $"[{_workerSettings.WorkerId}] Done processing task for worker"
@@ -259,7 +258,7 @@ namespace Conductor.Client.Worker
             catch (Exception e)
             {
                 executeStopwatch.Stop();
-                _metrics?.RecordTaskExecuteTime(_worker.TaskType, executeStopwatch.Elapsed.TotalSeconds);
+                _metrics?.RecordTaskExecuteTime(_worker.TaskType, executeStopwatch.Elapsed.TotalSeconds, "FAILURE");
                 _metrics?.RecordTaskExecuteError(_worker.TaskType, e.GetType().Name);
                 _logger.LogError(
                     $"[{_workerSettings.WorkerId}] Failed to process task for worker, reason: {e.Message}"
@@ -285,6 +284,7 @@ namespace Conductor.Client.Worker
             taskResult.WorkerId = taskResult.WorkerId ?? _workerSettings.WorkerId;
             RecordTaskResultSize(taskResult);
             var updateStopwatch = Stopwatch.StartNew();
+            Exception lastException = null;
             for (var attemptCounter = 0; attemptCounter < UPDATE_TASK_RETRY_COUNT_LIMIT; attemptCounter += 1)
             {
                 try
@@ -297,7 +297,7 @@ namespace Conductor.Client.Worker
 
                     _taskClient.UpdateTask(taskResult);
                     updateStopwatch.Stop();
-                    _metrics?.RecordTaskUpdateTime(_worker.TaskType, updateStopwatch.Elapsed.TotalSeconds);
+                    _metrics?.RecordTaskUpdateTime(_worker.TaskType, updateStopwatch.Elapsed.TotalSeconds, "SUCCESS");
                     _logger.LogTrace(
                         $"[{_workerSettings.WorkerId}] Done updating task"
                         + $", taskType: {_worker.TaskType}"
@@ -309,6 +309,7 @@ namespace Conductor.Client.Worker
                 }
                 catch (Exception e)
                 {
+                    lastException = e;
                     _logger.LogError(
                         $"[{_workerSettings.WorkerId}] Failed to update task, reason: {e.Message}"
                         + $", taskType: {_worker.TaskType}"
@@ -320,8 +321,9 @@ namespace Conductor.Client.Worker
             }
 
             updateStopwatch.Stop();
-            _metrics?.RecordTaskUpdateError(_worker.TaskType);
-            throw new Exception("Failed to update task after retries");
+            _metrics?.RecordTaskUpdateTime(_worker.TaskType, updateStopwatch.Elapsed.TotalSeconds, "FAILURE");
+            _metrics?.RecordTaskUpdateError(_worker.TaskType, lastException?.GetType().Name ?? "UnknownException");
+            throw new Exception("Failed to update task after retries", lastException);
         }
 
         private void RecordTaskResultSize(Models.TaskResult taskResult)
