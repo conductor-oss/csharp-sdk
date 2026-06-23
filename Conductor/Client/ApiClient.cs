@@ -317,8 +317,14 @@ namespace Conductor.Client
             finally
             {
                 sw.Stop();
-                var basePath = RestClient.Options.BaseUrl?.AbsolutePath?.TrimEnd('/') ?? "";
-                Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), basePath + path, statusCode, sw.Elapsed.TotalSeconds);
+                try
+                {
+                    Metrics?.RecordHttpApiClientRequest(method.ToString().ToUpperInvariant(), path, statusCode, sw.Elapsed.TotalSeconds);
+                }
+                catch
+                {
+                    // Never let metrics recording break the HTTP path.
+                }
             }
         }
 

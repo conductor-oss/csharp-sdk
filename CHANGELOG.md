@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased — async executor / thread-starvation fix]
 
+> **Breaking (source + binary):** ~26 `XxxAsync` methods on the `*ResourceApi`
+> classes and `I*ResourceApi` interfaces changed return type from `void` to
+> `Task` (they were previously `async void`). Recompilation is required, and any
+> fire-and-forget caller inside an `async` method will now emit compiler warning
+> **CS4014** ("this call is not awaited"). To resolve, either `await` the call or
+> explicitly discard it: `_ = api.DecideAsync(workflowId);`. This must ship as a
+> **minor or major** version bump, never a patch.
+
 ### Changed
 
 - `WorkflowTaskExecutor`: converted `async void` methods (`WorkOnce`, `ProcessTasks`, `ProcessTask`) to `async Task` so the poll loop properly awaits each batch before re-entering. Previously, `async void` caused untracked continuations — the `RunningWorkerDone()` monitor count drifted, and any exception after the first `await` was unobserved on the thread pool.
@@ -18,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `WorkflowTaskExecutor`: `task_update_time_seconds` metric now records per-attempt HTTP latency. Previously a single `Stopwatch` spanned the entire retry loop including `Thread.Sleep` backoff (2–8s per retry), inflating the metric 6–15× beyond actual network time.
-- `WorkflowTaskExecutor`: cancellation check in `ProcessTask`'s `finally` block was inverted (`== CancellationToken.None` instead of `!=`), so it never fired when a real token was provided.
+- `WorkflowTaskExecutor`: removed the `ThrowIfCancellationRequested()` from `ProcessTask`'s `finally` block. It previously threw before `RunningWorkerDone()`, leaking the running-worker count on cancellation, and throwing from `finally` could mask the in-flight exception. Cancellation is still observed at the loop level in `Work4Ever`.
+- `ApiClient`: the async `CallApiAsync(..., Configuration)` overload now wraps its metrics recording in try/catch (so metrics can never break the HTTP path) and records the route `path` only — matching the sync path and the canonical `uri` label used by the Python/JS SDKs (e.g. `/workflow/{workflowId}`) instead of prepending the base path.
 
 ## [Unreleased — metrics]
 
