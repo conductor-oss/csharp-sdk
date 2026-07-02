@@ -599,9 +599,7 @@ namespace Conductor.Api
             }
 
             var list = (List<EnvironmentVariable>)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(List<EnvironmentVariable>));
-            var dictionary = list
-                .Where(item => item.Name != null && item.Value != null)
-                .ToDictionary(item => item.Name, item => item.Value);
+            var dictionary = ToEnvironmentDictionary(list);
             return new ApiResponse<Dictionary<string, string>>(localVarStatusCode,
                 localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
                 dictionary);
@@ -668,12 +666,21 @@ namespace Conductor.Api
             }
 
             var list = (List<EnvironmentVariable>)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(List<EnvironmentVariable>));
-            var dictionary = list
-                .Where(item => item.Name != null && item.Value != null)
-                .ToDictionary(item => item.Name, item => item.Value);
+            var dictionary = ToEnvironmentDictionary(list);
             return new ApiResponse<Dictionary<string, string>>(localVarStatusCode,
             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
             dictionary);
+        }
+
+        /// <summary>
+        /// Projects a list of environment variables into a name/value dictionary,
+        /// skipping any entries that are missing a name or value.
+        /// </summary>
+        internal static Dictionary<string, string> ToEnvironmentDictionary(List<EnvironmentVariable> variables)
+        {
+            return variables
+                .Where(item => item.Name != null && item.Value != null)
+                .ToDictionary(item => item.Name, item => item.Value);
         }
     }
 }
