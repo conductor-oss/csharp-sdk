@@ -113,17 +113,21 @@ namespace Tests.Integration.V5
 
         private void VerifyTaskUpdated(string taskId, TaskResult sentResult)
         {
+            // TaskResult.StatusEnum and Task.StatusEnum are distinct enums with matching
+            // member names but different underlying values, so map by name (not numeric cast).
+            var expected = System.Enum.Parse<Conductor.Client.Models.Task.StatusEnum>(sentResult.Status.ToString());
+
             for (var i = 0; i < 10; i++)
             {
                 var taskAfter = _taskClient.GetTask(taskId);
                 _output.WriteLine($"  VerifyTask poll {i}: status={taskAfter.Status}");
-                if (taskAfter.Status.ToString() == sentResult.Status.ToString())
+                if (taskAfter.Status == expected)
                     return;
                 System.Threading.Thread.Sleep(500);
             }
 
             var final_ = _taskClient.GetTask(taskId);
-            Assert.Equal(sentResult.Status.ToString(), final_.Status.ToString());
+            Assert.Equal(expected, final_.Status);
         }
 
         private string StartWorkflow() =>
