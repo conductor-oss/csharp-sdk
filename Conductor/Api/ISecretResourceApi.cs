@@ -159,7 +159,7 @@ namespace conductor_csharp.Api
         /// <param name="body"></param>
         /// <param name="key"></param>
         /// <returns></returns>
-        void DeleteTagForSecretAsync(List<TagObject> body, string key);
+        ThreadTask.Task DeleteTagForSecretAsync(List<TagObject> body, string key);
 
         /// <summary>
         /// Asynchronous Get secret value by key
@@ -235,7 +235,7 @@ namespace conductor_csharp.Api
         /// <param name="body"></param>
         /// <param name="key"></param>
         /// <returns></returns>
-        void PutTagForSecretAsync(List<TagObject> body, string key);
+        ThreadTask.Task PutTagForSecretAsync(List<TagObject> body, string key);
 
         /// <summary>
         /// Asynchronous Check if secret exists

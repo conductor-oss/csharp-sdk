@@ -219,7 +219,7 @@ namespace conductor_csharp.Api
         /// <param name="body"></param>
         /// <param name="name"></param>
         /// <returns></returns>
-        void DeleteTagForScheduleAsync(List<TagObject> body, string name);
+        ThreadTask.Task DeleteTagForScheduleAsync(List<TagObject> body, string name);
 
         /// <summary>
         /// Asynchronous Get all existing workflow schedules and optionally filter by workflow name
@@ -299,7 +299,7 @@ namespace conductor_csharp.Api
         /// <param name="body"></param>
         /// <param name="name"></param>
         /// <returns></returns>
-        void PutTagForScheduleAsync(List<TagObject> body, string name);
+        ThreadTask.Task PutTagForScheduleAsync(List<TagObject> body, string name);
 
         /// <summary>
         /// Asynchronous Requeue all execution records
@@ -366,7 +366,7 @@ namespace conductor_csharp.Api
         /// </remarks>
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <returns></returns>
-        void TestTimeoutAsync();
+        ThreadTask.Task TestTimeoutAsync();
         #endregion Asynchronous Operations
     }
 }

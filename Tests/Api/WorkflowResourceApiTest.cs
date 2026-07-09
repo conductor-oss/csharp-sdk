@@ -56,7 +56,7 @@ namespace conductor_csharp.test.Api
         }
 
         [Fact]
-        public async void ResumeWorkflow()
+        public void ResumeWorkflow()
         {
             var workflowId = RegisterAndStartWorkflow();
 
@@ -69,7 +69,7 @@ namespace conductor_csharp.test.Api
         }
 
         [Fact]
-        public async void DeleteWorkflow()
+        public void DeleteWorkflow()
         {
             var workflowId = RegisterAndStartWorkflow();
 
@@ -80,7 +80,7 @@ namespace conductor_csharp.test.Api
         }
 
         [Fact]
-        public async void TerminateWorkflow()
+        public void TerminateWorkflow()
         {
             var workflowId = RegisterAndStartWorkflow();
 
@@ -92,7 +92,7 @@ namespace conductor_csharp.test.Api
         }
 
         [Fact]
-        public async void RetryLastFailedWorkflow()
+        public void RetryLastFailedWorkflow()
         {
             var workflowId = RegisterAndStartWorkflow();
 
@@ -106,7 +106,7 @@ namespace conductor_csharp.test.Api
 
 
         [Fact]
-        public async void PauseWorkflowExecution()
+        public void PauseWorkflowExecution()
         {
             var workflowId = RegisterAndStartWorkflow();
 
@@ -118,7 +118,7 @@ namespace conductor_csharp.test.Api
         }
 
         [Fact]
-        public async void UpdateWorkflowVariables()
+        public void UpdateWorkflowVariables()
         {
             // Prepare workflow
             var workflowId = RegisterAndStartWorkflow();

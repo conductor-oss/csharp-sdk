@@ -351,7 +351,7 @@ namespace conductor_csharp.Api
         /// <param name="body"></param>
         /// <param name="taskId"></param>
         /// <returns></returns>
-        void LogAsync(string body, string taskId);
+        ThreadTask.Task LogAsync(string body, string taskId);
 
         /// <summary>
         /// Asynchronous Poll for a task of a certain type

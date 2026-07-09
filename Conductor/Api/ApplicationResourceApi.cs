@@ -119,8 +119,41 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> AddRoleToApplicationUserAsync(string applicationId, string role)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(AddRoleToApplicationUserWithHttpInfo(applicationId, role));
-            return localVarResponse.Data;
+            // verify the required parameter 'applicationId' is set
+            if (applicationId == null)
+                throw new ApiException(400, "Missing required parameter 'applicationId' when calling ApplicationResourceApi->AddRoleToApplicationUser");
+            // verify the required parameter 'role' is set
+            if (role == null)
+                throw new ApiException(400, "Missing required parameter 'role' when calling ApplicationResourceApi->AddRoleToApplicationUser");
+
+            var localVarPath = "/applications/{applicationId}/roles/{role}";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (applicationId != null) localVarPathParams.Add("applicationId", this.Configuration.ApiClient.ParameterToString(applicationId)); // path parameter
+            if (role != null) localVarPathParams.Add("role", this.Configuration.ApiClient.ParameterToString(role)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "AddRoleToApplicationUser")).Data;
         }
 
         /// <summary>
@@ -162,28 +195,11 @@ namespace Conductor.Api
 
             if (applicationId != null) localVarPathParams.Add("applicationId", this.Configuration.ApiClient.ParameterToString(applicationId)); // path parameter
             if (role != null) localVarPathParams.Add("role", this.Configuration.ApiClient.ParameterToString(role)); // path parameter
-                                                                                                                    // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("AddRoleToApplicationUser", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "AddRoleToApplicationUser");
         }
 
         /// <summary>
@@ -206,8 +222,37 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> CreateAccessKeyAsync(string id)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(CreateAccessKeyWithHttpInfo(id));
-            return localVarResponse.Data;
+            // verify the required parameter 'id' is set
+            if (id == null)
+                throw new ApiException(400, "Missing required parameter 'id' when calling ApplicationResourceApi->CreateAccessKey");
+
+            var localVarPath = "/applications/{id}/accessKeys";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "CreateAccessKey")).Data;
         }
 
         /// <summary>
@@ -244,28 +289,11 @@ namespace Conductor.Api
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
             if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
-                                                                                                              // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("CreateAccessKey", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "CreateAccessKey");
         }
 
         /// <summary>
@@ -288,8 +316,45 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> CreateApplicationAsync(CreateOrUpdateApplicationRequest body)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(CreateApplicationWithHttpInfo(body));
-            return localVarResponse.Data;
+            // verify the required parameter 'body' is set
+            if (body == null)
+                throw new ApiException(400, "Missing required parameter 'body' when calling ApplicationResourceApi->CreateApplication");
+
+            var localVarPath = "/applications";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+    "application/json"
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (body != null && body.GetType() != typeof(byte[]))
+            {
+                localVarPostBody = this.Configuration.ApiClient.Serialize(body); // http body (model) parameter
+            }
+            else
+            {
+                localVarPostBody = body; // byte array
+            }
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "CreateApplication")).Data;
         }
 
         /// <summary>
@@ -334,28 +399,11 @@ namespace Conductor.Api
             {
                 localVarPostBody = body; // byte array
             }
-            // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("CreateApplication", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "CreateApplication");
         }
 
         /// <summary>
@@ -380,8 +428,41 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> DeleteAccessKeyAsync(string applicationId, string keyId)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(DeleteAccessKeyWithHttpInfo(applicationId, keyId));
-            return localVarResponse.Data;
+            // verify the required parameter 'applicationId' is set
+            if (applicationId == null)
+                throw new ApiException(400, "Missing required parameter 'applicationId' when calling ApplicationResourceApi->DeleteAccessKey");
+            // verify the required parameter 'keyId' is set
+            if (keyId == null)
+                throw new ApiException(400, "Missing required parameter 'keyId' when calling ApplicationResourceApi->DeleteAccessKey");
+
+            var localVarPath = "/applications/{applicationId}/accessKeys/{keyId}";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (applicationId != null) localVarPathParams.Add("applicationId", this.Configuration.ApiClient.ParameterToString(applicationId)); // path parameter
+            if (keyId != null) localVarPathParams.Add("keyId", this.Configuration.ApiClient.ParameterToString(keyId)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "DeleteAccessKey")).Data;
         }
 
         /// <summary>
@@ -423,28 +504,11 @@ namespace Conductor.Api
 
             if (applicationId != null) localVarPathParams.Add("applicationId", this.Configuration.ApiClient.ParameterToString(applicationId)); // path parameter
             if (keyId != null) localVarPathParams.Add("keyId", this.Configuration.ApiClient.ParameterToString(keyId)); // path parameter
-                                                                                                                       // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("DeleteAccessKey", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "DeleteAccessKey");
         }
 
         /// <summary>
@@ -467,8 +531,37 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> DeleteApplicationAsync(string id)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(DeleteApplicationWithHttpInfo(id));
-            return localVarResponse.Data;
+            // verify the required parameter 'id' is set
+            if (id == null)
+                throw new ApiException(400, "Missing required parameter 'id' when calling ApplicationResourceApi->DeleteApplication");
+
+            var localVarPath = "/applications/{id}";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "DeleteApplication")).Data;
         }
 
         /// <summary>
@@ -505,28 +598,11 @@ namespace Conductor.Api
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
             if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
-                                                                                                              // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("DeleteApplication", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "DeleteApplication");
         }
 
         /// <summary>
@@ -549,9 +625,50 @@ namespace Conductor.Api
         /// <param name="body"></param>
         /// <param name="id"></param>
         /// <returns></returns>
-        public async void DeleteTagForApplicationAsync(List<TagObject> body, string id)
+        public async ThreadTask.Task DeleteTagForApplicationAsync(List<TagObject> body, string id)
         {
-            await ThreadTask.Task.FromResult(DeleteTagForApplicationWithHttpInfo(body, id));
+            // verify the required parameter 'body' is set
+            if (body == null)
+                throw new ApiException(400, "Missing required parameter 'body' when calling ApplicationResourceApi->DeleteTagForApplication");
+            // verify the required parameter 'id' is set
+            if (id == null)
+                throw new ApiException(400, "Missing required parameter 'id' when calling ApplicationResourceApi->DeleteTagForApplication");
+
+            var localVarPath = "/applications/{id}/tags";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+    "application/json"
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
+            if (body != null && body.GetType() != typeof(byte[]))
+            {
+                localVarPostBody = this.Configuration.ApiClient.Serialize(body); // http body (model) parameter
+            }
+            else
+            {
+                localVarPostBody = body; // byte array
+            }
+
+            await this.Configuration.ApiClient.ExecuteAsync<Object>(localVarPath,
+                Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "DeleteTagForApplication");
         }
 
         /// <summary>
@@ -600,28 +717,11 @@ namespace Conductor.Api
             {
                 localVarPostBody = body; // byte array
             }
-            // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("DeleteTagForApplication", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             null);
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "DeleteTagForApplication");
         }
 
         /// <summary>
@@ -644,8 +744,37 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> GetAccessKeysAsync(string id)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(GetAccessKeysWithHttpInfo(id));
-            return localVarResponse.Data;
+            // verify the required parameter 'id' is set
+            if (id == null)
+                throw new ApiException(400, "Missing required parameter 'id' when calling ApplicationResourceApi->GetAccessKeys");
+
+            var localVarPath = "/applications/{id}/accessKeys";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "GetAccessKeys")).Data;
         }
 
         /// <summary>
@@ -682,28 +811,11 @@ namespace Conductor.Api
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
             if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
-                                                                                                              // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("GetAccessKeys", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "GetAccessKeys");
         }
 
         /// <summary>
@@ -726,8 +838,37 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> GetAppByAccessKeyIdAsync(string accessKeyId)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(GetAppByAccessKeyIdWithHttpInfo(accessKeyId));
-            return localVarResponse.Data;
+            // verify the required parameter 'accessKeyId' is set
+            if (accessKeyId == null)
+                throw new ApiException(400, "Missing required parameter 'accessKeyId' when calling ApplicationResourceApi->GetAppByAccessKeyId");
+
+            var localVarPath = "/applications/key/{accessKeyId}";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (accessKeyId != null) localVarPathParams.Add("accessKeyId", this.Configuration.ApiClient.ParameterToString(accessKeyId)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "GetAppByAccessKeyId")).Data;
         }
 
         /// <summary>
@@ -764,28 +905,11 @@ namespace Conductor.Api
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
             if (accessKeyId != null) localVarPathParams.Add("accessKeyId", this.Configuration.ApiClient.ParameterToString(accessKeyId)); // path parameter
-                                                                                                                                         // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("GetAppByAccessKeyId", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "GetAppByAccessKeyId");
         }
 
         /// <summary>
@@ -808,8 +932,37 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> GetApplicationAsync(string id)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(GetApplicationWithHttpInfo(id));
-            return localVarResponse.Data;
+            // verify the required parameter 'id' is set
+            if (id == null)
+                throw new ApiException(400, "Missing required parameter 'id' when calling ApplicationResourceApi->GetApplication");
+
+            var localVarPath = "/applications/{id}";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "GetApplication")).Data;
         }
 
         /// <summary>
@@ -846,28 +999,11 @@ namespace Conductor.Api
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
             if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
-                                                                                                              // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("GetApplication", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "GetApplication");
         }
 
         /// <summary>
@@ -890,8 +1026,37 @@ namespace Conductor.Api
         /// <returns>List&lt;TagObject&gt;</returns>
         public async ThreadTask.Task<List<TagObject>> GetTagsForApplicationAsync(string id)
         {
-            ApiResponse<List<TagObject>> localVarResponse = await ThreadTask.Task.FromResult(GetTagsForApplicationWithHttpInfo(id));
-            return localVarResponse.Data;
+            // verify the required parameter 'id' is set
+            if (id == null)
+                throw new ApiException(400, "Missing required parameter 'id' when calling ApplicationResourceApi->GetTagsForApplication");
+
+            var localVarPath = "/applications/{id}/tags";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<List<TagObject>>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "GetTagsForApplication")).Data;
         }
 
         /// <summary>
@@ -928,28 +1093,11 @@ namespace Conductor.Api
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
             if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
-                                                                                                              // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("GetTagsForApplication", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<List<TagObject>>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (List<TagObject>)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(List<TagObject>)));
+            return this.Configuration.ApiClient.Execute<List<TagObject>>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "GetTagsForApplication");
         }
 
         /// <summary>
@@ -970,8 +1118,31 @@ namespace Conductor.Api
         /// <returns>List&lt;ExtendedConductorApplication&gt;</returns>
         public async ThreadTask.Task<List<ExtendedConductorApplication>> ListApplicationsAsync()
         {
-            ApiResponse<List<ExtendedConductorApplication>> localVarResponse = await ThreadTask.Task.FromResult(ListApplicationsWithHttpInfo());
-            return localVarResponse.Data;
+            var localVarPath = "/applications";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<List<ExtendedConductorApplication>>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "ListApplications")).Data;
         }
 
         /// <summary>
@@ -1003,28 +1174,10 @@ namespace Conductor.Api
             if (localVarHttpHeaderAccept != null)
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
-            // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
-
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("ListApplications", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<List<ExtendedConductorApplication>>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (List<ExtendedConductorApplication>)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(List<ExtendedConductorApplication>)));
+            return this.Configuration.ApiClient.Execute<List<ExtendedConductorApplication>>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "ListApplications");
         }
 
         /// <summary>
@@ -1046,9 +1199,50 @@ namespace Conductor.Api
         /// <param name="body"></param>
         /// <param name="id"></param>
         /// <returns></returns>
-        public async void PutTagForApplicationAsync(List<TagObject> body, string id)
+        public async ThreadTask.Task PutTagForApplicationAsync(List<TagObject> body, string id)
         {
-            await ThreadTask.Task.FromResult(PutTagForApplicationWithHttpInfo(body, id));
+            // verify the required parameter 'body' is set
+            if (body == null)
+                throw new ApiException(400, "Missing required parameter 'body' when calling ApplicationResourceApi->PutTagForApplication");
+            // verify the required parameter 'id' is set
+            if (id == null)
+                throw new ApiException(400, "Missing required parameter 'id' when calling ApplicationResourceApi->PutTagForApplication");
+
+            var localVarPath = "/applications/{id}/tags";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+    "application/json"
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
+            if (body != null && body.GetType() != typeof(byte[]))
+            {
+                localVarPostBody = this.Configuration.ApiClient.Serialize(body); // http body (model) parameter
+            }
+            else
+            {
+                localVarPostBody = body; // byte array
+            }
+
+            await this.Configuration.ApiClient.ExecuteAsync<Object>(localVarPath,
+                Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "PutTagForApplication");
         }
 
         /// <summary>
@@ -1097,28 +1291,11 @@ namespace Conductor.Api
             {
                 localVarPostBody = body; // byte array
             }
-            // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("PutTagForApplication", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             null);
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "PutTagForApplication");
         }
 
         /// <summary>
@@ -1142,8 +1319,41 @@ namespace Conductor.Api
         /// <returns></returns>
         public async ThreadTask.Task<object> RemoveRoleFromApplicationUserAsync(string applicationId, string role)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(RemoveRoleFromApplicationUserWithHttpInfo(applicationId, role));
-            return localVarResponse.Data;
+            // verify the required parameter 'applicationId' is set
+            if (applicationId == null)
+                throw new ApiException(400, "Missing required parameter 'applicationId' when calling ApplicationResourceApi->RemoveRoleFromApplicationUser");
+            // verify the required parameter 'role' is set
+            if (role == null)
+                throw new ApiException(400, "Missing required parameter 'role' when calling ApplicationResourceApi->RemoveRoleFromApplicationUser");
+
+            var localVarPath = "/applications/{applicationId}/roles/{role}";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (applicationId != null) localVarPathParams.Add("applicationId", this.Configuration.ApiClient.ParameterToString(applicationId)); // path parameter
+            if (role != null) localVarPathParams.Add("role", this.Configuration.ApiClient.ParameterToString(role)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "RemoveRoleFromApplicationUser")).Data;
         }
 
         /// <summary>
@@ -1185,28 +1395,11 @@ namespace Conductor.Api
 
             if (applicationId != null) localVarPathParams.Add("applicationId", this.Configuration.ApiClient.ParameterToString(applicationId)); // path parameter
             if (role != null) localVarPathParams.Add("role", this.Configuration.ApiClient.ParameterToString(role)); // path parameter
-                                                                                                                    // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("RemoveRoleFromApplicationUser", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Delete, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "RemoveRoleFromApplicationUser");
         }
 
         /// <summary>
@@ -1231,8 +1424,41 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> ToggleAccessKeyStatusAsync(string applicationId, string keyId)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(ToggleAccessKeyStatusWithHttpInfo(applicationId, keyId));
-            return localVarResponse.Data;
+            // verify the required parameter 'applicationId' is set
+            if (applicationId == null)
+                throw new ApiException(400, "Missing required parameter 'applicationId' when calling ApplicationResourceApi->ToggleAccessKeyStatus");
+            // verify the required parameter 'keyId' is set
+            if (keyId == null)
+                throw new ApiException(400, "Missing required parameter 'keyId' when calling ApplicationResourceApi->ToggleAccessKeyStatus");
+
+            var localVarPath = "/applications/{applicationId}/accessKeys/{keyId}/status";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (applicationId != null) localVarPathParams.Add("applicationId", this.Configuration.ApiClient.ParameterToString(applicationId)); // path parameter
+            if (keyId != null) localVarPathParams.Add("keyId", this.Configuration.ApiClient.ParameterToString(keyId)); // path parameter
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "ToggleAccessKeyStatus")).Data;
         }
 
         /// <summary>
@@ -1274,28 +1500,11 @@ namespace Conductor.Api
 
             if (applicationId != null) localVarPathParams.Add("applicationId", this.Configuration.ApiClient.ParameterToString(applicationId)); // path parameter
             if (keyId != null) localVarPathParams.Add("keyId", this.Configuration.ApiClient.ParameterToString(keyId)); // path parameter
-                                                                                                                       // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("ToggleAccessKeyStatus", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Post, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "ToggleAccessKeyStatus");
         }
 
         /// <summary>
@@ -1320,8 +1529,49 @@ namespace Conductor.Api
         /// <returns>Object</returns>
         public async ThreadTask.Task<object> UpdateApplicationAsync(CreateOrUpdateApplicationRequest body, string id)
         {
-            ApiResponse<object> localVarResponse = await ThreadTask.Task.FromResult(UpdateApplicationWithHttpInfo(body, id));
-            return localVarResponse.Data;
+            // verify the required parameter 'body' is set
+            if (body == null)
+                throw new ApiException(400, "Missing required parameter 'body' when calling ApplicationResourceApi->UpdateApplication");
+            // verify the required parameter 'id' is set
+            if (id == null)
+                throw new ApiException(400, "Missing required parameter 'id' when calling ApplicationResourceApi->UpdateApplication");
+
+            var localVarPath = "/applications/{id}";
+            var localVarPathParams = new Dictionary<String, String>();
+            var localVarQueryParams = new List<KeyValuePair<String, String>>();
+            var localVarHeaderParams = new Dictionary<String, String>(this.Configuration.DefaultHeader);
+            var localVarFormParams = new Dictionary<String, String>();
+            var localVarFileParams = new Dictionary<String, FileParameter>();
+            Object localVarPostBody = null;
+
+            // to determine the Content-Type header
+            String[] localVarHttpContentTypes = new String[] {
+    "application/json"
+   };
+            String localVarHttpContentType = this.Configuration.ApiClient.SelectHeaderContentType(localVarHttpContentTypes);
+
+            // to determine the Accept header
+            String[] localVarHttpHeaderAccepts = new String[] {
+    "application/json"
+   };
+            String localVarHttpHeaderAccept = this.Configuration.ApiClient.SelectHeaderAccept(localVarHttpHeaderAccepts);
+            if (localVarHttpHeaderAccept != null)
+                localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
+
+            if (id != null) localVarPathParams.Add("id", this.Configuration.ApiClient.ParameterToString(id)); // path parameter
+            if (body != null && body.GetType() != typeof(byte[]))
+            {
+                localVarPostBody = this.Configuration.ApiClient.Serialize(body); // http body (model) parameter
+            }
+            else
+            {
+                localVarPostBody = body; // byte array
+            }
+
+            return (await this.Configuration.ApiClient.ExecuteAsync<object>(localVarPath,
+                Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "UpdateApplication")).Data;
         }
 
         /// <summary>
@@ -1371,28 +1621,11 @@ namespace Conductor.Api
             {
                 localVarPostBody = body; // byte array
             }
-            // authentication (api_key) required
-            if (!String.IsNullOrEmpty(this.Configuration.AccessToken))
-            {
-                localVarHeaderParams["X-Authorization"] = this.Configuration.AccessToken;
-            }
 
-            // make the HTTP request
-            RestResponse localVarResponse = (RestResponse)this.Configuration.ApiClient.CallApi(localVarPath,
-             Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarFileParams,
-             localVarPathParams, localVarHttpContentType, this.Configuration);
-
-            int localVarStatusCode = (int)localVarResponse.StatusCode;
-
-            if (ExceptionFactory != null)
-            {
-                Exception exception = ExceptionFactory("UpdateApplication", localVarResponse);
-                if (exception != null) throw exception;
-            }
-
-            return new ApiResponse<object>(localVarStatusCode,
-             localVarResponse.Headers.ToDictionary(x => x.Name, x => string.Join(",", x.Value)),
-             (Object)this.Configuration.ApiClient.Deserialize(localVarResponse, typeof(Object)));
+            return this.Configuration.ApiClient.Execute<object>(localVarPath,
+                Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "UpdateApplication");
         }
     }
 }

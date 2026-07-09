@@ -24,6 +24,8 @@ concurrency:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      cleaned-branch-name: ${{ steps.vars.outputs.cleaned-branch-name }}
     permissions:
       contents: read
       packages: write
@@ -87,4 +89,4 @@ jobs:
           repository: conductor-oss/oss-ci-util
           event-type: sdk_release
           client-payload: |-
-            {"tag": "${{ github.event.release.tag_name || 'latest' }}", "repo": "${{ github.repository }}"}
+            {"tag": "${{ github.event.release.tag_name || format('{0}-latest', needs.build-and-push.outputs.cleaned-branch-name) }}", "repo": "${{ github.repository }}"}
