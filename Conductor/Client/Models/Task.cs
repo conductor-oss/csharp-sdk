@@ -128,7 +128,7 @@ namespace Conductor.Client.Models
         /// <param name="workflowPriority">workflowPriority.</param>
         /// <param name="workflowTask">workflowTask.</param>
         /// <param name="workflowType">workflowType.</param>
-        public Task(long? callbackAfterSeconds = default(long?), bool? callbackFromWorker = default(bool?), string correlationId = default(string), string domain = default(string), long? endTime = default(long?), bool? executed = default(bool?), string executionNameSpace = default(string), string externalInputPayloadStoragePath = default(string), string externalOutputPayloadStoragePath = default(string), Dictionary<string, Object> inputData = default(Dictionary<string, Object>), string isolationGroupId = default(string), int? iteration = default(int?), bool? loopOverTask = default(bool?), Dictionary<string, Object> outputData = default(Dictionary<string, Object>), int? pollCount = default(int?), long? queueWaitTime = default(long?), int? rateLimitFrequencyInSeconds = default(int?), int? rateLimitPerFrequency = default(int?), string reasonForIncompletion = default(string), string referenceTaskName = default(string), long? responseTimeoutSeconds = default(long?), bool? retried = default(bool?), string retriedTaskId = default(string), int? retryCount = default(int?), long? scheduledTime = default(long?), int? seq = default(int?), int? startDelayInSeconds = default(int?), long? startTime = default(long?), StatusEnum? status = default(StatusEnum?), string subWorkflowId = default(string), bool? subworkflowChanged = default(bool?), string taskDefName = default(string), TaskDef taskDefinition = default(TaskDef), string taskId = default(string), string taskType = default(string), long? updateTime = default(long?), string workerId = default(string), string workflowInstanceId = default(string), int? workflowPriority = default(int?), WorkflowTask workflowTask = default(WorkflowTask), string workflowType = default(string))
+        public Task(long? callbackAfterSeconds = default(long?), bool? callbackFromWorker = default(bool?), string correlationId = default(string), string domain = default(string), long? endTime = default(long?), bool? executed = default(bool?), string executionNameSpace = default(string), string externalInputPayloadStoragePath = default(string), string externalOutputPayloadStoragePath = default(string), Dictionary<string, Object> inputData = default(Dictionary<string, Object>), string isolationGroupId = default(string), int? iteration = default(int?), bool? loopOverTask = default(bool?), Dictionary<string, Object> outputData = default(Dictionary<string, Object>), int? pollCount = default(int?), long? queueWaitTime = default(long?), int? rateLimitFrequencyInSeconds = default(int?), int? rateLimitPerFrequency = default(int?), string reasonForIncompletion = default(string), string referenceTaskName = default(string), long? responseTimeoutSeconds = default(long?), bool? retried = default(bool?), string retriedTaskId = default(string), int? retryCount = default(int?), long? scheduledTime = default(long?), int? seq = default(int?), int? startDelayInSeconds = default(int?), long? startTime = default(long?), StatusEnum? status = default(StatusEnum?), string subWorkflowId = default(string), bool? subworkflowChanged = default(bool?), string taskDefName = default(string), TaskDef taskDefinition = default(TaskDef), string taskId = default(string), string taskType = default(string), long? updateTime = default(long?), string workerId = default(string), string workflowInstanceId = default(string), int? workflowPriority = default(int?), WorkflowTask workflowTask = default(WorkflowTask), string workflowType = default(string), Dictionary<string, string> runtimeMetadata = default(Dictionary<string, string>))
         {
             this.CallbackAfterSeconds = callbackAfterSeconds;
             this.CallbackFromWorker = callbackFromWorker;
@@ -171,6 +171,7 @@ namespace Conductor.Client.Models
             this.WorkflowPriority = workflowPriority;
             this.WorkflowTask = workflowTask;
             this.WorkflowType = workflowType;
+            this.RuntimeMetadata = runtimeMetadata;
         }
 
         /// <summary>
@@ -256,6 +257,14 @@ namespace Conductor.Client.Models
         /// </summary>
         [DataMember(Name = "outputData", EmitDefaultValue = false)]
         public Dictionary<string, Object> OutputData { get; set; }
+
+        /// <summary>
+        /// Secret values the server resolved for this task at poll time and delivered on the wire
+        /// only (never persisted). Populated when the task's TaskDef.runtimeMetadata declares secret
+        /// names the host resolves from its secret store (conductor-oss PR #1255). Empty/absent otherwise.
+        /// </summary>
+        [DataMember(Name = "runtimeMetadata", EmitDefaultValue = false)]
+        public Dictionary<string, string> RuntimeMetadata { get; set; }
 
         /// <summary>
         /// Gets or Sets PollCount
@@ -436,6 +445,7 @@ namespace Conductor.Client.Models
             sb.Append("  Iteration: ").Append(Iteration).Append("\n");
             sb.Append("  LoopOverTask: ").Append(LoopOverTask).Append("\n");
             sb.Append("  OutputData: ").Append(OutputData).Append("\n");
+            sb.Append("  RuntimeMetadata: ").Append(RuntimeMetadata).Append("\n");
             sb.Append("  PollCount: ").Append(PollCount).Append("\n");
             sb.Append("  QueueWaitTime: ").Append(QueueWaitTime).Append("\n");
             sb.Append("  RateLimitFrequencyInSeconds: ").Append(RateLimitFrequencyInSeconds).Append("\n");
@@ -568,6 +578,12 @@ namespace Conductor.Client.Models
                     this.OutputData != null &&
                     input.OutputData != null &&
                     this.OutputData.SequenceEqual(input.OutputData)
+                ) &&
+                (
+                    this.RuntimeMetadata == input.RuntimeMetadata ||
+                    this.RuntimeMetadata != null &&
+                    input.RuntimeMetadata != null &&
+                    this.RuntimeMetadata.SequenceEqual(input.RuntimeMetadata)
                 ) &&
                 (
                     this.PollCount == input.PollCount ||
@@ -743,6 +759,8 @@ namespace Conductor.Client.Models
                     hashCode = hashCode * 59 + this.LoopOverTask.GetHashCode();
                 if (this.OutputData != null)
                     hashCode = hashCode * 59 + this.OutputData.GetHashCode();
+                if (this.RuntimeMetadata != null)
+                    hashCode = hashCode * 59 + this.RuntimeMetadata.GetHashCode();
                 if (this.PollCount != null)
                     hashCode = hashCode * 59 + this.PollCount.GetHashCode();
                 if (this.QueueWaitTime != null)
