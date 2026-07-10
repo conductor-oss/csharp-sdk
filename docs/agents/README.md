@@ -1,9 +1,9 @@
-# Agentspan .NET SDK — Documentation
+# Conductor AI Agents (.NET) — Documentation
 
-The official .NET SDK for [Agentspan](https://agentspan.ai) — long-running, dynamic plan-execute, and event-driven AI agents.
+The Conductor .NET SDK’s durable AI-agent layer — long-running, dynamic plan-execute, and event-driven AI agents.
 
-- **Package:** `conductor-agent-sdk` (NuGet)
-- **Target:** .NET 10
+- **Package:** `conductor-ai` (NuGet)
+- **Target:** .NET 8
 - **Namespace:** `Conductor.AI`
 
 ## Contents

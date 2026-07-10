@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > explicitly discard it: `_ = api.DecideAsync(workflowId);`. This must ship as a
 > **minor or major** version bump, never a patch.
 
+### Added
+
+- **AI agent SDK merged in** (from Agentspan `conductor-agent-sdk` 0.1.0): new
+  packages `conductor-ai`, `conductor-ai-openai`, `conductor-ai-google-adk`,
+  and `conductor-ai-semantic-kernel` — durable AI agents (`Agent`,
+  `AgentRuntime`, tools, guardrails, handoffs, strategies, plans, schedules,
+  code executors, semantic memory) targeting `net8.0`, released on the same
+  tag-driven train as `conductor-csharp`. Docs live in `docs/agents/`;
+  examples in `Conductor.AI.Examples/`. A new `agent-e2e` workflow runs the
+  e2e suites against the pinned agentspan server release.
+  Migration note: users of the old `conductor-agent-sdk*` NuGet packages
+  should switch to the `conductor-ai*` package ids — namespaces
+  (`Conductor.AI.*`) and APIs are unchanged.
+
 ### Changed
 
 - `WorkflowTaskExecutor`: converted `async void` methods (`WorkOnce`, `ProcessTasks`, `ProcessTask`) to `async Task` so the poll loop properly awaits each batch before re-entering. Previously, `async void` caused untracked continuations — the `RunningWorkerDone()` monitor count drifted, and any exception after the first `await` was unobserved on the thread pool.

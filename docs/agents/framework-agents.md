@@ -1,7 +1,7 @@
 # Framework Agents
 
-Agentspan ships thin adapters that let you author agents in the shape of three
-popular frameworks and run them on the Agentspan runtime unchanged. Each adapter
+The Conductor AI SDK ships thin adapters that let you author agents in the shape of three
+popular frameworks and run them on the agent runtime unchanged. Each adapter
 builds a normal `Agent` (or attaches tools to one), so everything in
 [writing-agents.md](writing-agents.md) and [advanced.md](advanced.md) still
 applies — you run them with the same `AgentRuntime`.
@@ -13,9 +13,9 @@ applies — you run them with the same `AgentRuntime`.
 | Semantic Kernel | `Conductor.AI.SemanticKernel` | `Conductor.AI.SemanticKernel` | `SemanticKernelAgent.From(...)` |
 
 ```bash
-dotnet add package conductor-agent-sdk-openai
-dotnet add package conductor-agent-sdk-google-adk
-dotnet add package conductor-agent-sdk-semantic-kernel
+dotnet add package conductor-ai-openai
+dotnet add package conductor-ai-google-adk
+dotnet add package conductor-ai-semantic-kernel
 ```
 
 (Inside this repo, reference the corresponding `src/Conductor.AI.*/*.csproj`.)

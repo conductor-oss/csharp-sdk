@@ -4,12 +4,12 @@ Get an agent running in under 30 seconds.
 
 ## 1. Install
 
-The SDK ships as the `conductor-agent-sdk` NuGet package (target framework: .NET 10).
+The SDK ships as the `conductor-ai` NuGet package (target framework: .NET 8).
 
 ```bash
 dotnet new console -n MyAgent
 cd MyAgent
-dotnet add package conductor-agent-sdk
+dotnet add package conductor-ai
 ```
 
 > Working inside this repository instead of from NuGet? Reference the project directly:

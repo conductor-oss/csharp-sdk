@@ -32,6 +32,20 @@ The UI will be available at `http://localhost:8080` and the API at `http://local
 dotnet add package conductor-csharp
 ```
 
+## AI Agents
+
+The repo also ships `conductor-ai` — durable, long-running AI agents
+(`Agent`, `AgentRuntime`, tools, guardrails, handoffs, multi-agent
+strategies) on the Conductor platform:
+
+```shell
+dotnet add package conductor-ai
+```
+
+Framework adapters are available as `conductor-ai-openai`,
+`conductor-ai-google-adk`, and `conductor-ai-semantic-kernel`.
+See [docs/agents](docs/agents/README.md) to get started.
+
 ## Hello World
 
 This quickstart shows the full flow: define a worker, define a workflow, register it, run it.
