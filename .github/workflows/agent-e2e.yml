@@ -1,0 +1,127 @@
+# Agent E2E — runs the Conductor.AI.E2eTests suites against the released
+# agentspan server. Modeled on the python-sdk/java-sdk agent-e2e actions.
+#
+# Secrets: OPENAI_API_KEY / ANTHROPIC_API_KEY are repo secrets. They are set at
+# job level (the server consumes them for LLM calls; a few suites additionally
+# key-gate on OPENAI_API_KEY in the test env — upstream parity). Fork PRs see no
+# secrets and fail at the vacuous-run guard by design instead of passing green.
+name: Agent E2E
+
+on: [pull_request, workflow_dispatch]
+
+concurrency:
+  group: agent-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # pinned server release — bump deliberately
+  AGENTSPAN_VERSION: "0.4.0"
+
+jobs:
+  agent-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      AGENTSPAN_SERVER_URL: http://localhost:8080/api
+      AGENTSPAN_LLM_MODEL: openai/gpt-4o-mini
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Java only runs the agentspan server jar
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Python only for mcp-testkit and the TRX guard (no cache: pip — it
+      # hard-fails without a requirements/pyproject file)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache agentspan server jar
+        id: cache-server
+        uses: actions/cache@v4
+        with:
+          path: agentspan-server.jar
+          key: agentspan-server-${{ env.AGENTSPAN_VERSION }}
+
+      - name: Download agentspan server ${{ env.AGENTSPAN_VERSION }}
+        if: steps.cache-server.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v${AGENTSPAN_VERSION}" \
+            --repo agentspan-ai/agentspan \
+            --pattern "agentspan-server-${AGENTSPAN_VERSION}.jar" \
+            --output agentspan-server.jar
+
+      - name: Start agentspan server
+        run: |
+          java -jar agentspan-server.jar --server.port=8080 > server.log 2>&1 &
+          for _ in $(seq 1 45); do
+            if curl -sf http://localhost:8080/health | grep -q '"healthy":true\|"healthy": true'; then
+              echo "server healthy"; exit 0
+            fi
+            sleep 2
+          done
+          echo "server failed to become healthy"; tail -100 server.log; exit 1
+
+      - name: Start mcp-testkit
+        run: |
+          pip install mcp-testkit
+          mcp-testkit --transport http --port 3001 &
+
+      - name: Run e2e suites
+        run: |
+          dotnet test Conductor.AI.E2eTests/Conductor.AI.E2eTests.csproj \
+            --configuration Release \
+            --logger "console;verbosity=normal" \
+            --logger "trx;LogFileName=agent-e2e.trx" \
+            --results-directory results
+
+      # A dead/unhealthy server makes every [SkippableFact] skip silently — that
+      # must never read as green. Fail on 0 executed or server-unreachable skips.
+      - name: Guard against vacuous run
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import glob, sys
+          import xml.etree.ElementTree as ET
+          NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
+          paths = sorted(glob.glob("results/*.trx"))
+          if not paths:
+              print("GUARD: no TRX files found — vacuous run"); sys.exit(1)
+          executed = unreachable = 0
+          for p in paths:
+              root = ET.parse(p).getroot()
+              counters = root.find(".//t:ResultSummary/t:Counters", NS)
+              executed += int(counters.get("executed", "0"))
+              for r in root.findall(".//t:UnitTestResult", NS):
+                  if r.get("outcome") == "NotExecuted":
+                      msg = r.find(".//t:Message", NS)
+                      if msg is not None and "server is not reachable" in (msg.text or ""):
+                          unreachable += 1
+          print(f"GUARD: executed={executed}, server-unreachable skips={unreachable}")
+          if executed == 0:
+              print("GUARD: 0 tests executed — vacuous run"); sys.exit(1)
+          if unreachable > 0:
+              print("GUARD: suite skipped due to unreachable server — vacuous run"); sys.exit(1)
+          print("GUARD: OK")
+          EOF
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-e2e-results
+          path: |
+            results/
+            server.log
+          retention-days: 14
