@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Conductor.AI.Examples.Adk28</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Conductor.AI/Conductor.AI.csproj" />
+    <ProjectReference Include="../../Conductor.AI.GoogleADK/Conductor.AI.GoogleADK.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/Settings.cs" />
+  </ItemGroup>
+</Project>
