@@ -9,8 +9,8 @@
     <NoWarn>$(NoWarn);SKEXP0001;SKEXP0010</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Conductor.AI\Conductor.AI.csproj" />
-    <ProjectReference Include="..\..\src\Conductor.AI.SemanticKernel\Conductor.AI.SemanticKernel.csproj" />
+    <ProjectReference Include="..\..\Conductor.AI\Conductor.AI.csproj" />
+    <ProjectReference Include="..\..\Conductor.AI.SemanticKernel\Conductor.AI.SemanticKernel.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\Settings.cs" />
