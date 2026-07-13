@@ -116,6 +116,10 @@ public sealed class SemanticMemory(MemoryStore? store = null, int maxResults = 5
     public int MaxResults { get; } = maxResults;
     public string? SessionId { get; } = sessionId;
 
+    /// <summary>The backing store. Read by the serializer to detect an OCG-backed
+    /// store (<see cref="OCGMemoryStore"/>) and emit its <c>longTermMemory</c> config.</summary>
+    public MemoryStore Store => _store;
+
     /// <summary>Add a memory entry. Returns the entry ID.</summary>
     public string Add(string content, Dictionary<string, object>? metadata = null)
     {

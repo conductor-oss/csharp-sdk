@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Migration note: users of the old `conductor-agent-sdk*` NuGet packages
   should switch to the `conductor-ai*` package ids — namespaces
   (`Conductor.AI.*`) and APIs are unchanged.
+- **OCG-backed agent memory** (ports agentspan-ai/agentspan#298): new
+  `OCGMemoryStore` (a synchronous `MemoryStore` HTTP adapter over the OCG BFF —
+  search / save / feedback-link minting), plus `Agent.SemanticMemory`,
+  `Agent.MemorySummaryModel`, and `Agent.FeedbackSink`. When an agent's
+  `SemanticMemory` is OCG-backed, the serializer emits `longTermMemory` +
+  `feedbackSink` so the server-side compiler (conductor-oss/conductor
+  `agentspan-server`) inlines pre-run retrieval and post-run distill/save/feedback.
+  Human good/bad capability links are delivered out-of-band via `FeedbackSink` and
+  never shown to the agent's LLM. Example: `Conductor.AI.Examples/27_OcgMemory`.
 
 ### Changed
 

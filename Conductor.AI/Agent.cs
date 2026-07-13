@@ -190,6 +190,32 @@ public sealed partial class Agent
     /// </summary>
     public TextGate? Gate { get; set; }
 
+    /// <summary>
+    /// OCG-backed long-term memory (see <see cref="OCGMemoryStore"/>). When set with an
+    /// OCG-backed store, the serializer emits a <c>longTermMemory</c> config so the
+    /// server-side compiler auto-injects relevant memories into the prompt before a run
+    /// and, after the run, distills the conversation into a memory. Mirrors Python's
+    /// <c>semantic_memory</c> agent param.
+    /// </summary>
+    public SemanticMemory? SemanticMemory { get; set; }
+
+    /// <summary>
+    /// Optional model override for the conversation-summarizer distiller. Falls back to
+    /// the agent's own <see cref="Model"/> when unset. Emitted as
+    /// <c>longTermMemory.summaryModel</c>.
+    /// </summary>
+    public string? MemorySummaryModel { get; set; }
+
+    /// <summary>
+    /// Sink that receives the human good/bad capability links after a conversation
+    /// memory is saved (out-of-band delivery, e.g. into a Zendesk ticket). The links are
+    /// NEVER shown to the agent's LLM. When set alongside an OCG-backed
+    /// <see cref="SemanticMemory"/>, the serializer emits <c>feedbackSink</c> and the
+    /// runtime registers a <c>{name}_feedback_sink</c> worker so the compiled server path
+    /// can hand the links back to this callback.
+    /// </summary>
+    public Action<FeedbackEvent>? FeedbackSink { get; set; }
+
     public List<string>? RequiredTools { get; set; }
     public string? Introduction { get; set; }
     public Dictionary<string, object>? Metadata { get; set; }
@@ -349,6 +375,12 @@ public sealed class AgentBuilder
     public AgentBuilder WithIncludeContents(string mode) { _agent.IncludeContents = mode; return this; }
     public AgentBuilder WithThinkingBudget(int tokens) { _agent.ThinkingBudgetTokens = tokens; return this; }
     public AgentBuilder WithRequiredTools(params string[] tools) { _agent.RequiredTools = [.. tools]; return this; }
+    /// <summary>OCG-backed long-term memory. See <see cref="Agent.SemanticMemory"/>.</summary>
+    public AgentBuilder WithSemanticMemory(SemanticMemory memory) { _agent.SemanticMemory = memory; return this; }
+    /// <summary>Model override for the memory summarizer. See <see cref="Agent.MemorySummaryModel"/>.</summary>
+    public AgentBuilder WithMemorySummaryModel(string model) { _agent.MemorySummaryModel = model; return this; }
+    /// <summary>Out-of-band sink for human good/bad feedback links. See <see cref="Agent.FeedbackSink"/>.</summary>
+    public AgentBuilder WithFeedbackSink(Action<FeedbackEvent> sink) { _agent.FeedbackSink = sink; return this; }
     public AgentBuilder WithIntroduction(string intro) { _agent.Introduction = intro; return this; }
     public AgentBuilder WithMetadata(Dictionary<string, object> m) { _agent.Metadata = m; return this; }
     /// <summary>Dynamic instructions re-evaluated at each serialization. See <see cref="Agent.InstructionsFn"/>.</summary>

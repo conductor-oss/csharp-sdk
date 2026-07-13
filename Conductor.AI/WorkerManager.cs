@@ -410,6 +410,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         foreach (var tool in agent.Tools)
             RegisterGuardrails(tool.Guardrails, domain);
         RegisterCallbacks(agent, domain);
+        RegisterFeedbackSink(agent, domain);
 
         // Local code execution worker — the server adds an execute_code tool to
         // the agent when LocalCodeExecution=true (or CodeExecution is set), but
@@ -586,6 +587,63 @@ internal sealed class WorkerManager : IAsyncDisposable
                 return System.Threading.Tasks.Task.FromResult<object?>(new Dictionary<string, object>());
             }, domain: domain));
         }
+    }
+
+    private void RegisterFeedbackSink(Agent agent, string? domain = null)
+    {
+        // Long-term (OCG) memory feedback_sink — the compiled server-side memory path
+        // emits a SIMPLE task (see AgentConfigSerializer.feedbackSink) that, after
+        // saving a conversation memory and minting the signed good/bad capability URLs,
+        // invokes this worker with the FeedbackEvent fields. The worker rebuilds a
+        // FeedbackEvent and hands it to the user's callback for out-of-band delivery.
+        // Best-effort: failures are swallowed so memory never fails the run.
+        if (agent.SemanticMemory?.Store is not OCGMemoryStore) return;
+        var sink = agent.FeedbackSink;
+        if (sink is null) return;
+
+        var taskName = $"{agent.Name}_feedback_sink";
+        _workers.Add(NewLoop(taskName, (args, _) =>
+        {
+            try
+            {
+                var evt = new FeedbackEvent
+                {
+                    MemoryKey = FbString(args, "memory_key"),
+                    Summary = FbString(args, "summary"),
+                    Facts = FbStringList(args, "facts"),
+                    Tags = FbStringList(args, "tags"),
+                    GoodUrl = FbStringOrNull(args, "good_url"),
+                    BadUrl = FbStringOrNull(args, "bad_url"),
+                    ExpiresAt = FbStringOrNull(args, "expires_at"),
+                    Agent = FbStringOrNull(args, "agent"),
+                    User = FbStringOrNull(args, "user"),
+                };
+                sink(evt);
+                return System.Threading.Tasks.Task.FromResult<object?>(
+                    new Dictionary<string, object> { ["delivered"] = true });
+            }
+            catch
+            {
+                return System.Threading.Tasks.Task.FromResult<object?>(
+                    new Dictionary<string, object> { ["delivered"] = false });
+            }
+        }, domain: domain));
+    }
+
+    private static string FbString(Dictionary<string, JsonElement> args, string key)
+        => FbStringOrNull(args, key) ?? "";
+
+    private static string? FbStringOrNull(Dictionary<string, JsonElement> args, string key)
+        => args.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    private static List<string> FbStringList(Dictionary<string, JsonElement> args, string key)
+    {
+        var list = new List<string>();
+        if (args.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.Array)
+            foreach (var item in v.EnumerateArray())
+                if (item.ValueKind == JsonValueKind.String)
+                    list.Add(item.GetString() ?? "");
+        return list;
     }
 
     private void RegisterSwarmTransferWorkers(Agent agent, string? domain = null)

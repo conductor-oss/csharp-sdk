@@ -402,7 +402,46 @@ internal static class AgentConfigSerializer
             cfg["cliConfig"] = cli;
         }
 
+        // Long-term (OCG-backed) memory. When present, the server-side compiler
+        // inlines retrieval (pre-loop) + distill/save/feedback (post-loop) steps
+        // so memory works on the deployed/webhook path — not just client run().
+        SerializeLongTermMemory(agent, cfg);
+
         return cfg;
+    }
+
+    /// <summary>
+    /// Serialize an agent's OCG-backed semantic memory to a <c>longTermMemory</c> config
+    /// (plus <c>feedbackSink</c> when a feedback sink is set). No-op unless the agent's
+    /// <see cref="SemanticMemory"/> is backed by an <see cref="OCGMemoryStore"/> — only
+    /// OCG-backed stores compile server-side (they need a base url to call). The
+    /// <c>credential</c> is a SERVER-resolvable secret NAME (e.g. <c>OCG_PUBLIC_KEY</c>),
+    /// never the raw client token; <c>summaryModel</c> falls back to the agent's own model.
+    /// </summary>
+    private static void SerializeLongTermMemory(Agent agent, JsonObject cfg)
+    {
+        if (agent.SemanticMemory?.Store is not OCGMemoryStore store)
+            return;
+
+        var ltm = new JsonObject
+        {
+            ["ocgUrl"] = store.BaseUrl,
+            ["credential"] = string.IsNullOrEmpty(store.Credential) ? "OCG_PUBLIC_KEY" : store.Credential,
+        };
+        if (!string.IsNullOrEmpty(store.Agent)) ltm["agent"] = store.Agent;
+        if (!string.IsNullOrEmpty(store.User)) ltm["user"] = store.User;
+        ltm["scope"] = string.IsNullOrEmpty(store.Scope) ? "agent" : store.Scope;
+        ltm["maxResults"] = agent.SemanticMemory.MaxResults;
+
+        var summaryModel = agent.MemorySummaryModel ?? agent.Model;
+        if (!string.IsNullOrEmpty(summaryModel)) ltm["summaryModel"] = summaryModel;
+
+        cfg["longTermMemory"] = ltm;
+
+        // feedback_sink delivers the human good/bad capability links out-of-band. Emit a
+        // worker ref so the compiled path can call the SDK's feedback-sink worker.
+        if (agent.FeedbackSink is not null)
+            cfg["feedbackSink"] = new JsonObject { ["taskName"] = $"{agent.Name}_feedback_sink" };
     }
 
     private static JsonObject SerializeFrameworkAgent(Agent agent)
