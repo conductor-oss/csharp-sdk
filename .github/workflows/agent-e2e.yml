@@ -1,8 +1,7 @@
-# Agent E2E — runs the Conductor.AI.E2eTests suites against a released server
-# JAR with the agent runtime baked in, in two flavors:
-#   - conductor-oss: the Conductor OSS server boot JAR (Maven Central) — the
-#     server this SDK ships against
-#   - agentspan: the Agentspan server release JAR (kept alongside)
+# Agent E2E — runs the Conductor.AI.E2eTests suites against the Conductor
+# OSS server boot JAR (Maven Central) — the server this SDK ships against,
+# with the agent runtime on by default from 3.32.0-rc.8 onward. The
+# Agentspan server JAR is no longer used here.
 #
 # Secrets: OPENAI_API_KEY / ANTHROPIC_API_KEY are repo secrets. They are set at
 # job level (the server consumes them for LLM calls; a few suites additionally
@@ -16,19 +15,11 @@ concurrency:
   group: agent-e2e-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CONDUCTOR_SERVER_VERSION: "3.32.0-rc.8"   # pinned server release — bump deliberately
+
 jobs:
   agent-e2e:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Pinned server releases — bump deliberately. Credential wire delivery
-          # (runtimeMetadata) needs conductor-oss PR #1255 (agentspan > 0.4.2).
-          - server: conductor-oss
-            version: "3.32.0-rc.8"
-          - server: agentspan
-            version: "0.4.4"
-    name: agent-e2e (${{ matrix.server }} ${{ matrix.version }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -59,28 +50,18 @@ jobs:
         id: cache-server
         uses: actions/cache@v4
         with:
-          path: agentspan-server.jar
-          key: server-jar-${{ matrix.server }}-${{ matrix.version }}
+          path: conductor-server.jar
+          key: conductor-oss-server-${{ env.CONDUCTOR_SERVER_VERSION }}
 
-      - name: Download server jar
+      - name: Download server jar from Maven Central
         if: steps.cache-server.outputs.cache-hit != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SERVER_VERSION: ${{ matrix.version }}
         run: |
-          if [ "${{ matrix.server }}" = "conductor-oss" ]; then
-            curl -fL --retry 3 -o agentspan-server.jar \
-              "https://repo1.maven.org/maven2/org/conductoross/conductor-server/${SERVER_VERSION}/conductor-server-${SERVER_VERSION}-boot.jar"
-          else
-            gh release download "v${SERVER_VERSION}" \
-              --repo agentspan-ai/agentspan \
-              --pattern "agentspan-server-${SERVER_VERSION}.jar" \
-              --output agentspan-server.jar
-          fi
+          curl -fL --retry 3 -o conductor-server.jar \
+            "https://repo1.maven.org/maven2/org/conductoross/conductor-server/${CONDUCTOR_SERVER_VERSION}/conductor-server-${CONDUCTOR_SERVER_VERSION}-boot.jar"
 
       - name: Start server
         run: |
-          java -jar agentspan-server.jar --server.port=8080 > server.log 2>&1 &
+          java -jar conductor-server.jar --server.port=8080 > server.log 2>&1 &
           for _ in $(seq 1 45); do
             if curl -sf http://localhost:8080/health | grep -q '"healthy":true\|"healthy": true'; then
               echo "server healthy"; exit 0
@@ -136,7 +117,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: agent-e2e-results-${{ matrix.server }}
+          name: agent-e2e-results
           path: |
             results/
             server.log
