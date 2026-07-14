@@ -20,7 +20,7 @@ namespace Conductor.AI;
 /// start, status, execution, list, respond, stop, signal, stream) plus
 /// convenience entry points to <b>run</b> and <b>schedule</b> agents.
 ///
-/// <para><b>Run is control-plane only:</b> the <see cref="RunAsync"/>/<see cref="StartAsync(Agent,string,string?,IEnumerable{string}?,Plans.Plan?,CancellationToken)"/>
+/// <para><b>Run is control-plane only:</b> the <see cref="RunAsync"/>/<see cref="StartAsync(Agent,string,string?,IEnumerable{string}?,Plans.Plan?,RunSettings?,CancellationToken)"/>
 /// family starts the agent and polls to a result — it does NOT register or poll
 /// local tool workers. Agents that use local <c>[Tool]</c> functions must run
 /// through <see cref="AgentRuntime"/>, which owns worker orchestration. For
@@ -63,6 +63,12 @@ public interface IAgentClient : IDisposable, IAsyncDisposable
     /// <summary>Immediately cancel an agent execution (TERMINATED status).</summary>
     Task CancelAgentAsync(string executionId, string reason = "", CancellationToken ct = default);
 
+    /// <summary>Pause a running workflow execution — tasks stop being scheduled.</summary>
+    Task PauseAgentAsync(string executionId, CancellationToken ct = default);
+
+    /// <summary>Resume ("unpause") a previously paused workflow execution.</summary>
+    Task UnpauseAgentAsync(string executionId, CancellationToken ct = default);
+
     /// <summary>Send a signal message to a running agent execution (<c>POST /agent/{id}/signal</c>).</summary>
     Task SignalAsync(string executionId, object message, CancellationToken ct = default);
 
@@ -88,12 +94,14 @@ public interface IAgentClient : IDisposable, IAsyncDisposable
     /// <summary>Compile + register + start an agent, then poll to a result. No local tool workers.</summary>
     Task<AgentResult> RunAsync(
         Agent agent, string prompt, string? sessionId = null,
-        IEnumerable<string>? media = null, Plans.Plan? plan = null, CancellationToken ct = default);
+        IEnumerable<string>? media = null, Plans.Plan? plan = null,
+        RunSettings? runSettings = null, CancellationToken ct = default);
 
     /// <summary>Compile + register + start an agent; returns a handle. No local tool workers.</summary>
     Task<AgentHandle> StartAsync(
         Agent agent, string prompt, string? sessionId = null,
-        IEnumerable<string>? media = null, Plans.Plan? plan = null, CancellationToken ct = default);
+        IEnumerable<string>? media = null, Plans.Plan? plan = null,
+        RunSettings? runSettings = null, CancellationToken ct = default);
 
     /// <summary>Compile + register one or more agents on the server (no execution).</summary>
     Task<DeploymentInfo[]> DeployAsync(params Agent[] agents);

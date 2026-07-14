@@ -40,6 +40,7 @@ internal sealed class WorkerPollLoop : IAsyncDisposable
     private readonly int _threadCount;
     private readonly string[] _credentialNames;
     private readonly List<System.Threading.Tasks.Task> _pollTasks = [];
+    private bool _started;
 
     internal WorkerPollLoop(
         TaskResourceApi taskClient,
@@ -65,12 +66,22 @@ internal sealed class WorkerPollLoop : IAsyncDisposable
 
     public void Start()
     {
+        // Idempotent — a shared WorkerManager can have Start() called more than
+        // once (e.g. overlapping runs on the same AgentRuntime); without this
+        // guard, a loop already polling would spawn a second full set of
+        // `_threadCount` poll tasks and double-dequeue tasks of its type.
+        if (_started) return;
+        _started = true;
+
         var ct = _cts.Token;
         // Spawn `_threadCount` concurrent poll loops so a slow handler on one
         // thread doesn't stall sibling tasks of the same type.
         for (int i = 0; i < _threadCount; i++)
             _pollTasks.Add(System.Threading.Tasks.Task.Run(() => PollLoopAsync(ct), ct));
     }
+
+    /// <summary>Test-only seam — number of spawned poll tasks (idempotent <see cref="Start"/> guard).</summary>
+    internal int PollTaskCount => _pollTasks.Count;
 
     private async System.Threading.Tasks.Task PollLoopAsync(CancellationToken ct)
     {

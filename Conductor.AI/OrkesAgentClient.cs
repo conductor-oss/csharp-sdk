@@ -64,17 +64,20 @@ public sealed class OrkesAgentClient : IAgentClient
 
     public async Task<AgentResult> RunAsync(
         Agent agent, string prompt, string? sessionId = null,
-        IEnumerable<string>? media = null, Plans.Plan? plan = null, CancellationToken ct = default)
+        IEnumerable<string>? media = null, Plans.Plan? plan = null,
+        RunSettings? runSettings = null, CancellationToken ct = default)
     {
-        var handle = await StartAsync(agent, prompt, sessionId, media, plan, ct);
+        var handle = await StartAsync(agent, prompt, sessionId, media, plan, runSettings, ct);
         return await handle.WaitAsync(ct);
     }
 
     public async Task<AgentHandle> StartAsync(
         Agent agent, string prompt, string? sessionId = null,
-        IEnumerable<string>? media = null, Plans.Plan? plan = null, CancellationToken ct = default)
+        IEnumerable<string>? media = null, Plans.Plan? plan = null,
+        RunSettings? runSettings = null, CancellationToken ct = default)
     {
         var payload = AgentConfigSerializer.Serialize(agent, prompt, sessionId ?? "", media);
+        runSettings?.ApplyToPayload(payload);
         if (plan is not null) payload["static_plan"] = plan.ToJson();
         var executionId = await StartAsync(payload, ct);
         return new AgentHandle(executionId, this);
@@ -192,6 +195,14 @@ public sealed class OrkesAgentClient : IAgentClient
                 $"CancelAgentAsync({executionId}) failed: {ex.Message}; execution may still be running.");
         }
     }
+
+    /// <summary>Pause a running workflow execution — tasks stop being scheduled.</summary>
+    public async Task PauseAgentAsync(string executionId, CancellationToken ct = default)
+        => await ExecuteJsonAsync(Method.Put, $"/workflow/{Uri.EscapeDataString(executionId)}/pause", null, ct);
+
+    /// <summary>Resume ("unpause") a previously paused workflow execution.</summary>
+    public async Task UnpauseAgentAsync(string executionId, CancellationToken ct = default)
+        => await ExecuteJsonAsync(Method.Put, $"/workflow/{Uri.EscapeDataString(executionId)}/resume", null, ct);
 
     /// <summary>Fetch the workflow definition (without tasks) — e.g. to read taskToDomain. Enrichment read — null on any failure.</summary>
     public async Task<JsonNode?> GetWorkflowAsync(string executionId, CancellationToken ct = default)

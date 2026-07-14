@@ -10,6 +10,7 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -231,12 +232,14 @@ public sealed class AgentHandle
     private readonly string _executionId;
     private readonly IAgentClient _http;
     private readonly string? _runId;
+    private readonly bool _streamingEnabled;
 
-    internal AgentHandle(string executionId, IAgentClient http, string? runId = null)
+    internal AgentHandle(string executionId, IAgentClient http, string? runId = null, bool streamingEnabled = true)
     {
         _executionId = executionId;
         _http = http;
         _runId = runId;
+        _streamingEnabled = streamingEnabled;
     }
 
     public string ExecutionId => _executionId;
@@ -266,9 +269,41 @@ public sealed class AgentHandle
         throw new OperationCanceledException();
     }
 
-    /// <summary>Stream events as they arrive.</summary>
-    public IAsyncEnumerable<AgentEvent> StreamAsync(CancellationToken cancellationToken = default)
-        => _http.StreamEventsAsync(_executionId, lastEventId: null, ct: cancellationToken);
+    /// <summary>
+    /// Stream events as they arrive over SSE. When streaming is disabled by
+    /// config (<see cref="AgentConfig.StreamingEnabled"/> = false) or the server
+    /// rejects the SSE connection (<see cref="SSEUnavailableException"/>), degrades
+    /// to status polling and yields a single terminal <see cref="EventType.Done"/>
+    /// event once the execution completes instead of ending silently.
+    /// </summary>
+    public async IAsyncEnumerable<AgentEvent> StreamAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (_streamingEnabled)
+        {
+            await using var enumerator = _http.StreamEventsAsync(_executionId, lastEventId: null, ct: cancellationToken)
+                .GetAsyncEnumerator(cancellationToken);
+            while (true)
+            {
+                bool moved;
+                try { moved = await enumerator.MoveNextAsync(); }
+                catch (SSEUnavailableException) { break; } // fall through to the polling fallback below
+                if (!moved) yield break; // natural end of a real SSE stream (a Done event was already yielded)
+                yield return enumerator.Current;
+            }
+        }
+
+        // Streaming disabled, or the SSE connection failed — degrade to status
+        // polling and synthesize a terminal Done event from the final result.
+        var result = await WaitAsync(cancellationToken);
+        yield return new AgentEvent
+        {
+            Type = EventType.Done,
+            ExecutionId = result.ExecutionId,
+            Status = result.FinishReason?.ToString(),
+            Content = result.Output is { } output && output.TryGetValue("result", out var r) ? r?.ToString() : null,
+        };
+    }
 
     /// <summary>Check the current status without blocking.</summary>
     public async Task<AgentStatus> GetStatusAsync(CancellationToken cancellationToken = default)
@@ -370,6 +405,31 @@ public sealed class AgentHandle
 
     /// <summary>Immediately cancel the agent execution (synchronous).</summary>
     public void Cancel(string reason = "") => CancelAsync(reason).GetAwaiter().GetResult();
+
+    /// <summary>Pause the execution — tasks stop being scheduled until <see cref="UnpauseAsync"/>.</summary>
+    public async Task PauseAsync(CancellationToken cancellationToken = default)
+        => await _http.PauseAgentAsync(_executionId, cancellationToken);
+
+    /// <summary>Pause the execution (synchronous).</summary>
+    public void Pause() => PauseAsync().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Resume a paused execution. Not to be confused with
+    /// <see cref="AgentRuntime.Resume(string, Agent)"/>, which re-attaches a
+    /// runtime to an existing execution and re-registers its tool workers.
+    /// </summary>
+    public async Task UnpauseAsync(CancellationToken cancellationToken = default)
+        => await _http.UnpauseAgentAsync(_executionId, cancellationToken);
+
+    /// <summary>Resume a paused execution (synchronous).</summary>
+    public void Unpause() => UnpauseAsync().GetAwaiter().GetResult();
+
+    /// <summary>Send a signal message to this execution (<c>POST /agent/{id}/signal</c>).</summary>
+    public async Task SignalAsync(object message, CancellationToken cancellationToken = default)
+        => await _http.SignalAsync(_executionId, message, cancellationToken);
+
+    /// <summary>Send a signal message to this execution (synchronous).</summary>
+    public void Signal(object message) => SignalAsync(message).GetAwaiter().GetResult();
 
     private static AgentResult BuildResult(JsonNode status, string statusStr, JsonNode? execution = null)
     {

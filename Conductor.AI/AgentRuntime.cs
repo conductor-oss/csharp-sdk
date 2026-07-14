@@ -31,8 +31,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
 {
     private readonly IAgentClient _http;
     private readonly Configuration _conductorConfig;
-    private readonly int _workerPollIntervalMs;
-    private readonly int _workerThreadCount;
+    private readonly AgentConfig _agentConfig;
     private WorkerManager? _workers;
 
     /// <summary>
@@ -61,17 +60,15 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// is null, resolves from <c>CONDUCTOR_SERVER_URL</c>/<c>CONDUCTOR_AUTH_KEY</c>/
     /// <c>CONDUCTOR_AUTH_SECRET</c>, falling back to the legacy <c>AGENTSPAN_*</c>
     /// names, defaulting to <c>http://localhost:8080/api</c> with no auth.
+    /// <paramref name="settings"/> is behavior-only tuning (worker polling,
+    /// auto-start, streaming, liveness) — it defaults to <see cref="AgentConfig.FromEnv"/>
+    /// and can never carry connection/auth (spec R4).
     /// </summary>
-    public AgentRuntime(Configuration? configuration = null)
+    public AgentRuntime(Configuration? configuration = null, AgentConfig? settings = null)
     {
         _conductorConfig = configuration ?? BuildConfiguration(null, null, null);
         _http = new OrkesAgentClient(_conductorConfig);
-
-        // Worker-runner tuning from environment (poll interval ms, thread count).
-        // Connection/auth is owned by the conductor client above; this is purely
-        // how the local worker poll loops behave. Mirrors Java's AgentConfig.fromEnv().
-        _workerPollIntervalMs = ParseEnvInt("AGENTSPAN_WORKER_POLL_INTERVAL", 100, min: 1);
-        _workerThreadCount = ParseEnvInt("AGENTSPAN_WORKER_THREADS", 1, min: 1);
+        _agentConfig = settings ?? AgentConfig.FromEnv();
     }
 
     /// <summary>
@@ -85,16 +82,10 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     }
 
     /// <summary>Worker poll interval in ms (env <c>AGENTSPAN_WORKER_POLL_INTERVAL</c>, default 100).</summary>
-    public int WorkerPollIntervalMs => _workerPollIntervalMs;
+    public int WorkerPollIntervalMs => _agentConfig.WorkerPollIntervalMs;
 
     /// <summary>Worker thread count per task type (env <c>AGENTSPAN_WORKER_THREADS</c>, default 1).</summary>
-    public int WorkerThreadCount => _workerThreadCount;
-
-    private static int ParseEnvInt(string key, int defaultValue, int min)
-    {
-        var raw = EnvLookup(key);
-        return int.TryParse(raw, out var v) && v >= min ? v : defaultValue;
-    }
+    public int WorkerThreadCount => _agentConfig.WorkerThreadCount;
 
     /// <summary>
     /// Resolves the shared <see cref="Configuration"/> from explicit values (options
@@ -120,7 +111,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     }
 
     private WorkerManager NewWorkerManager()
-        => new(_http, _conductorConfig, _workerPollIntervalMs, _workerThreadCount);
+        => new(_http, _conductorConfig, _agentConfig.WorkerPollIntervalMs, _agentConfig.WorkerThreadCount);
 
     // ── Deploy / Serve ────────────────────────────────────────
 
@@ -165,22 +156,38 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     }
 
     /// <summary>
-    /// Register local tool workers and block until <paramref name="ct"/> is cancelled.
-    /// The workflow must already exist on the server (deployed via <see cref="DeployAsync"/>
-    /// or a prior <see cref="RunAsync"/> call in any process).
+    /// Deploy the agent, register its local tool workers, and block until
+    /// <paramref name="ct"/> is cancelled. <c>serve</c> = deploy + serve (spec R9) —
+    /// a bare <c>ServeAsync(agent)</c> is a complete, startable deployment; no
+    /// prior <see cref="DeployAsync(Agent[])"/> or <see cref="RunAsync"/> call is required.
     /// </summary>
     public async Task ServeAsync(Agent agent, CancellationToken ct = default)
         => await ServeAsync(ct, agent);
 
-    /// <summary>
-    /// Register local tool workers for multiple agents and block until cancelled.
-    /// </summary>
+    /// <summary>Deploy and serve multiple agents, blocking until cancelled.</summary>
     public async Task ServeAsync(CancellationToken ct = default, params Agent[] agents)
+        => await ServeAsync(blocking: true, ct, agents);
+
+    /// <summary>
+    /// Deploy and serve one or more agents with an explicit blocking mode.
+    /// <paramref name="blocking"/> = false returns as soon as every agent is
+    /// deployed and its workers are registered and polling — for embedding the
+    /// runtime in a host application that owns the process lifecycle. The caller
+    /// is then responsible for eventually disposing the runtime.
+    /// </summary>
+    public async Task ServeAsync(bool blocking, CancellationToken ct = default, params Agent[] agents)
     {
         _workers ??= NewWorkerManager();
         foreach (var agent in agents)
+        {
+            // Deploy before registering this agent's workers — same ordering
+            // `run`/`start` already establish; idempotent server-side.
+            await DeployAsync(agent);
             _workers.RegisterAgentTools(agent);
+        }
         _workers.Start();
+
+        if (!blocking) return;
 
         try { await Task.Delay(Timeout.Infinite, ct); }
         catch (OperationCanceledException) { }
@@ -209,16 +216,20 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     // ── Synchronous convenience wrappers ────────────────────
 
     /// <summary>Run an agent synchronously (blocks until done).</summary>
-    public AgentResult Run(Agent agent, string prompt, string? sessionId = null, IEnumerable<string>? media = null)
-        => RunAsync(agent, prompt, sessionId, media: media).GetAwaiter().GetResult();
+    public AgentResult Run(
+        Agent agent, string prompt, string? sessionId = null,
+        IEnumerable<string>? media = null, RunSettings? runSettings = null)
+        => RunAsync(agent, prompt, sessionId, media: media, runSettings: runSettings).GetAwaiter().GetResult();
 
     /// <summary>Run a pre-deployed agent by workflow name (synchronous).</summary>
     public AgentResult Run(string workflowName, string prompt, string? sessionId = null)
         => RunByNameAsync(workflowName, prompt, sessionId).GetAwaiter().GetResult();
 
     /// <summary>Start an agent synchronously and return a handle.</summary>
-    public AgentHandle Start(Agent agent, string prompt, string? sessionId = null, IEnumerable<string>? media = null)
-        => StartAsync(agent, prompt, sessionId, media: media).GetAwaiter().GetResult();
+    public AgentHandle Start(
+        Agent agent, string prompt, string? sessionId = null,
+        IEnumerable<string>? media = null, RunSettings? runSettings = null)
+        => StartAsync(agent, prompt, sessionId, media: media, runSettings: runSettings).GetAwaiter().GetResult();
 
     /// <summary>Start a pre-deployed agent by workflow name (synchronous).</summary>
     public AgentHandle Start(string workflowName, string prompt, string? sessionId = null)
@@ -235,12 +246,18 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// </param>
     public async Task<AgentResult> RunAsync(
         Agent agent, string prompt, string? sessionId = null,
-        IEnumerable<string>? media = null, Plans.Plan? plan = null, CancellationToken ct = default)
+        IEnumerable<string>? media = null, Plans.Plan? plan = null,
+        RunSettings? runSettings = null, CancellationToken ct = default)
     {
-        var handle = await StartInternalAsync(agent, prompt, sessionId, media, plan, ct);
-        var result = await handle.WaitAsync(ct);
-        await StopWorkersAsync();
-        return result;
+        var handle = await StartInternalAsync(agent, prompt, sessionId, media, plan, runSettings, ct);
+        try
+        {
+            return await handle.WaitAsync(ct);
+        }
+        finally
+        {
+            await StopWorkersAsync();
+        }
     }
 
     /// <summary>Run a pre-deployed agent by workflow name and wait for the result.</summary>
@@ -254,9 +271,10 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// <summary>Start an agent asynchronously and return a handle for streaming / HITL.</summary>
     public async Task<AgentHandle> StartAsync(
         Agent agent, string prompt, string? sessionId = null,
-        IEnumerable<string>? media = null, Plans.Plan? plan = null, CancellationToken ct = default)
+        IEnumerable<string>? media = null, Plans.Plan? plan = null,
+        RunSettings? runSettings = null, CancellationToken ct = default)
     {
-        return await StartInternalAsync(agent, prompt, sessionId, media, plan, ct);
+        return await StartInternalAsync(agent, prompt, sessionId, media, plan, runSettings, ct);
     }
 
     /// <summary>Start a pre-deployed agent by workflow name (no agentConfig payload).</summary>
@@ -270,13 +288,19 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// <summary>Stream events from an agent execution.</summary>
     public async IAsyncEnumerable<AgentEvent> StreamAsync(
         Agent agent, string prompt, string? sessionId = null,
-        IEnumerable<string>? media = null,
+        IEnumerable<string>? media = null, RunSettings? runSettings = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
     {
-        var handle = await StartInternalAsync(agent, prompt, sessionId, media, plan: null, ct);
-        await foreach (var evt in handle.StreamAsync(ct))
-            yield return evt;
-        await StopWorkersAsync();
+        var handle = await StartInternalAsync(agent, prompt, sessionId, media, plan: null, runSettings, ct);
+        try
+        {
+            await foreach (var evt in handle.StreamAsync(ct))
+                yield return evt;
+        }
+        finally
+        {
+            await StopWorkersAsync();
+        }
     }
 
     // ── Resume ──────────────────────────────────────────────
@@ -303,7 +327,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
         _workers.RegisterAgentTools(agent, domain);
         _workers.Start();
 
-        return new AgentHandle(executionId, _http, domain);
+        return new AgentHandle(executionId, _http, domain, streamingEnabled: _agentConfig.StreamingEnabled);
     }
 
     private async Task<string?> ExtractDomainAsync(string executionId, CancellationToken ct)
@@ -408,7 +432,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
 
     private async Task<AgentHandle> StartInternalAsync(
         Agent agent, string prompt, string? sessionId,
-        IEnumerable<string>? media, Plans.Plan? plan, CancellationToken ct)
+        IEnumerable<string>? media, Plans.Plan? plan, RunSettings? runSettings, CancellationToken ct)
     {
         // Generate a fresh per-execution domain UUID for stateful agents. The
         // server uses this as taskToDomain for every worker task in the run,
@@ -418,12 +442,16 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
         // Mirrors Python runtime._has_stateful_tools + run_id = uuid.uuid4().
         var runId = HasStatefulTools(agent) ? Guid.NewGuid().ToString("N") : null;
 
-        // Fresh worker manager per run
-        _workers ??= NewWorkerManager();
-        _workers.RegisterAgentTools(agent, runId);
-        _workers.Start();
+        if (_agentConfig.AutoStartWorkers)
+        {
+            // Fresh worker manager per run
+            _workers ??= NewWorkerManager();
+            _workers.RegisterAgentTools(agent, runId);
+            _workers.Start();
+        }
 
         var payload = AgentConfigSerializer.Serialize(agent, prompt, sessionId ?? "", media);
+        runSettings?.ApplyToPayload(payload);
         if (runId is not null) payload["runId"] = runId;
         if (plan is not null)
         {
@@ -432,7 +460,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
             payload["static_plan"] = plan.ToJson();
         }
         var executionId = await _http.StartAsync(payload, ct);
-        return new AgentHandle(executionId, _http, runId);
+        return new AgentHandle(executionId, _http, runId, streamingEnabled: _agentConfig.StreamingEnabled);
     }
 
     private static bool HasStatefulTools(Agent agent)
@@ -454,6 +482,9 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
             _workers = null;
         }
     }
+
+    /// <summary>Test-only seam — observe whether a worker manager is currently active.</summary>
+    internal bool HasActiveWorkers => _workers is not null;
 
     // ── Disposal ─────────────────────────────────────────────
 
