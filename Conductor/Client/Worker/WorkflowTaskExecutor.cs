@@ -189,7 +189,7 @@ namespace Conductor.Client.Worker
                 pollStopwatch.Stop();
                 _metrics?.RecordTaskPollTime(_worker.TaskType, pollStopwatch.Elapsed.TotalSeconds, "FAILURE");
                 _metrics?.RecordTaskPollError(_worker.TaskType, e.GetType().Name);
-                _logger.LogTrace(
+                _logger.LogError(
                     $"[{_workerSettings.WorkerId}] Polling error: {e.Message} "
                     + $", taskType: {_worker.TaskType}"
                     + $", domain: {_workerSettings.Domain}"
