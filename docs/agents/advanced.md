@@ -1,9 +1,11 @@
 # Advanced
 
 - [Runtime initialization and options](#runtime-initialization-and-options)
-- [Worker tuning](#worker-tuning)
-- [The AgentClient control plane](#the-agentclient-control-plane)
+- [Worker tuning and AgentConfig](#worker-tuning-and-agentconfig)
+- [The IAgentClient control plane](#the-iagentclient-control-plane)
 - [Deploy vs serve vs run vs plan](#deploy-vs-serve-vs-run-vs-plan)
+- [RunSettings — per-run overrides](#runsettings--per-run-overrides)
+- [Liveness for stateful runs](#liveness-for-stateful-runs)
 - [Schedules](#schedules)
 - [Structured output](#structured-output)
 - [Credentials and secrets](#credentials-and-secrets)
@@ -11,9 +13,12 @@
 
 ## Runtime initialization and options
 
-`new AgentRuntime()` reads connection settings from the environment
-(`AGENTSPAN_SERVER_URL`, `AGENTSPAN_AUTH_KEY`, `AGENTSPAN_AUTH_SECRET`). Override
-any of them with `AgentRuntimeOptions`:
+`new AgentRuntime()` reads connection settings from the environment —
+`CONDUCTOR_SERVER_URL` / `CONDUCTOR_AUTH_KEY` / `CONDUCTOR_AUTH_SECRET` win
+over the legacy `AGENTSPAN_SERVER_URL` / `AGENTSPAN_AUTH_KEY` /
+`AGENTSPAN_AUTH_SECRET` names (still honored as fallbacks), defaulting to
+`http://localhost:8080/api` with no auth. Override any of them with
+`AgentRuntimeOptions`:
 
 ```csharp
 await using var runtime = new AgentRuntime(new AgentRuntimeOptions
@@ -28,18 +33,33 @@ When both `AuthKey` and `AuthSecret` are set, the runtime configures Orkes
 authentication for worker polling automatically. With neither set, it runs in
 no-auth mode (local / OSS Conductor).
 
+You can also pass an explicit `Configuration` (sharing it — and its token
+cache — with any other domain client built from the same `Configuration`):
+
+```csharp
+await using var runtime = new AgentRuntime(myConfiguration, AgentConfig.FromEnv());
+```
+
 The runtime is both `IAsyncDisposable` and `IDisposable`; `await using` (or
 `using`) shuts down any local tool workers it started.
 
-## Worker tuning
+## Worker tuning and AgentConfig
 
-Local `[Tool]` methods are served by worker poll loops the runtime owns. Two
-environment variables tune them (read once at construction):
+Local `[Tool]` methods are served by worker poll loops the runtime owns.
+`AgentConfig` (the second constructor argument, or `AgentConfig.FromEnv()`)
+controls them and a handful of runtime behaviors, with lenient env parsing —
+invalid or empty values fall back to the default rather than throwing:
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `AGENTSPAN_WORKER_THREADS` | `1` | Worker threads per task type. |
-| `AGENTSPAN_WORKER_POLL_INTERVAL` | `100` | Poll interval in milliseconds. |
+| `AgentConfig` property | Env var | Default | Meaning |
+|---|---|---|---|
+| `WorkerThreadCount` | `AGENTSPAN_WORKER_THREADS` | `1` | Worker threads per task type. |
+| `WorkerPollIntervalMs` | `AGENTSPAN_WORKER_POLL_INTERVAL` | `100` | Poll interval in milliseconds. |
+| `AutoStartWorkers` | `AGENTSPAN_AUTO_START_WORKERS` | `true` | Whether `run`/`start`/`stream` auto-register + start local tool workers. |
+| `DaemonWorkers` | `AGENTSPAN_DAEMON_WORKERS` | `true` | Whether worker threads are background/daemon threads. |
+| `StreamingEnabled` | `AGENTSPAN_STREAMING_ENABLED` | `true` | Whether `StreamAsync` attempts SSE before falling back to status-polling. |
+| `LivenessEnabled` | `AGENTSPAN_LIVENESS_ENABLED` | `true` | Whether stateful runs get a liveness monitor (see [below](#liveness-for-stateful-runs)). |
+| `LivenessStallSeconds` | `AGENTSPAN_LIVENESS_STALL_SECONDS` | `30.0` | How long an unpolled tool task may sit before it's flagged as stalled. |
+| `LivenessCheckIntervalSeconds` | `AGENTSPAN_LIVENESS_CHECK_INTERVAL_SECONDS` | `10.0` | How often the liveness monitor polls the workflow's task list. |
 
 ```csharp
 using var runtime = new AgentRuntime();
@@ -47,17 +67,20 @@ int threads = runtime.WorkerThreadCount;     // reflects AGENTSPAN_WORKER_THREAD
 int pollMs  = runtime.WorkerPollIntervalMs;  // reflects AGENTSPAN_WORKER_POLL_INTERVAL
 ```
 
-## The AgentClient control plane
+## The IAgentClient control plane
 
-`AgentClient` is the control-plane client for the `/agent/*` API (compile, deploy,
-start, status, respond, stream) plus convenience `RunAsync` / `StartAsync` /
-`DeployAsync` / `ScheduleAsync`. It was previously named `AgentHttpClient`.
+`IAgentClient` (implemented by `OrkesAgentClient`) is the control-plane client
+for the `/agent/*` API (compile, deploy, start, status, respond, stream) plus
+convenience `RunAsync` / `StartAsync` / `DeployAsync` / `ScheduleAsync`. It
+rides the same `ApiClient`/`Configuration` as the rest of the SDK — obtain one
+via `OrkesApiClient.GetAgentClient()` or `Configuration.GetAgentClient()`,
+both sharing that `Configuration`'s token cache (no separate token client).
 
 The runtime exposes its own client as `runtime.Client`:
 
 ```csharp
 await using var runtime = new AgentRuntime();
-AgentClient client = runtime.Client;
+IAgentClient client = runtime.Client;
 ```
 
 **Run is control-plane only.** `client.RunAsync(...)` starts the agent and polls to
@@ -70,15 +93,21 @@ which owns worker orchestration.
 // control-plane run (no local workers)
 var result = await runtime.Client.RunAsync(llmOnlyAgent, "Summarize this.");
 
-// or stand up a client directly
-using var standalone = new AgentClient("http://localhost:6767/api");
+// or build a client directly on a Configuration
+var configuration = new Configuration { BasePath = "http://localhost:8080/api" };
+using var standalone = configuration.GetAgentClient();
 var handle = await standalone.StartAsync(agent, "Hello");
 ```
 
-`AgentClient` also exposes lower-level helpers used by the runtime:
-`CompileAsync`, `GetStatusAsync`, `GetExecutionAsync`, `RespondAsync`,
-`StreamEventsAsync`, `StartWorkflowByNameAsync`, `SendWorkflowMessageAsync`,
-`StopAgentAsync`, `CancelAgentAsync`, and `ResolveCredentialsAsync`.
+`IAgentClient` also exposes lower-level helpers used by the runtime:
+`CompileAsync`, `GetStatusAsync`, `GetExecutionAsync`, `GetWorkflowAsync`
+(the raw workflow, including task inputs — `GetExecutionAsync` is a summary
+that omits them), `ListExecutionsAsync`, `RespondAsync`, `SignalAsync`,
+`PauseAgentAsync`/`UnpauseAgentAsync`, `StreamEventsAsync`,
+`StartWorkflowByNameAsync`, `SendWorkflowMessageAsync`, `StopAgentAsync`, and
+`CancelAgentAsync`. There is no credential-resolution helper on the client —
+see [Credentials and secrets](#credentials-and-secrets) for the current
+(server-delivered) contract.
 
 ## Deploy vs serve vs run vs plan
 
@@ -100,14 +129,20 @@ foreach (var info in results)
     Console.WriteLine($"{info.AgentName} -> {info.RegisteredName}");
 ```
 
-**Serve** a deployed agent's local tools (blocks until the token is cancelled):
+**Serve** deploys each agent (idempotently, deploy-before-worker-start) and
+registers its local tool workers. By default it blocks until the token is
+cancelled — pass an explicit `blocking: false` to return as soon as the
+workers are up and polling in the background instead:
 
 ```csharp
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
 await using var runtime = new AgentRuntime();
-await runtime.ServeAsync(cts.Token, docAssistant);   // params Agent[]
+await runtime.ServeAsync(cts.Token, docAssistant);   // params Agent[]; blocks until cancelled
+
+// or return immediately once workers are polling:
+await runtime.ServeAsync(blocking: false, agents: new[] { docAssistant });
 ```
 
 **Run a pre-deployed agent by name** (no agentConfig payload, no local workers
@@ -136,6 +171,53 @@ var result = await handle.WaitAsync();
 ```csharp
 var workflowDef = await runtime.PlanAsync(agent);   // JsonNode? — the compiled WorkflowDef
 ```
+
+## RunSettings — per-run overrides
+
+`RunSettings` carries per-invocation LLM overrides on top of an `Agent`'s own
+settings — `Model`, `Temperature`, `MaxTokens`, `ReasoningEffort`,
+`ThinkingBudgetTokens` (there is no `TopP` — it isn't part of the agentConfig
+wire contract). Only the fields you set override the agent; everything else
+is left as the agent defined it. Pass it to `RunAsync` / `StartAsync` /
+`StreamAsync` (and their `IAgentClient` conveniences):
+
+```csharp
+var result = await runtime.RunAsync(agent, "Summarize this",
+    runSettings: new RunSettings(Model: "openai/gpt-4o", Temperature: 0.2, MaxTokens: 2048));
+```
+
+Overrides mutate the serialized **root** agent config before `start`, so they
+flow into the root agent's LLM tasks without needing a new server field —
+sub-agents in a multi-agent strategy keep their own settings (no cascade).
+
+## Liveness for stateful runs
+
+Stateful runs (`Agent.Stateful = true`) route their tool tasks to this
+process's own worker via a per-run domain — if the process that started the
+run stops polling (crash, restart, network partition), the task sits
+unpolled forever and a blocking `WaitAsync` would hang indefinitely. To guard
+against that, `AgentRuntime` attaches a background liveness monitor to every
+stateful run (unless `AgentConfig.LivenessEnabled = false`): it polls the
+workflow's task list every `LivenessCheckIntervalSeconds` and flags a stall
+once a `SCHEDULED`/`IN_PROGRESS` task has gone unpolled past
+`LivenessStallSeconds`.
+
+```csharp
+try
+{
+    var result = await handle.WaitAsync();
+}
+catch (WorkerStallException ex)
+{
+    // ex.TaskReferenceName / ex.ExecutionId — the worker handling this run's
+    // domain may have died; the task itself is still SCHEDULED on the server.
+}
+```
+
+`WaitAsync` is itself bounded — a 10-minute overall deadline, and it
+tolerates up to 3 consecutive transient `GetStatus` errors before giving up —
+so a stateful run can never hang forever even without a stall being flagged.
+The monitor is disposed automatically when the handle's wait completes.
 
 ## Schedules
 
@@ -256,11 +338,18 @@ public async Task<Dictionary<string, object>> ListGithubRepos(string username, T
 ```
 
 The same `${NAME}` mechanism applies to `McpTools`, `ApiTools`, `CliTool`, and to
-PLAN_EXECUTE `Context.FromUrl(...)` headers. Programmatic resolution is available
-via `runtime.Client.ResolveCredentialsAsync(executionToken, names)` (it throws
-`CredentialNotFoundException` / `CredentialAuthException` /
-`CredentialRateLimitException` / `CredentialServiceException` rather than silently
-returning empty values).
+PLAN_EXECUTE `Context.FromUrl(...)` headers.
+
+**Local `[Tool]` credentials ride the `runtimeMetadata` wire contract.** The
+names listed in a tool's `Credentials` are stamped onto that worker's
+`TaskDef.RuntimeMetadata` at every registration; a capable server (agentspan
+> 0.4.2 / conductor-oss ≥ `3.32.0-rc.8`, PR #1255) resolves and delivers the
+values on the wire-only `Task.RuntimeMetadata` at poll time — they never live
+in the task's regular `inputData`. Dispatch is **fail-closed**: if a declared
+credential is missing from the delivered metadata, the SDK raises
+`CredentialNotFoundException` and the tool task terminates — it never falls
+back to reading the ambient process environment. There is no client-side
+resolution call any more; delivery is entirely server-driven, per execution.
 
 ## Plans and PLAN_EXECUTE
 

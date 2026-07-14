@@ -29,7 +29,7 @@
 //
 // Requirements:
 //   - Conductor server with LLM support
-//   - AGENTSPAN_SERVER_URL=http://localhost:6767/api in environment
+//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
 //   - AGENTSPAN_LLM_MODEL set in environment
 //   - mcp-testkit running on http://localhost:3001 (for examples 1-3)
 //   - GITHUB_TOKEN credential set (for example 4)

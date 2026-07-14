@@ -165,7 +165,7 @@ public sealed class Suite2_ToolCalling
     private const string LCRED_B = "E2E_DOTNET_CRED_B";
 
     private static readonly string ApiBase =
-        (Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL") ?? "http://localhost:6767/api")
+        (Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL") ?? "http://localhost:8080/api")
         .TrimEnd('/');
 
     [SkippableFact]

@@ -24,9 +24,9 @@
 //   3. Back to step 1
 //
 // Requirements:
-//   - Agentspan server running at http://localhost:6767
+//   - Agentspan server running at http://localhost:8080
 //   - Kafka broker on localhost:9092 with topic "agentspan_topic"
-//   - AGENTSPAN_SERVER_URL=http://localhost:6767/api in environment
+//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
 //   - AGENTSPAN_LLM_MODEL set in environment
 
 using Confluent.Kafka;

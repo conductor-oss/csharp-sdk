@@ -21,7 +21,7 @@
 //     LLM(prompt, tools) → tool executes → LLM sees result → answer
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:6767/api in environment
+//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
 //   - AGENTSPAN_LLM_MODEL set in environment
 
 using Conductor.AI;

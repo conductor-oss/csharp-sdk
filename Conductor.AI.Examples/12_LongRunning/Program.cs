@@ -18,7 +18,7 @@
 //
 // Requirements:
 //   - Agentspan server with LLM support
-//   - AGENTSPAN_SERVER_URL=http://localhost:6767/api in environment
+//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
 //   - AGENTSPAN_LLM_MODEL set in environment
 
 using Conductor.AI;
@@ -62,4 +62,4 @@ for (int i = 0; i < 60; i++)
 }
 
 Console.WriteLine("\nAgent still running. Check the Conductor UI:");
-Console.WriteLine($"  http://localhost:6767/execution/{handle.ExecutionId}");
+Console.WriteLine($"  http://localhost:8080/execution/{handle.ExecutionId}");

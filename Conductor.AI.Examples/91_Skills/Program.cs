@@ -17,7 +17,7 @@
 // generated read_skill_file tool.
 //
 // Usage:
-//   AGENTSPAN_SERVER_URL=http://localhost:6767/api \
+//   AGENTSPAN_SERVER_URL=http://localhost:8080/api \
 //   AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini \
 //   dotnet run --project sdk/csharp/examples/91_Skills/Example91Skills.csproj \
 //     -- /path/to/skill "Review this repository"

@@ -118,7 +118,7 @@ public class ScheduleUnitTests
 
 public class ScheduleIntegrationTests
 {
-    private const string ServerUrl = "http://localhost:6767";
+    private const string ServerUrl = "http://localhost:8080";
 
     private static bool SchedulerAvailable()
     {

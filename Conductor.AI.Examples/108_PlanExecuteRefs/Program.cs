@@ -96,7 +96,7 @@ await ShowPipelineOutputsAsync(result.ExecutionId);
 static async Task ShowPipelineOutputsAsync(string executionId)
 {
     var baseUrl = (Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")
-        ?? "http://localhost:6767/api").Replace("/api", "");
+        ?? "http://localhost:8080/api").Replace("/api", "");
     using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
 
     var parentBody = await http.GetStringAsync($"{baseUrl}/api/workflow/{executionId}?includeTasks=true");

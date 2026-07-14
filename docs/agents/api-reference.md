@@ -17,27 +17,32 @@ the other docs show usage; this is the lookup table.
 - [Schedule / Schedules](#schedule--schedules)
 - [Plans](#plans)
 - [Results: AgentResult, AgentHandle, AgentEvent, AgentStatus](#results)
-- [AgentClient](#agentclient)
+- [IAgentClient](#iagentclient)
 - [Exceptions](#exceptions)
 
 ## AgentRuntime
 
 `sealed class AgentRuntime : IAsyncDisposable, IDisposable`. Main entry point.
 
-Constructor: `AgentRuntime(AgentRuntimeOptions? options = null)`.
+Constructors: `AgentRuntime(Configuration? configuration = null, AgentConfig? settings = null)`
+(primary — `configuration` resolves from the `CONDUCTOR_*`/`AGENTSPAN_*` env
+chain when omitted, `settings` defaults to `AgentConfig.FromEnv()`) and
+`AgentRuntime(AgentRuntimeOptions options)` (sugar over the above).
 
 | Member | Signature | Notes |
 |---|---|---|
-| `Client` | `AgentClient Client { get; }` | The control-plane client. |
+| `Client` | `IAgentClient Client { get; }` | The control-plane client (`OrkesAgentClient`). |
 | `Schedules` | `Schedules Schedules { get; }` | Cron lifecycle. |
-| `WorkerThreadCount` | `int { get; }` | From `AGENTSPAN_WORKER_THREADS`. |
-| `WorkerPollIntervalMs` | `int { get; }` | From `AGENTSPAN_WORKER_POLL_INTERVAL`. |
-| `RunAsync` | `Task<AgentResult> RunAsync(Agent agent, string prompt, string? sessionId = null, IEnumerable<string>? media = null, Plan? plan = null, CancellationToken ct = default)` | Run + host workers + wait. |
-| `Run` | `AgentResult Run(Agent, string, string? = null, IEnumerable<string>? = null)` | Sync wrapper. |
-| `StartAsync` | `Task<AgentHandle> StartAsync(Agent, string, string? = null, IEnumerable<string>? = null, Plan? = null, CancellationToken = default)` | Start, return handle. |
+| `WorkerThreadCount` | `int { get; }` | From `AgentConfig.WorkerThreadCount` / `AGENTSPAN_WORKER_THREADS`. |
+| `WorkerPollIntervalMs` | `int { get; }` | From `AgentConfig.WorkerPollIntervalMs` / `AGENTSPAN_WORKER_POLL_INTERVAL`. |
+| `RunAsync` | `Task<AgentResult> RunAsync(Agent agent, string prompt, string? sessionId = null, IEnumerable<string>? media = null, Plan? plan = null, RunSettings? runSettings = null, CancellationToken ct = default)` | Run + host workers + wait. |
+| `Run` | `AgentResult Run(Agent, string, ...)` | Sync wrapper. |
+| `StartAsync` | `Task<AgentHandle> StartAsync(Agent, string, string? = null, IEnumerable<string>? = null, Plan? = null, RunSettings? = null, CancellationToken = default)` | Start, return handle. |
 | `Start` | `AgentHandle Start(Agent, string, ...)` | Sync wrapper. |
 | `RunByNameAsync` / `StartByNameAsync` | `(...)` by workflow name | Pre-deployed agents. |
-| `StreamAsync` | `IAsyncEnumerable<AgentEvent> StreamAsync(Agent, string, string? = null, IEnumerable<string>? = null, CancellationToken = default)` | Run + stream events. |
+| `StreamAsync` | `IAsyncEnumerable<AgentEvent> StreamAsync(Agent, string, string? = null, IEnumerable<string>? = null, RunSettings? = null, CancellationToken = default)` | Run + stream events. |
+| `DeployAsync` | `Task<DeploymentInfo[]> DeployAsync(params Agent[] agents)` | Compile + register; no execution, no workers. |
+| `ServeAsync` | `Task ServeAsync(bool blocking, CancellationToken ct = default, params Agent[] agents)` (+ overloads) | Deploy + register local tool workers; `blocking:false` returns once workers are polling. |
 | `DeployAsync` | `Task<DeploymentInfo[]> DeployAsync(params Agent[])` ; `Task<DeploymentInfo> DeployAsync(Agent, IEnumerable<Schedule>?)` | Register without executing; second form reconciles schedules. |
 | `Deploy` | `DeploymentInfo[] Deploy(params Agent[])` | Sync. |
 | `ServeAsync` | `Task ServeAsync(Agent, CancellationToken = default)` ; `Task ServeAsync(CancellationToken = default, params Agent[])` | Host workers; blocks until cancelled. |
@@ -267,28 +272,39 @@ Enums: `EventType` { `Thinking`, `ToolCall`, `ToolResult`, `GuardrailPass`,
 Other records: `TokenUsage(PromptTokens, CompletionTokens, TotalTokens)`,
 `DeploymentInfo(RegisteredName, AgentName)`.
 
-## AgentClient
+## IAgentClient
 
-`sealed class AgentClient : IDisposable` (formerly `AgentHttpClient`). Constructor:
-`AgentClient(string serverUrl, string? authKey = null, string? authSecret = null)`.
-Obtain the runtime's instance via `runtime.Client`.
+`interface IAgentClient : IDisposable, IAsyncDisposable`, implemented by
+`sealed class OrkesAgentClient`. Obtain one via
+`OrkesApiClient.GetAgentClient()` / `Configuration.GetAgentClient()` (shares
+that `Configuration`'s token cache — no separate token client), or the
+runtime's own instance via `runtime.Client`.
 
 Control-plane convenience: `RunAsync(Agent, ...)`, `StartAsync(Agent, ...)`,
 `DeployAsync(params Agent[])`, `ScheduleAsync(Agent, IEnumerable<Schedule>, ct)`,
 `Schedules` (property). Run is control-plane only — no local tool workers.
 
 Lower level: `StartAsync(JsonObject)`, `DeployAsync(JsonObject)`,
-`CompileAsync(JsonObject)`, `GetStatusAsync`, `GetExecutionAsync`, `RespondAsync`,
+`CompileAsync(JsonObject)`, `GetStatusAsync`, `GetExecutionAsync`,
+`GetWorkflowAsync` (raw workflow incl. task inputs), `ListExecutionsAsync`,
+`RespondAsync`, `SignalAsync`, `PauseAgentAsync`/`UnpauseAgentAsync`,
 `StreamEventsAsync`, `StartWorkflowByNameAsync`, `SendWorkflowMessageAsync`,
-`StopAgentAsync`, `CancelAgentAsync`, `GetWorkflowAsync`,
-`ResolveCredentialsAsync(executionToken, names)`.
+`StopAgentAsync`, `CancelAgentAsync`. There is no client-side credential
+resolution method — see [Exceptions](#exceptions) and
+[advanced.md](advanced.md#credentials-and-secrets) for the current
+server-delivered (`runtimeMetadata`) contract.
 
 ## Exceptions
 
-`ConfigurationException` (invalid agent config, e.g. sub-agents without strategy),
-`AgentApiException` (HTTP error from the agent API; carries the status code and
-body). Credential resolution throws `CredentialNotFoundException`,
-`CredentialAuthException`, `CredentialRateLimitException`, or
-`CredentialServiceException`. Scheduling throws `ScheduleException` and subtypes
-`ScheduleNotFound`, `ScheduleNameConflict`, `InvalidCronExpression`.
+`ConfigurationException` (invalid agent config, e.g. sub-agents without
+strategy), `AgentApiException` (HTTP error from the agent API; carries the
+status code and body), `AgentNotFoundException` (404 from a control-plane
+call). `CredentialNotFoundException` — a tool's declared credential wasn't
+present in the server-delivered `runtimeMetadata` at poll time; the SDK never
+falls back to ambient process env. `WorkerStallException` — a stateful run's
+liveness monitor flagged an unpolled tool task (see
+[advanced.md](advanced.md#liveness-for-stateful-runs)); carries
+`TaskReferenceName` and `ExecutionId`. `SSEUnavailableException` — the server
+rejected an SSE stream connection. Scheduling throws `ScheduleException` and
+subtypes `ScheduleNotFound`, `ScheduleNameConflict`, `InvalidCronExpression`.
 </content>

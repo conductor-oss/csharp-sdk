@@ -112,7 +112,7 @@ var agent = new Agent("assistant") { Tools = tools };
 `RetryDelaySeconds` (default 2), `RetryPolicy` (`"fixed"` / `"linear_backoff"` /
 `"exponential_backoff"`). Local `[Tool]` methods run in a worker the runtime
 hosts for you — so agents with local tools must run via `AgentRuntime`, not the
-bare `AgentClient`.
+bare `IAgentClient`.
 
 Mix scanned tools with built-ins via list spreads:
 

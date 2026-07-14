@@ -18,7 +18,7 @@
 // Requirements:
 //   - Agentspan server with LLM support
 //   - Python 3.x installed locally
-//   - AGENTSPAN_SERVER_URL=http://localhost:6767/api in environment
+//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
 //   - AGENTSPAN_LLM_MODEL set in environment
 
 using System.Diagnostics;

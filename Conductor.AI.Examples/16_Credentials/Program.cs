@@ -19,11 +19,14 @@
 // Setup (one-time):
 //   agentspan credentials set GITHUB_TOKEN <your-token>
 //
-// The ToolContext.ExecutionToken carries the scoped execution token
-// that the SDK uses when calling POST /api/credentials/resolve.
+// The declared credential name is stamped onto this tool's TaskDef at
+// registration; a capable server resolves and delivers the value on the
+// wire-only Task.RuntimeMetadata at poll time, which the worker injects
+// into the process environment for the duration of the handler call.
 //
 // Requirements:
-//   - Agentspan server running at AGENTSPAN_SERVER_URL
+//   - Conductor/Agentspan server running at CONDUCTOR_SERVER_URL
+//     (or AGENTSPAN_SERVER_URL as a fallback)
 //   - AGENTSPAN_LLM_MODEL set in environment
 //   - GITHUB_TOKEN stored via `agentspan credentials set`
 

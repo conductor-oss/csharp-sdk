@@ -30,7 +30,7 @@
 //
 // Requirements:
 //   - Agentspan server with code execution support
-//   - AGENTSPAN_SERVER_URL=http://localhost:6767/api in environment
+//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
 //   - AGENTSPAN_LLM_MODEL set in environment
 //   - gh CLI authenticated: gh auth status
 //   - Git configured with push access to the repo

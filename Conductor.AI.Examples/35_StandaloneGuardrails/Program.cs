@@ -21,7 +21,7 @@
 //   Part 1 (standalone): no server needed.
 //   Part 2 (as agent guardrails):
 //     - Agentspan server with LLM support
-//     - AGENTSPAN_SERVER_URL=http://localhost:6767/api in environment
+//     - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
 //     - AGENTSPAN_LLM_MODEL set in environment
 
 using System.Text.RegularExpressions;

@@ -16,7 +16,7 @@
 // drafts the email body itself but uses tools for everything stateful.
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:6767/api
+//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api
 //   - AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
 
 using System.ComponentModel;

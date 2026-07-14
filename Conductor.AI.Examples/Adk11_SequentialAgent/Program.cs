@@ -17,7 +17,7 @@
 // with sub-agents and instructions that dictate the execution order.
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:6767/api
+//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api
 //   - AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
 
 using Conductor.AI;

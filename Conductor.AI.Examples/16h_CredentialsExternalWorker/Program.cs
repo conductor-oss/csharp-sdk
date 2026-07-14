@@ -10,15 +10,16 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-// Credentials — External worker credential resolution.
+// Credentials — External worker credential delivery.
 //
 // Demonstrates:
 //   - External tool declared as a ToolDef with External = true and
 //     Credentials = ["GITHUB_TOKEN"]. In C#, external tools must be
 //     created as ToolDef objects directly (unlike local tools which use
 //     [Tool] attributes and ToolRegistry.FromInstance).
-//   - The external worker calls AgentClient.ResolveCredentialsAsync()
-//     to fetch the plaintext credential value at runtime.
+//   - The external worker reads the resolved credential value directly off
+//     the polled Task's RuntimeMetadata dictionary — the server delivers it
+//     on the wire at poll time; there is no separate fetch call.
 //   - Works for workers running in separate processes, containers, or machines.
 //
 // Two sides are shown:
@@ -29,7 +30,8 @@
 //   agentspan credentials set GITHUB_TOKEN <your-github-token>
 //
 // Requirements:
-//   - Agentspan server running at AGENTSPAN_SERVER_URL
+//   - Conductor/Agentspan server running at CONDUCTOR_SERVER_URL
+//     (or AGENTSPAN_SERVER_URL as a fallback)
 //   - AGENTSPAN_LLM_MODEL set in environment
 //   - GITHUB_TOKEN stored via `agentspan credentials set`
 //   - An external worker polling for "github_lookup" tasks (see comments below)
@@ -80,7 +82,8 @@ var agent = new Agent("external_cred_agent_16h")
 
 Console.WriteLine("=== External Worker Credentials ===");
 Console.WriteLine("The agent declares the external tool; a separate worker handles execution.");
-Console.WriteLine("The worker resolves GITHUB_TOKEN from the server at runtime.\n");
+Console.WriteLine("GITHUB_TOKEN arrives on the polled task's RuntimeMetadata — the server");
+Console.WriteLine("delivers it at poll time, no separate fetch call needed.\n");
 Console.WriteLine("Note: This example requires an external worker to be running.");
 Console.WriteLine("See the comment block below for the worker implementation pattern.\n");
 
@@ -91,39 +94,36 @@ result.PrintResult();
 /*
  * ── External worker side (runs in a separate process) ─────────────────
  *
- * The external worker polls Conductor for tasks named "github_lookup".
- * It uses AgentClient.ResolveCredentialsAsync() to fetch the
- * GITHUB_TOKEN value from the Agentspan server at runtime.
+ * The external worker polls Conductor for tasks named "github_lookup". The
+ * server delivers the resolved GITHUB_TOKEN value directly on the polled
+ * Task's wire-only RuntimeMetadata dictionary — declared credential names
+ * are stamped onto the task def at registration, and a capable server
+ * (agentspan > 0.4.2 / conductor-oss >= 3.32.0-rc.8) resolves and delivers
+ * the values at poll time. There is no separate fetch call, and a missing
+ * credential should be treated as fail-closed (fail the task rather than
+ * falling back to ambient process env).
  *
  * Implementation sketch:
  *
- *   using Conductor.AI;
  *   using OrchestratorSDK.Client;           // Conductor .NET SDK
  *   using System.Net.Http.Headers;
- *   using System.Text.Json;
  *
- *   var serverUrl = Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")!;
- *   var http = new AgentClient(serverUrl);
+ *   var serverUrl = Environment.GetEnvironmentVariable("CONDUCTOR_SERVER_URL")
+ *       ?? Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")!;
  *   var taskClient = new TaskResourceApi(new Configuration { BasePath = serverUrl });
  *
  *   while (true)
  *   {
- *       var task = await taskClient.PollAsync("github_lookup", workerId: "worker-1");
+ *       var task = await taskClient.PollAsync("github_lookup", workerid: "worker-1");
  *       if (task is null) { await Task.Delay(1000); continue; }
  *
- *       // Extract the execution token injected by Agentspan into __agentspan_ctx__
- *       string? executionToken = null;
- *       if (task.InputData.TryGetValue("__agentspan_ctx__", out var ctxRaw))
+ *       // The resolved value arrives directly on RuntimeMetadata — fail
+ *       // closed if it's missing rather than reading ambient process env.
+ *       if (!(task.RuntimeMetadata?.TryGetValue("GITHUB_TOKEN", out var token) ?? false))
  *       {
- *           var ctx = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
- *               ctxRaw.ToString()!);
- *           if (ctx?.TryGetValue("execution_token", out var tok) == true)
- *               executionToken = tok.GetString();
+ *           // ... fail the task: FAILED_WITH_TERMINAL_ERROR, credential not delivered
+ *           continue;
  *       }
- *
- *       // Resolve GITHUB_TOKEN from the server using the execution token
- *       var creds = await http.ResolveCredentialsAsync(executionToken, ["GITHUB_TOKEN"]);
- *       var token = creds.GetValueOrDefault("GITHUB_TOKEN", "");
  *
  *       // Use the credential to call the GitHub API
  *       var username = task.InputData["username"].ToString();

@@ -15,19 +15,19 @@
 // Demonstrates:
 //   - runtime.ServeAsync() to register C# workers and block until Ctrl+C
 //   - Serving multiple agents in a single process
-//   - Decoupled from deploy: workers only, no workflow registration
+//   - ServeAsync() is self-sufficient: it deploys each agent (idempotently)
+//     before registering workers, so a prior DeployAsync() call is not
+//     required — running 63_Deploy first is fine but no longer necessary.
 //
 // ServeAsync() registers the C# tool methods as Conductor workers and
-// starts polling for tasks. The workflow must already exist on the server
-// (from a prior DeployAsync() or RunAsync() call, possibly in a different
-// process).
+// starts polling for tasks.
 //
 // Start this in a long-running process and press Ctrl+C to stop:
 //   dotnet run --project 63b_Serve
 //
 // Requirements:
-//   - Agents already deployed (run 63_Deploy first)
-//   - AGENTSPAN_SERVER_URL=http://localhost:6767/api in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//     (or AGENTSPAN_SERVER_URL as a fallback)
 //   - AGENTSPAN_LLM_MODEL set in environment
 
 using Conductor.AI;
