@@ -42,8 +42,6 @@ public record ToolContext
     [JsonPropertyName("metadata")] public Dictionary<string, object>? Metadata { get; init; }
     [JsonPropertyName("dependencies")] public Dictionary<string, object>? Dependencies { get; init; }
     [JsonPropertyName("state")] public Dictionary<string, object>? State { get; init; }
-    // Server sends "execution_token" (snake_case); also accept camelCase alias
-    [JsonPropertyName("execution_token")] public string? ExecutionToken { get; init; }
 
     /// <summary>
     /// Tier-1 credential accessor. Returns the resolved value of the declared

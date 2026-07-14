@@ -19,9 +19,11 @@
 // CLAUDE.md rule: no LLM for validation; write test → make it fail → confirm failure.
 //
 // 2.5 — Credential lifecycle — mirrors sdk/python/e2e/test_suite2_tool_calling.py.
-// Verifies runtime injection actually happens (catches URL drift like the
-// /credentials/resolve → /workers/secrets bug that Suite 7 serialization
-// tests could not see) and that the SDK does NOT silently fall back to
+// Verifies runtime injection actually happens end to end — the server stamps
+// declared credential names onto TaskDef.RuntimeMetadata at registration and
+// delivers the resolved values on the wire-only Task.RuntimeMetadata (spec
+// R6) — which Suite 7's serialization tests (plan-only, no tool invocation)
+// could not see. Also verifies the SDK does NOT silently fall back to
 // process env when a declared credential is missing from the store.
 
 using System.Net.Http;
@@ -155,9 +157,9 @@ public sealed class Suite2_ToolCalling
     //   2.5c  cred set via API           → tool sees stored value at runtime
     //   2.5d  cred updated via API       → next run sees the new value
     //
-    // This is the test that would have caught the /credentials/resolve URL
-    // drift. The Suite 7 serialization tests passed throughout because they
-    // never invoke a tool — only inspect the plan.
+    // This is the test that proves the runtimeMetadata stamp/delivery wire
+    // contract actually works end to end. The Suite 7 serialization tests
+    // can't see this — they never invoke a tool, only inspect the plan.
 
     private const string LCRED_A = "E2E_DOTNET_CRED_A";
     private const string LCRED_B = "E2E_DOTNET_CRED_B";
@@ -170,6 +172,7 @@ public sealed class Suite2_ToolCalling
     public async Task CredentialLifecycle_RuntimeInjection()
     {
         _fixture.RequireServer();
+        _fixture.RequireRuntimeMetadataCapability();
 
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         var savedA = Environment.GetEnvironmentVariable(LCRED_A);
@@ -276,16 +279,34 @@ public sealed class Suite2_ToolCalling
     {
         using var content = new StringContent(value, System.Text.Encoding.UTF8, "text/plain");
         using var resp = await http.PutAsync($"{ApiBase}/secrets/{Uri.EscapeDataString(name)}", content);
-        resp.EnsureSuccessStatusCode();
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync();
+            // conductor-oss standalone serves secrets from the server process env —
+            // the API is read-only there, so the set/update lifecycle steps cannot
+            // run (a server-flavor capability, not an SDK regression; mirrors the
+            // Java port's putSecret assumption-skip). The fail-closed steps still
+            // run everywhere; the full lifecycle only runs on the writable-store
+            // (agentspan) flavor.
+            Skip.If(body.Contains("read-only"),
+                "server secret store is read-only (env-backed) — skipping write-dependent step");
+            resp.EnsureSuccessStatusCode();
+        }
     }
 
     private static async Task DeleteSecretAsync(HttpClient http, string name)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Delete,
-            $"{ApiBase}/secrets/{Uri.EscapeDataString(name)}");
-        using var resp = await http.SendAsync(req);
-        if (!resp.IsSuccessStatusCode && (int)resp.StatusCode != 404)
-            resp.EnsureSuccessStatusCode();
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Delete,
+                $"{ApiBase}/secrets/{Uri.EscapeDataString(name)}");
+            await http.SendAsync(req);
+        }
+        catch
+        {
+            // best-effort cleanup — a read-only or unreachable secret store must
+            // not fail the test itself (mirrors the Java port's deleteSecret)
+        }
     }
 
     private record ToolTaskInfo(string Status, string Reason, JsonNode? Output, string Ref);

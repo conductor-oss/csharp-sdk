@@ -111,7 +111,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     }
 
     private WorkerManager NewWorkerManager()
-        => new(_http, _conductorConfig, _agentConfig.WorkerPollIntervalMs, _agentConfig.WorkerThreadCount);
+        => new(_conductorConfig, _agentConfig.WorkerPollIntervalMs, _agentConfig.WorkerThreadCount);
 
     // ── Deploy / Serve ────────────────────────────────────────
 

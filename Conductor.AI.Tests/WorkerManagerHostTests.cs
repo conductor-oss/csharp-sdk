@@ -33,7 +33,7 @@ public sealed class WorkerManagerHostTests
     public async Task StartAsync_CalledTwice_OnlyBuildsHostOnce()
     {
         var configuration = new Configuration { BasePath = "http://127.0.0.1:1/api" };
-        var manager = new WorkerManager(http: null!, configuration, pollIntervalMs: 60_000, threadCount: 1);
+        var manager = new WorkerManager(configuration, pollIntervalMs: 60_000, threadCount: 1);
         manager.RegisterAgentTools(AgentWithOneTool("agent_one"));
 
         await manager.StartAsync();
@@ -50,7 +50,7 @@ public sealed class WorkerManagerHostTests
     public async Task StopAsync_ClearsHostAndWorkers()
     {
         var configuration = new Configuration { BasePath = "http://127.0.0.1:1/api" };
-        var manager = new WorkerManager(http: null!, configuration, pollIntervalMs: 60_000, threadCount: 1);
+        var manager = new WorkerManager(configuration, pollIntervalMs: 60_000, threadCount: 1);
         manager.RegisterAgentTools(AgentWithOneTool("agent_one"));
 
         await manager.StartAsync();
@@ -65,7 +65,7 @@ public sealed class WorkerManagerHostTests
     public async Task StartAsync_NoWorkersRegistered_StillBuildsHost()
     {
         var configuration = new Configuration { BasePath = "http://127.0.0.1:1/api" };
-        var manager = new WorkerManager(http: null!, configuration, pollIntervalMs: 60_000, threadCount: 1);
+        var manager = new WorkerManager(configuration, pollIntervalMs: 60_000, threadCount: 1);
 
         await manager.StartAsync();
 

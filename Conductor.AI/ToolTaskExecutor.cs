@@ -22,31 +22,28 @@ namespace Conductor.AI;
 
 /// <summary>
 /// Loop-agnostic tool-task execution semantics: input conversion (Newtonsoft ↔
-/// System.Text.Json), <see cref="ToolContext"/> extraction, credential
-/// resolution + scoped env injection, <c>_state_updates</c> piggyback,
-/// primitive-wrapping, and terminal-error mapping. Ported verbatim from the
-/// pre-Worker-SDK <c>WorkerPollLoop.ExecuteAsync</c> — the only change is the
-/// caller: this returns a <see cref="TaskResult"/> instead of calling
-/// <c>UpdateTaskAsync</c> itself, since <see cref="Conductor.Client.Worker.WorkflowTaskExecutor"/>
-/// now owns polling, batching, and the update-with-retry-backoff loop
-/// (guide §25.1 — tools are ordinary Conductor workers).
+/// System.Text.Json), <see cref="ToolContext"/> extraction, fail-closed
+/// credential dispatch + scoped env injection, <c>_state_updates</c>
+/// piggyback, primitive-wrapping, and terminal-error mapping. Ported from the
+/// pre-Worker-SDK <c>WorkerPollLoop.ExecuteAsync</c> — this returns a
+/// <see cref="TaskResult"/> instead of calling <c>UpdateTaskAsync</c> itself,
+/// since <see cref="Conductor.Client.Worker.WorkflowTaskExecutor"/> now owns
+/// polling, batching, and the update-with-retry-backoff loop (guide §25.1 —
+/// tools are ordinary Conductor workers).
 /// </summary>
 internal sealed class ToolTaskExecutor
 {
-    private readonly IAgentClient _http;
     private readonly string _taskName;
     private readonly Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> _handler;
     private readonly string[] _credentialNames;
     private readonly ILogger _logger;
 
     internal ToolTaskExecutor(
-        IAgentClient http,
         string taskName,
         Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> handler,
         string[]? credentialNames = null,
         ILogger? logger = null)
     {
-        _http = http;
         _taskName = taskName;
         _handler = handler;
         _credentialNames = credentialNames ?? [];
@@ -67,18 +64,22 @@ internal sealed class ToolTaskExecutor
                           && !string.Equals(kv.Key, "method", StringComparison.OrdinalIgnoreCase))
                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
-            // Resolve and inject credentials via the centralized helper so the
-            // mutation + invocation + restoration is atomic under a single
-            // process-wide lock. See docs/design/secret-injection-contract.md.
-            // Tier-2 (env-injection) path; tier-1 (explicit-key) lands when the
-            // user-facing API exposes a `credentials` parameter to agent factories.
+            // Fail-closed credential dispatch (spec R6): the server resolves
+            // declared secrets at poll time and delivers them on the wire-only
+            // Task.RuntimeMetadata map — no fetch call, no execution token.
+            // Any declared name the server didn't deliver is a hard stop; ambient
+            // process env is never read as a fallback.
             Dictionary<string, string> resolvedCredentials = new();
             if (_credentialNames.Length > 0)
             {
-                var creds = await _http.ResolveCredentialsAsync(
-                    toolCtx?.ExecutionToken, _credentialNames, ct);
-                foreach (var (k, v) in creds)
-                    resolvedCredentials[k] = v;
+                var delivered = task.RuntimeMetadata ?? new Dictionary<string, string>();
+                var missing = _credentialNames.Where(n => !delivered.ContainsKey(n)).ToList();
+                if (missing.Count > 0)
+                    throw new CredentialNotFoundException(
+                        $"{string.Join(", ", missing)} (requires a runtimeMetadata-capable server: "
+                        + "agentspan > 0.4.2 / conductor-oss >= v3.32.0-rc.x)");
+                foreach (var name in _credentialNames)
+                    resolvedCredentials[name] = delivered[name];
             }
 
             // Tier-1 (explicit accessor): populate the ambient credential scope so
@@ -141,11 +142,7 @@ internal sealed class ToolTaskExecutor
                 ReasonForIncompletion = ex.Message,
             };
         }
-        catch (Exception ex) when (
-            ex is CredentialNotFoundException
-               or CredentialAuthException
-               or CredentialRateLimitException
-               or CredentialServiceException)
+        catch (CredentialNotFoundException ex)
         {
             // Credential failures are configuration issues — non-retryable.
             // Marking as terminal so the workflow surfaces the cause immediately

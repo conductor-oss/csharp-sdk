@@ -55,25 +55,6 @@ public class CredentialNotFoundException : AgentspanException
         : base($"Credential not found: {name}") => CredentialName = name;
 }
 
-/// <summary>Credential authentication failed.</summary>
-public class CredentialAuthException : AgentspanException
-{
-    public CredentialAuthException(string message) : base(message) { }
-}
-
-/// <summary>Credential service rate limit exceeded.</summary>
-public class CredentialRateLimitException : AgentspanException
-{
-    public CredentialRateLimitException()
-        : base("Credential service rate limit exceeded.") { }
-}
-
-/// <summary>Credential service returned a server error.</summary>
-public class CredentialServiceException : AgentspanException
-{
-    public CredentialServiceException(string message) : base(message) { }
-}
-
 /// <summary>
 /// Tool threw a terminal (non-retryable) error.
 /// Maps to Conductor's FAILED_WITH_TERMINAL_ERROR status.

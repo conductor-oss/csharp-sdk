@@ -11,8 +11,10 @@
  * specific language governing permissions and limitations under the License.
  */
 using System.Text.Json;
+using Conductor.Api;
 using Conductor.Client;
 using Conductor.Client.Extensions;
+using Conductor.Client.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Task = Conductor.Client.Models.Task;
@@ -30,18 +32,17 @@ namespace Conductor.AI;
 /// </summary>
 internal sealed class WorkerManager : IAsyncDisposable
 {
-    private readonly IAgentClient _http;
     private readonly Configuration _conductorConfig;
+    private readonly MetadataResourceApi _metadataClient;
     private readonly List<AgentToolWorker> _workers = [];
     private readonly int _pollIntervalMs;
     private readonly int _threadCount;
     private IHost? _host;
 
-    public WorkerManager(IAgentClient http, Configuration conductorConfig,
-        int pollIntervalMs = 100, int threadCount = 1)
+    public WorkerManager(Configuration conductorConfig, int pollIntervalMs = 100, int threadCount = 1)
     {
-        _http = http;
         _conductorConfig = conductorConfig;
+        _metadataClient = new MetadataResourceApi(conductorConfig);
         _pollIntervalMs = pollIntervalMs > 0 ? pollIntervalMs : 100;
         _threadCount = threadCount > 0 ? threadCount : 1;
     }
@@ -54,7 +55,36 @@ internal sealed class WorkerManager : IAsyncDisposable
         Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> handler,
         string[]? credentialNames = null,
         string? domain = null)
-        => new(taskName, new ToolTaskExecutor(_http, taskName, handler, credentialNames), _pollIntervalMs, _threadCount, domain);
+    {
+        RegisterTaskDef(taskName, credentialNames);
+        return new(taskName, new ToolTaskExecutor(taskName, handler, credentialNames), _pollIntervalMs, _threadCount, domain);
+    }
+
+    /// <summary>
+    /// Upsert a task def for <paramref name="taskName"/>, stamping declared
+    /// credential names onto <see cref="TaskDef.RuntimeMetadata"/> (spec R6).
+    /// Runs on EVERY registration, not just the first — skipping it on
+    /// re-registration would leave a stale runtimeMetadata stamp in place after
+    /// credentials changed. PUT (overwrite) first; POST (create) only if the
+    /// task def doesn't exist yet — a create-only POST would silently leave a
+    /// stale def in place on re-registration.
+    /// </summary>
+    private void RegisterTaskDef(string taskName, string[]? credentialNames)
+    {
+        var taskDef = new TaskDef { Name = taskName };
+        if (credentialNames is { Length: > 0 })
+            taskDef.RuntimeMetadata = credentialNames.ToList();
+
+        try
+        {
+            _metadataClient.UpdateTaskDef(taskDef);
+        }
+        catch
+        {
+            try { _metadataClient.RegisterTaskDef(new List<TaskDef> { taskDef }); }
+            catch { /* best-effort — a failed registration surfaces later as a stuck SCHEDULED task */ }
+        }
+    }
 
     public void RegisterTools(IEnumerable<ToolDef> tools, string? domain = null)
     {

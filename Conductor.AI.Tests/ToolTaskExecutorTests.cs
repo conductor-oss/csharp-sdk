@@ -15,13 +15,12 @@
 // wrapping, _state_updates piggyback, terminal-error mapping, and internal-key
 // stripping. It now returns a TaskResult instead of updating the task itself
 // (Conductor.Client.Worker.WorkflowTaskExecutor owns polling/update/retry).
+//
+// Spec R6 — credential dispatch is fail-closed via Task.RuntimeMetadata
+// (wire-delivered), never a fetch call or ambient env read.
 
-using System.Net;
-using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 using Conductor.AI;
-using Conductor.Client;
 using Conductor.Client.Models;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -30,13 +29,17 @@ namespace Conductor.AI.Tests;
 
 public sealed class ToolTaskExecutorTests
 {
-    private static Conductor.Client.Models.Task StubTask(Dictionary<string, object>? inputData = null) =>
-        new(inputData: inputData ?? new(), taskId: "task-1", workflowInstanceId: "wf-1");
+    private static Conductor.Client.Models.Task StubTask(
+        Dictionary<string, object>? inputData = null, Dictionary<string, string>? runtimeMetadata = null) =>
+        new(inputData: inputData ?? new(), taskId: "task-1", workflowInstanceId: "wf-1")
+        {
+            RuntimeMetadata = runtimeMetadata,
+        };
 
     [Fact]
     public async Task Handler_StringResult_WrappedAsPrimitiveResult()
     {
-        var executor = new ToolTaskExecutor(http: null!, "t", (_, _) => Task.FromResult<object?>("hi"));
+        var executor = new ToolTaskExecutor("t", (_, _) => Task.FromResult<object?>("hi"));
 
         var result = await executor.ExecuteAsync(StubTask(), CancellationToken.None);
 
@@ -47,7 +50,7 @@ public sealed class ToolTaskExecutorTests
     [Fact]
     public async Task Handler_DictResult_PassedThroughUnwrapped()
     {
-        var executor = new ToolTaskExecutor(http: null!, "t",
+        var executor = new ToolTaskExecutor("t",
             (_, _) => Task.FromResult<object?>(new Dictionary<string, object> { ["foo"] = "bar" }));
 
         var result = await executor.ExecuteAsync(StubTask(), CancellationToken.None);
@@ -61,10 +64,10 @@ public sealed class ToolTaskExecutorTests
     {
         var inputData = new Dictionary<string, object>
         {
-            ["__agentspan_ctx__"] = JsonSerializer.Deserialize<JsonElement>("{\"execution_token\":\"tok\"}"),
+            ["__agentspan_ctx__"] = JsonSerializer.Deserialize<JsonElement>("{}"),
             ["_agent_state"] = JsonSerializer.Deserialize<JsonElement>("{\"counter\":1}"),
         };
-        var executor = new ToolTaskExecutor(http: null!, "t",
+        var executor = new ToolTaskExecutor("t",
             (_, ctx) => Task.FromResult<object?>(new Dictionary<string, object> { ["ok"] = true }));
 
         var result = await executor.ExecuteAsync(StubTask(inputData), CancellationToken.None);
@@ -83,7 +86,7 @@ public sealed class ToolTaskExecutorTests
             ["method"] = "POST",
             ["__agentspan_ctx__"] = JsonSerializer.Deserialize<JsonElement>("{}"),
         };
-        var executor = new ToolTaskExecutor(http: null!, "t", (args, _) =>
+        var executor = new ToolTaskExecutor("t", (args, _) =>
         {
             seen = args;
             return Task.FromResult<object?>("ok");
@@ -100,7 +103,7 @@ public sealed class ToolTaskExecutorTests
     [Fact]
     public async Task TerminalToolException_MapsToFailedWithTerminalError()
     {
-        var executor = new ToolTaskExecutor(http: null!, "t",
+        var executor = new ToolTaskExecutor("t",
             (_, _) => throw new TerminalToolException("bad config"));
 
         var result = await executor.ExecuteAsync(StubTask(), CancellationToken.None);
@@ -112,7 +115,7 @@ public sealed class ToolTaskExecutorTests
     [Fact]
     public async Task GenericException_MapsToFailed_NotTerminal()
     {
-        var executor = new ToolTaskExecutor(http: null!, "t",
+        var executor = new ToolTaskExecutor("t",
             (_, _) => throw new InvalidOperationException("boom"));
 
         var result = await executor.ExecuteAsync(StubTask(), CancellationToken.None);
@@ -120,43 +123,75 @@ public sealed class ToolTaskExecutorTests
         Assert.Equal(TaskResult.StatusEnum.FAILED, result.Status);
     }
 
-    [Fact]
-    public async Task CredentialResolutionFailure_MapsToFailedWithTerminalError()
-    {
-        // Stub the OrkesAgentClient's SSE-shared HttpClient (used by the pull-path
-        // ResolveCredentialsAsync) to return a 200 body missing the requested name,
-        // which ResolveCredentialsAsync maps to CredentialNotFoundException.
-        var handler = new StubHandler(_ => (HttpStatusCode.OK, "{}"));
-        var configuration = new Configuration { BasePath = "http://server/api" };
-        var client = new OrkesAgentClient(configuration, handler);
+    // ── Spec R6: fail-closed runtimeMetadata credential dispatch ────────
 
-        var executor = new ToolTaskExecutor(client, "t",
+    [Fact]
+    public async Task DeclaredCredential_MissingFromRuntimeMetadata_MapsToFailedWithTerminalError()
+    {
+        var executor = new ToolTaskExecutor("t",
             (_, _) => Task.FromResult<object?>("unused"),
             credentialNames: new[] { "API_KEY" });
 
-        var task = StubTask(new Dictionary<string, object>
-        {
-            ["__agentspan_ctx__"] = JsonSerializer.Deserialize<JsonElement>("{\"execution_token\":\"tok\"}"),
-        });
-
-        var result = await executor.ExecuteAsync(task, CancellationToken.None);
+        // No RuntimeMetadata on the task at all — older/incapable server.
+        var result = await executor.ExecuteAsync(StubTask(), CancellationToken.None);
 
         Assert.Equal(TaskResult.StatusEnum.FAILEDWITHTERMINALERROR, result.Status);
-        Assert.Contains("Credential resolution failed", result.ReasonForIncompletion);
+        Assert.Contains("API_KEY", result.ReasonForIncompletion);
     }
 
-    private sealed class StubHandler : HttpMessageHandler
+    [Fact]
+    public async Task DeclaredCredential_PartiallyDelivered_StillFailsClosed()
     {
-        private readonly Func<HttpRequestMessage, (HttpStatusCode, string)> _respond;
-        public StubHandler(Func<HttpRequestMessage, (HttpStatusCode, string)> respond) => _respond = respond;
+        var executor = new ToolTaskExecutor("t",
+            (_, _) => Task.FromResult<object?>("unused"),
+            credentialNames: new[] { "API_KEY", "OTHER_KEY" });
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        var result = await executor.ExecuteAsync(
+            StubTask(runtimeMetadata: new Dictionary<string, string> { ["API_KEY"] = "secret" }),
+            CancellationToken.None);
+
+        Assert.Equal(TaskResult.StatusEnum.FAILEDWITHTERMINALERROR, result.Status);
+        Assert.Contains("OTHER_KEY", result.ReasonForIncompletion);
+        Assert.DoesNotContain("API_KEY", result.ReasonForIncompletion);
+    }
+
+    [Fact]
+    public async Task DeclaredCredential_Delivered_VisibleToHandlerViaCredentialScope()
+    {
+        string? seenValue = null;
+        var executor = new ToolTaskExecutor("t", (_, _) =>
         {
-            var (status, body) = _respond(request);
-            return Task.FromResult(new HttpResponseMessage(status)
-            {
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            });
+            seenValue = ToolContext.GetCredential("API_KEY");
+            return Task.FromResult<object?>("ok");
+        }, credentialNames: new[] { "API_KEY" });
+
+        var result = await executor.ExecuteAsync(
+            StubTask(runtimeMetadata: new Dictionary<string, string> { ["API_KEY"] = "secret-value" }),
+            CancellationToken.None);
+
+        Assert.Equal(TaskResult.StatusEnum.COMPLETED, result.Status);
+        Assert.Equal("secret-value", seenValue);
+    }
+
+    [Fact]
+    public async Task AmbientEnvNeverReadAsFallback()
+    {
+        Environment.SetEnvironmentVariable("API_KEY", "from-ambient-env-should-be-ignored");
+        try
+        {
+            var executor = new ToolTaskExecutor("t",
+                (_, _) => Task.FromResult<object?>("unused"),
+                credentialNames: new[] { "API_KEY" });
+
+            // Server didn't deliver it via runtimeMetadata — must fail closed
+            // even though the same-named env var happens to be set.
+            var result = await executor.ExecuteAsync(StubTask(), CancellationToken.None);
+
+            Assert.Equal(TaskResult.StatusEnum.FAILEDWITHTERMINALERROR, result.Status);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("API_KEY", null);
         }
     }
 }

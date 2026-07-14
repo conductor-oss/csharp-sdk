@@ -10,7 +10,6 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -210,82 +209,6 @@ public sealed class OrkesAgentClient : IAgentClient
             Method.Get, $"/workflow/{Uri.EscapeDataString(executionId)}", null, ct,
             queryParams: new List<KeyValuePair<string, string>> { new("includeTasks", "false") },
             nullOnFailure: true);
-
-    // ── Credential resolution (pull path — TEMPORARY, deleted in S4/R12) ─────
-
-    /// <summary>
-    /// Resolve credential values from the server using the execution token.
-    /// Returns a dict of name → plaintext value.
-    /// </summary>
-    /// <remarks>
-    /// Error contract (matches Python <c>WorkerCredentialFetcher</c>):
-    /// <list type="bullet">
-    ///   <item>Empty <paramref name="names"/> → returns empty dict (no HTTP call).</item>
-    ///   <item>Missing or empty <paramref name="executionToken"/> →
-    ///     <see cref="CredentialNotFoundException"/>. Caller must mark the task
-    ///     as terminal-failed; we never silently inject empty values.</item>
-    ///   <item>200 with some names missing from response →
-    ///     <see cref="CredentialNotFoundException"/> on the first missing name.</item>
-    ///   <item>401 → <see cref="CredentialAuthException"/>.</item>
-    ///   <item>429 → <see cref="CredentialRateLimitException"/>.</item>
-    ///   <item>5xx or network failure → <see cref="CredentialServiceException"/>.</item>
-    /// </list>
-    /// This is a separate, per-execution-token transport (not the shared
-    /// Configuration's bearer JWT) — out of scope for the single-token-authority
-    /// consolidation, and slated for deletion once <c>runtimeMetadata</c> wire
-    /// delivery lands.
-    /// </remarks>
-    public async Task<Dictionary<string, string>> ResolveCredentialsAsync(
-        string? executionToken, IEnumerable<string> names, CancellationToken ct = default)
-    {
-        var nameList = names.ToList();
-        if (nameList.Count == 0) return new Dictionary<string, string>();
-
-        if (string.IsNullOrEmpty(executionToken))
-            throw new CredentialNotFoundException(
-                "<no-token> — execution token missing; secrets cannot be resolved");
-
-        var basePath = _configuration.BasePath.TrimEnd('/');
-        var body = JsonSerializer.Serialize(new { token = executionToken, names = nameList }, AgentspanJson.Options);
-        using var content = new StringContent(body, Encoding.UTF8, "application/json");
-
-        HttpResponseMessage resp;
-        try
-        {
-            resp = await _sseClient.PostAsync($"{basePath}/workers/secrets", content, ct);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new CredentialServiceException($"Credential service unreachable: {ex.Message}");
-        }
-
-        using (resp)
-        {
-            switch ((int)resp.StatusCode)
-            {
-                case 401:
-                    throw new CredentialAuthException(
-                        $"Execution token rejected by /workers/secrets: {await resp.Content.ReadAsStringAsync(ct)}");
-                case 429:
-                    throw new CredentialRateLimitException();
-                case >= 500:
-                    throw new CredentialServiceException(
-                        $"HTTP {(int)resp.StatusCode} from /workers/secrets: {await resp.Content.ReadAsStringAsync(ct)}");
-            }
-            if (!resp.IsSuccessStatusCode)
-                throw new CredentialServiceException(
-                    $"HTTP {(int)resp.StatusCode} from /workers/secrets: {await resp.Content.ReadAsStringAsync(ct)}");
-
-            var result = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>(cancellationToken: ct)
-                ?? new Dictionary<string, string>();
-
-            var missing = nameList.Where(n => !result.ContainsKey(n)).ToList();
-            if (missing.Count > 0)
-                throw new CredentialNotFoundException(string.Join(", ", missing));
-
-            return result;
-        }
-    }
 
     // ── Run by name ──────────────────────────────────────────
 

@@ -81,14 +81,6 @@ public interface IAgentClient : IDisposable, IAsyncDisposable
     /// <summary>Fetch the workflow definition (without tasks) — e.g. to read taskToDomain. Null on any failure (enrichment read).</summary>
     Task<JsonNode?> GetWorkflowAsync(string executionId, CancellationToken ct = default);
 
-    /// <summary>
-    /// Resolve credential values from the server using the execution token
-    /// (pull path). TEMPORARY — deleted in favor of TaskDef/Task
-    /// <c>runtimeMetadata</c> wire delivery (spec R6/R12).
-    /// </summary>
-    Task<Dictionary<string, string>> ResolveCredentialsAsync(
-        string? executionToken, IEnumerable<string> names, CancellationToken ct = default);
-
     // ── Conveniences (agent-level, control-plane) ──────────────
 
     /// <summary>Compile + register + start an agent, then poll to a result. No local tool workers.</summary>
