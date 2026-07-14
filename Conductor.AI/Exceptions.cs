@@ -83,3 +83,14 @@ public class TerminalToolException : AgentspanException
     public TerminalToolException(string message) : base(message) { }
     public TerminalToolException(string message, Exception inner) : base(message, inner) { }
 }
+
+/// <summary>
+/// The SSE stream for an agent execution could not be established (initial
+/// connect failed or returned a non-2xx status). Callers should fall back to
+/// status polling.
+/// </summary>
+public class SSEUnavailableException : AgentspanException
+{
+    public SSEUnavailableException(string message) : base(message) { }
+    public SSEUnavailableException(string message, Exception inner) : base(message, inner) { }
+}

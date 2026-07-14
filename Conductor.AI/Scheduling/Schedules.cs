@@ -22,6 +22,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using Conductor.Client;
 
 namespace Conductor.AI.Scheduling;
 
@@ -36,10 +37,21 @@ namespace Conductor.AI.Scheduling;
 /// </summary>
 public sealed class Schedules
 {
-    private readonly HttpClient _client;
-    private readonly string _baseUrl;
+    private readonly Configuration? _configuration;
+    private readonly HttpClient? _client;
+    private readonly string? _baseUrl;
 
-    public Schedules(HttpClient client, string baseUrl)
+    /// <summary>
+    /// Production ctor — rides the shared <see cref="ApiClient"/>/<see cref="Configuration"/>
+    /// (single token authority with the rest of the SDK).
+    /// </summary>
+    public Schedules(Configuration configuration)
+    {
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+    }
+
+    /// <summary>Test-only seam accepting a stub transport — stays stub-testable without a live Configuration.</summary>
+    internal Schedules(HttpClient client, string baseUrl)
     {
         _client = client;
         _baseUrl = baseUrl.TrimEnd('/');
@@ -298,21 +310,32 @@ public sealed class Schedules
 
     private async Task<JsonNode?> RequestAsync(HttpMethod method, string path, JsonNode? body, CancellationToken ct)
     {
-        var url = $"{_baseUrl}{path}";
-        using var req = new HttpRequestMessage(method, url);
-        if (body is not null)
-            req.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+        int statusCode;
+        string? text;
 
-        using var resp = await _client.SendAsync(req, ct);
-        var text = await resp.Content.ReadAsStringAsync(ct);
-
-        if (!resp.IsSuccessStatusCode)
+        if (_configuration is not null)
         {
-            if (resp.StatusCode == HttpStatusCode.NotFound)
-                throw new ScheduleNotFound(text);
-            if (resp.StatusCode == HttpStatusCode.BadRequest && text.ToLower().Contains("cron"))
-                throw new InvalidCronExpression(text);
-            throw new ScheduleException($"HTTP {(int)resp.StatusCode}: {text}");
+            (statusCode, text) = await AgentApiCall.InvokeAsync(_configuration, ToRestSharpMethod(method), path, body, ct);
+        }
+        else
+        {
+            var url = $"{_baseUrl}{path}";
+            using var req = new HttpRequestMessage(method, url);
+            if (body is not null)
+                req.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+
+            using var resp = await _client!.SendAsync(req, ct);
+            statusCode = (int)resp.StatusCode;
+            text = await resp.Content.ReadAsStringAsync(ct);
+        }
+
+        if (statusCode < 200 || statusCode >= 300)
+        {
+            if (statusCode == (int)HttpStatusCode.NotFound)
+                throw new ScheduleNotFound(text ?? "");
+            if (statusCode == (int)HttpStatusCode.BadRequest && (text ?? "").ToLowerInvariant().Contains("cron"))
+                throw new InvalidCronExpression(text ?? "");
+            throw new ScheduleException($"HTTP {statusCode}: {text}");
         }
 
         if (string.IsNullOrWhiteSpace(text)) return null;
@@ -321,4 +344,13 @@ public sealed class Schedules
             return JsonNode.Parse(trimmed);
         return JsonValue.Create(trimmed.Trim('"'));
     }
+
+    private static RestSharp.Method ToRestSharpMethod(HttpMethod method) => method.Method.ToUpperInvariant() switch
+    {
+        "GET" => RestSharp.Method.Get,
+        "POST" => RestSharp.Method.Post,
+        "PUT" => RestSharp.Method.Put,
+        "DELETE" => RestSharp.Method.Delete,
+        _ => throw new NotSupportedException($"Unsupported HTTP method: {method}"),
+    };
 }

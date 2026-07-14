@@ -30,7 +30,7 @@ namespace Conductor.AI;
 internal sealed class WorkerPollLoop : IAsyncDisposable
 {
     private readonly TaskResourceApi _taskClient;
-    private readonly AgentClient _http;
+    private readonly IAgentClient _http;
     private readonly string _taskName;
     private readonly string? _domain;
     private readonly Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> _handler;
@@ -43,7 +43,7 @@ internal sealed class WorkerPollLoop : IAsyncDisposable
 
     internal WorkerPollLoop(
         TaskResourceApi taskClient,
-        AgentClient http,
+        IAgentClient http,
         string taskName,
         Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> handler,
         int pollIntervalMs = 100,
@@ -289,13 +289,13 @@ internal sealed class WorkerPollLoop : IAsyncDisposable
 /// </summary>
 internal sealed class WorkerManager : IAsyncDisposable
 {
-    private readonly AgentClient _http;
+    private readonly IAgentClient _http;
     private readonly TaskResourceApi _taskClient;
     private readonly List<WorkerPollLoop> _workers = [];
     private readonly int _pollIntervalMs;
     private readonly int _threadCount;
 
-    public WorkerManager(AgentClient http, Configuration conductorConfig,
+    public WorkerManager(IAgentClient http, Configuration conductorConfig,
         int pollIntervalMs = 100, int threadCount = 1)
     {
         _http = http;

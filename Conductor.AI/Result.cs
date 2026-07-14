@@ -229,10 +229,10 @@ public record AgentStatus
 public sealed class AgentHandle
 {
     private readonly string _executionId;
-    private readonly AgentClient _http;
+    private readonly IAgentClient _http;
     private readonly string? _runId;
 
-    internal AgentHandle(string executionId, AgentClient http, string? runId = null)
+    internal AgentHandle(string executionId, IAgentClient http, string? runId = null)
     {
         _executionId = executionId;
         _http = http;
@@ -268,7 +268,7 @@ public sealed class AgentHandle
 
     /// <summary>Stream events as they arrive.</summary>
     public IAsyncEnumerable<AgentEvent> StreamAsync(CancellationToken cancellationToken = default)
-        => _http.StreamEventsAsync(_executionId, cancellationToken);
+        => _http.StreamEventsAsync(_executionId, lastEventId: null, ct: cancellationToken);
 
     /// <summary>Check the current status without blocking.</summary>
     public async Task<AgentStatus> GetStatusAsync(CancellationToken cancellationToken = default)

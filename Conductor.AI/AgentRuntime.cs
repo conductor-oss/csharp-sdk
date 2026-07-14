@@ -29,45 +29,59 @@ namespace Conductor.AI;
 /// </example>
 public sealed class AgentRuntime : IAsyncDisposable, IDisposable
 {
-    private readonly AgentClient _http;
+    private readonly IAgentClient _http;
     private readonly Configuration _conductorConfig;
     private readonly int _workerPollIntervalMs;
     private readonly int _workerThreadCount;
     private WorkerManager? _workers;
 
     /// <summary>
-    /// The control-plane <see cref="AgentClient"/> backing this runtime — exposes
-    /// control-plane <c>run</c>/<c>start</c>/<c>deploy</c>/<c>schedule</c> directly
-    /// (without local tool-worker orchestration, which the runtime owns).
+    /// Env lookup seam — tests override this to assert precedence without
+    /// mutating process environment variables. Production default reads real
+    /// process env.
     /// </summary>
-    public AgentClient Client => _http;
+    internal static Func<string, string?> EnvLookup = Environment.GetEnvironmentVariable;
+
+    /// <summary>
+    /// The control-plane <see cref="IAgentClient"/> backing this runtime — exposes
+    /// control-plane <c>run</c>/<c>start</c>/<c>deploy</c>/<c>schedule</c> directly
+    /// (without local tool-worker orchestration, which the runtime owns). Shares
+    /// its <see cref="Configuration"/> — and therefore its token cache — with this
+    /// runtime's worker plane.
+    /// </summary>
+    public IAgentClient Client => _http;
 
     /// <summary>Cron-schedule lifecycle API (delegates to <see cref="Client"/>).</summary>
     public Schedules Schedules => _http.Schedules;
 
-    public AgentRuntime(AgentRuntimeOptions? options = null)
+    /// <summary>
+    /// Build a runtime on an explicit (or env-resolved) <see cref="Configuration"/> —
+    /// the same connection/auth object used across the SDK, so the agent client and
+    /// the worker plane share one token authority. When <paramref name="configuration"/>
+    /// is null, resolves from <c>CONDUCTOR_SERVER_URL</c>/<c>CONDUCTOR_AUTH_KEY</c>/
+    /// <c>CONDUCTOR_AUTH_SECRET</c>, falling back to the legacy <c>AGENTSPAN_*</c>
+    /// names, defaulting to <c>http://localhost:8080/api</c> with no auth.
+    /// </summary>
+    public AgentRuntime(Configuration? configuration = null)
     {
-        var serverUrl = options?.ServerUrl
-            ?? Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")
-            ?? "http://localhost:6767/api";
-        var authKey = options?.AuthKey ?? Environment.GetEnvironmentVariable("AGENTSPAN_AUTH_KEY");
-        var authSecret = options?.AuthSecret ?? Environment.GetEnvironmentVariable("AGENTSPAN_AUTH_SECRET");
-
-        _http = new AgentClient(serverUrl, authKey, authSecret);
+        _conductorConfig = configuration ?? BuildConfiguration(null, null, null);
+        _http = new OrkesAgentClient(_conductorConfig);
 
         // Worker-runner tuning from environment (poll interval ms, thread count).
         // Connection/auth is owned by the conductor client above; this is purely
         // how the local worker poll loops behave. Mirrors Java's AgentConfig.fromEnv().
         _workerPollIntervalMs = ParseEnvInt("AGENTSPAN_WORKER_POLL_INTERVAL", 100, min: 1);
         _workerThreadCount = ParseEnvInt("AGENTSPAN_WORKER_THREADS", 1, min: 1);
+    }
 
-        // Build conductor-csharp Configuration for worker polling.
-        // AuthenticationSettings is left null for OSS Conductor (no token exchange needed).
-        // For Orkes Cloud, set AGENTSPAN_AUTH_KEY + AGENTSPAN_AUTH_SECRET and the SDK will
-        // use OrkesAuthenticationSettings to obtain a JWT automatically.
-        _conductorConfig = new Configuration { BasePath = serverUrl };
-        if (!string.IsNullOrEmpty(authKey) && !string.IsNullOrEmpty(authSecret))
-            _conductorConfig.AuthenticationSettings = new OrkesAuthenticationSettings(authKey, authSecret);
+    /// <summary>
+    /// Legacy sugar overload — folds <see cref="AgentRuntimeOptions"/> into a
+    /// <see cref="Configuration"/> at construction time; the options object is
+    /// never stored. Prefer the <see cref="Configuration"/> overload directly.
+    /// </summary>
+    public AgentRuntime(AgentRuntimeOptions options)
+        : this(BuildConfiguration(options?.ServerUrl, options?.AuthKey, options?.AuthSecret))
+    {
     }
 
     /// <summary>Worker poll interval in ms (env <c>AGENTSPAN_WORKER_POLL_INTERVAL</c>, default 100).</summary>
@@ -78,8 +92,31 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
 
     private static int ParseEnvInt(string key, int defaultValue, int min)
     {
-        var raw = Environment.GetEnvironmentVariable(key);
+        var raw = EnvLookup(key);
         return int.TryParse(raw, out var v) && v >= min ? v : defaultValue;
+    }
+
+    /// <summary>
+    /// Resolves the shared <see cref="Configuration"/> from explicit values (options
+    /// overload) or environment, in <c>CONDUCTOR_*</c> → <c>AGENTSPAN_*</c> → default
+    /// order. AuthenticationSettings is left null for OSS Conductor (no token exchange
+    /// needed). For Orkes Cloud, set the key+secret pair and the SDK uses
+    /// <see cref="OrkesAuthenticationSettings"/> to obtain a JWT automatically.
+    /// </summary>
+    /// <summary>Internal for T6 env-precedence tests — resolves the same way the public ctors do.</summary>
+    internal static Configuration BuildConfiguration(string? serverUrl, string? authKey, string? authSecret)
+    {
+        var resolvedUrl = serverUrl
+            ?? EnvLookup("CONDUCTOR_SERVER_URL")
+            ?? EnvLookup("AGENTSPAN_SERVER_URL")
+            ?? "http://localhost:8080/api";
+        var resolvedKey = authKey ?? EnvLookup("CONDUCTOR_AUTH_KEY") ?? EnvLookup("AGENTSPAN_AUTH_KEY");
+        var resolvedSecret = authSecret ?? EnvLookup("CONDUCTOR_AUTH_SECRET") ?? EnvLookup("AGENTSPAN_AUTH_SECRET");
+
+        var config = new Configuration { BasePath = resolvedUrl };
+        if (!string.IsNullOrEmpty(resolvedKey) && !string.IsNullOrEmpty(resolvedSecret))
+            config.AuthenticationSettings = new OrkesAuthenticationSettings(resolvedKey, resolvedSecret);
+        return config;
     }
 
     private WorkerManager NewWorkerManager()
@@ -429,7 +466,11 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 }
 
-/// <summary>Configuration options for <see cref="AgentRuntime"/>.</summary>
+/// <summary>
+/// Legacy constructor sugar for <see cref="AgentRuntime"/> — folded into a
+/// <see cref="Configuration"/> at construction time, never stored. Prefer
+/// constructing a <see cref="Configuration"/> directly for new code.
+/// </summary>
 public sealed class AgentRuntimeOptions
 {
     public string? ServerUrl { get; set; }

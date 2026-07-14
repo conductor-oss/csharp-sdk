@@ -10,16 +10,22 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-// Suite 19 — AgentAuthHandler: the control-plane client must mint a JWT from
-// key+secret and send it as X-Authorization (the Orkes contract), matching the
-// Python/TS SDKs. No server needed — the /token mint and the downstream request
-// are both stubbed with in-memory handlers. Deterministic; fail-first validated.
+// Suite 19 — Shared token authority: OrkesAgentClient must send the SAME
+// X-Authorization header the rest of the SDK sends — sourced from
+// Configuration.AccessToken (TokenHandler mint/cache), not a bespoke client-side
+// JWT mint. This is the single-token-authority contract (spec R2/R5): the agent
+// client and the worker plane sharing one Configuration must never mint twice.
+// No server needed — /token and downstream requests are both stubbed with an
+// in-memory handler. Deterministic; fail-first validated.
 
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Conductor.Client;
+using Conductor.Client.Authentication;
+using RestSharp;
 using Xunit;
 
 namespace Conductor.AI.E2eTests;
@@ -38,14 +44,43 @@ public sealed class Suite19_AuthHeader
         return $"{B64Url("{\"alg\":\"HS256\"}")}.{B64Url($"{{\"exp\":{exp}}}")}.sig";
     }
 
-    /// <summary>Captures the X-Authorization header seen on each downstream request.</summary>
-    private sealed class CapturingHandler : HttpMessageHandler
+    /// <summary>
+    /// Routes <c>POST /token</c> to a stubbed mint response (counting calls) and
+    /// captures the X-Authorization header seen on every other request. SSE
+    /// requests (Accept: text/event-stream) get a minimal single-event body so
+    /// <see cref="OrkesAgentClient.StreamEventsAsync"/> completes without a reconnect.
+    /// </summary>
+    private sealed class RoutingHandler : HttpMessageHandler
     {
         public readonly List<string?> SeenAuth = [];
+        public int MintCount;
+        private readonly string _jwt;
+
+        public RoutingHandler(string jwt) => _jwt = jwt;
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/token"))
+            {
+                Interlocked.Increment(ref MintCount);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent($"{{\"token\":\"{_jwt}\"}}", Encoding.UTF8, "application/json"),
+                });
+            }
+
             SeenAuth.Add(request.Headers.TryGetValues("X-Authorization", out var v)
                 ? string.Join(",", v) : null);
+
+            if (request.Headers.Accept.Any(a => a.MediaType == "text/event-stream"))
+            {
+                const string sse = "event: done\ndata: {\"status\":\"COMPLETED\"}\n\n";
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(sse, Encoding.UTF8, "text/event-stream"),
+                });
+            }
+
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("{}", Encoding.UTF8, "application/json"),
@@ -53,33 +88,16 @@ public sealed class Suite19_AuthHeader
         }
     }
 
-    /// <summary>Stubs POST {server}/token, counting mint calls.</summary>
-    private sealed class TokenMintHandler : HttpMessageHandler
+    private static Configuration BuildConfiguration(string? key, string? secret, RoutingHandler handler)
     {
-        public int MintCount;
-        private readonly string _token;
-        public TokenMintHandler(string token) => _token = token;
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        var configuration = new Configuration { BasePath = "http://server/api" };
+        configuration.ApiClient.RestClient = new RestClient(new RestClientOptions("http://server/api")
         {
-            Assert.EndsWith("/token", request.RequestUri!.AbsolutePath);
-            Interlocked.Increment(ref MintCount);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent($"{{\"token\":\"{_token}\"}}", Encoding.UTF8, "application/json"),
-            });
-        }
-    }
-
-    private static (HttpClient client, CapturingHandler cap, TokenMintHandler mint) BuildClient(
-        string? key, string? secret, string token)
-    {
-        var cap = new CapturingHandler();
-        var mint = new TokenMintHandler(token);
-        var auth = new AgentAuthHandler("http://server/api", key, secret, tokenHandler: mint)
-        {
-            InnerHandler = cap,
-        };
-        return (new HttpClient(auth), cap, mint);
+            ConfigureMessageHandler = _ => handler,
+        });
+        if (!string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(secret))
+            configuration.AuthenticationSettings = new OrkesAuthenticationSettings(key, secret);
+        return configuration;
     }
 
     // ── 19.1  key+secret → minted JWT in X-Authorization, cached ──────────
@@ -88,47 +106,56 @@ public sealed class Suite19_AuthHeader
     public async Task KeySecret_MintsJwt_SendsXAuthorization_AndCaches()
     {
         var jwt = FakeJwt(FarFutureExp);
-        var (client, cap, mint) = BuildClient("my-key", "my-secret", jwt);
+        var handler = new RoutingHandler(jwt);
+        var configuration = BuildConfiguration("my-key", "my-secret", handler);
+        using var client = new OrkesAgentClient(configuration);
 
-        await client.GetAsync("http://server/api/agent/anything");
-        await client.GetAsync("http://server/api/agent/anything");
+        await client.GetStatusAsync("exec-1");
+        await client.GetStatusAsync("exec-1");
 
-        Assert.Equal(2, cap.SeenAuth.Count);
-        Assert.All(cap.SeenAuth, h => Assert.Equal(jwt, h));
-        Assert.Equal(1, mint.MintCount); // minted once, reused from cache
+        Assert.Equal(2, handler.SeenAuth.Count);
+        Assert.All(handler.SeenAuth, h => Assert.Equal(jwt, h));
+        Assert.Equal(1, handler.MintCount); // minted once, reused from TokenHandler's cache
     }
 
-    // ── 19.2  explicit key, no secret → passed through verbatim (no mint) ─
-
-    [Fact]
-    public async Task KeyOnly_TreatedAsToken_NoMint()
-    {
-        var (client, cap, mint) = BuildClient("ready-token", null, "unused");
-        await client.GetAsync("http://server/api/agent/anything");
-
-        Assert.Equal("ready-token", cap.SeenAuth[0]);
-        Assert.Equal(0, mint.MintCount);
-    }
-
-    // ── 19.3  no credentials → no auth header (OSS anonymous) ─────────────
+    // ── 19.2  no credentials → no auth header (OSS anonymous) ─────────────
 
     [Fact]
     public async Task NoCreds_NoAuthHeader()
     {
-        var (client, cap, mint) = BuildClient(null, null, "unused");
-        await client.GetAsync("http://server/api/agent/anything");
+        var handler = new RoutingHandler("unused");
+        var configuration = BuildConfiguration(null, null, handler);
+        using var client = new OrkesAgentClient(configuration);
 
-        Assert.Null(cap.SeenAuth[0]);
-        Assert.Equal(0, mint.MintCount);
+        await client.GetStatusAsync("exec-1");
+
+        Assert.Single(handler.SeenAuth);
+        Assert.Null(handler.SeenAuth[0]);
+        Assert.Equal(0, handler.MintCount);
     }
 
-    // ── 19.4  JWT exp decode ──────────────────────────────────────────────
+    // ── 19.3  SSE sources its header from the same Configuration.AccessToken ──
+    // (no second mint — single token authority across the non-streaming and
+    // streaming call paths).
 
     [Fact]
-    public void DecodeJwtExp_ParsesExp()
+    public async Task Sse_ReusesToken_NoSecondMint()
     {
-        Assert.Equal(FarFutureExp, AgentAuthHandler.DecodeJwtExp(FakeJwt(FarFutureExp)));
-        Assert.Null(AgentAuthHandler.DecodeJwtExp("not-a-jwt"));
-        Assert.Null(AgentAuthHandler.DecodeJwtExp(null));
+        var jwt = FakeJwt(FarFutureExp);
+        var handler = new RoutingHandler(jwt);
+        var configuration = BuildConfiguration("my-key", "my-secret", handler);
+        using var client = new OrkesAgentClient(configuration, sseHandler: handler);
+
+        // Non-streaming call mints the token once...
+        await client.GetStatusAsync("exec-1");
+
+        // ...and the SSE stream reuses it — no second POST /token.
+        var events = new List<AgentEvent>();
+        await foreach (var ev in client.StreamEventsAsync("exec-1"))
+            events.Add(ev);
+
+        Assert.Single(events);
+        Assert.Equal(EventType.Done, events[0].Type);
+        Assert.Equal(1, handler.MintCount);
     }
 }
