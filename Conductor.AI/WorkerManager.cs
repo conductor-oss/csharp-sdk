@@ -50,6 +50,9 @@ internal sealed class WorkerManager : IAsyncDisposable
     /// <summary>Test-only seam — the built host, or null (idempotent <see cref="StartAsync"/> guard).</summary>
     internal IHost? HostForTesting => _host;
 
+    /// <summary>Test-only seam — look up a registered worker by task name to exercise its handler directly.</summary>
+    internal AgentToolWorker? WorkerForTesting(string taskName) => _workers.FirstOrDefault(w => w.TaskType == taskName);
+
     private AgentToolWorker NewWorker(
         string taskName,
         Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> handler,
@@ -374,9 +377,22 @@ internal sealed class WorkerManager : IAsyncDisposable
                 if (sourceName == targetName) continue;
                 var toolName = $"{sourceName}_transfer_to_{targetName}";
                 if (!registered.Add(toolName)) continue;
-                _workers.Add(NewWorker(toolName,
-                    (_, _) => System.Threading.Tasks.Task.FromResult<object?>(new Dictionary<string, object>()),
-                    domain: domain));
+                // Echo the hand-off note so it's visible in the task output / UI
+                // (spec R13) — otherwise a transfer carries no payload and the
+                // delegating agent's instructions are lost. No-op otherwise: the
+                // hand-off itself is detected by check_transfer, not this task.
+                // Unreachable-target behavior (allowed_transitions) is unchanged
+                // here — that gate lives in handoff_check below.
+                _workers.Add(NewWorker(toolName, (args, _) =>
+                {
+                    var message = args.TryGetValue("message", out var msgEl) && msgEl.ValueKind == JsonValueKind.String
+                        ? msgEl.GetString() ?? ""
+                        : "";
+                    return System.Threading.Tasks.Task.FromResult<object?>(
+                        string.IsNullOrEmpty(message)
+                            ? new Dictionary<string, object>()
+                            : new Dictionary<string, object> { ["message"] = message });
+                }, domain: domain));
             }
         }
 
@@ -384,27 +400,59 @@ internal sealed class WorkerManager : IAsyncDisposable
         {
             _workers.Add(NewWorker($"{name}_check_transfer", (args, _) =>
             {
+                // First-wins: the swarm loop can only hand off to one agent per
+                // turn. Non-winning calls surface as dropped_transfers instead of
+                // silently vanishing (spec R13).
+                var transfers = new List<(string TransferTo, string Message)>();
                 if (args.TryGetValue("tool_calls", out var tcEl) && tcEl.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var tc in tcEl.EnumerateArray())
                     {
                         var tcName = tc.TryGetProperty("name", out var np) ? np.GetString() ?? "" : "";
-                        if (tcName.Contains("_transfer_to_"))
-                        {
-                            var transferTarget = tcName.Split("_transfer_to_", 2)[1];
-                            return System.Threading.Tasks.Task.FromResult<object?>(new Dictionary<string, object>
-                            {
-                                ["is_transfer"] = true,
-                                ["transfer_to"] = transferTarget,
-                            });
-                        }
+                        if (!tcName.Contains("_transfer_to_")) continue;
+                        var transferTarget = tcName.Split("_transfer_to_", 2)[1];
+
+                        // The hand-off note rides inputParameters.message; tolerate
+                        // the "arguments" key variant some LLM shapes emit.
+                        var hasParams = tc.TryGetProperty("inputParameters", out var paramsEl) && paramsEl.ValueKind == JsonValueKind.Object;
+                        if (!hasParams)
+                            hasParams = tc.TryGetProperty("arguments", out paramsEl) && paramsEl.ValueKind == JsonValueKind.Object;
+
+                        var message = hasParams && paramsEl.TryGetProperty("message", out var msgEl) && msgEl.ValueKind == JsonValueKind.String
+                            ? msgEl.GetString() ?? ""
+                            : "";
+                        transfers.Add((transferTarget, message));
                     }
                 }
-                return System.Threading.Tasks.Task.FromResult<object?>(new Dictionary<string, object>
+
+                if (transfers.Count == 0)
                 {
-                    ["is_transfer"] = false,
-                    ["transfer_to"] = "",
-                });
+                    return System.Threading.Tasks.Task.FromResult<object?>(new Dictionary<string, object>
+                    {
+                        ["is_transfer"] = false,
+                        ["transfer_to"] = "",
+                        ["transfer_message"] = "",
+                    });
+                }
+
+                var (firstTarget, firstMessage) = transfers[0];
+                var result = new Dictionary<string, object>
+                {
+                    ["is_transfer"] = true,
+                    ["transfer_to"] = firstTarget,
+                    ["transfer_message"] = firstMessage,
+                };
+                if (transfers.Count > 1)
+                {
+                    var dropped = transfers.Skip(1)
+                        .Select(t => new Dictionary<string, object> { ["transfer_to"] = t.TransferTo, ["message"] = t.Message })
+                        .ToList();
+                    System.Diagnostics.Trace.TraceWarning(
+                        $"Multiple transfer calls in one turn; honoring '{firstTarget}', "
+                        + $"dropping [{string.Join(", ", dropped.Select(d => d["transfer_to"]))}]");
+                    result["dropped_transfers"] = dropped;
+                }
+                return System.Threading.Tasks.Task.FromResult<object?>(result);
             }, domain: domain));
         }
 

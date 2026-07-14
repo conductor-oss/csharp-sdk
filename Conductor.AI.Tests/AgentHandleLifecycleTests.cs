@@ -47,7 +47,7 @@ public sealed class AgentHandleLifecycleTests
     }
 
     private static (AgentHandle Handle, StubHandler Handler) BuildHandle(
-        Func<HttpRequestMessage, (HttpStatusCode, string)> respond)
+        Func<HttpRequestMessage, (HttpStatusCode, string)> respond, ServerLivenessMonitor? livenessMonitor = null)
     {
         var handler = new StubHandler(respond);
         var configuration = new Configuration { BasePath = "http://server/api" };
@@ -56,7 +56,7 @@ public sealed class AgentHandleLifecycleTests
             ConfigureMessageHandler = _ => handler,
         });
         var client = new OrkesAgentClient(configuration);
-        return (new AgentHandle("exec-1", client), handler);
+        return (new AgentHandle("exec-1", client, livenessMonitor: livenessMonitor), handler);
     }
 
     [Fact]
@@ -99,5 +99,37 @@ public sealed class AgentHandleLifecycleTests
         Assert.Equal(HttpMethod.Post, req.Method);
         Assert.Equal("/api/agent/exec-1/signal", req.RequestUri!.AbsolutePath);
         Assert.Contains("\"message\":\"go\"", capturedBody);
+    }
+
+    // R11/T16 — a stateful run's WaitAsync must surface WorkerStallException as
+    // soon as the liveness monitor flags an unpolled task, without waiting out
+    // the 10-minute overall deadline or ever polling GetStatus.
+    [Fact]
+    public async Task WaitAsync_LivenessMonitorFlagsStall_ThrowsWithoutPollingStatus()
+    {
+        var livenessHandler = new StubHandler(_ => (HttpStatusCode.OK, """
+            { "status": "RUNNING", "tasks": [
+                { "status": "SCHEDULED", "pollCount": 0, "scheduledTime": 1, "referenceTaskName": "stuck_tool" }
+            ] }
+            """));
+        var livenessConfig = new Configuration { BasePath = "http://server/api" };
+        livenessConfig.ApiClient.RestClient = new RestClient(new RestClientOptions("http://server/api")
+        {
+            ConfigureMessageHandler = _ => livenessHandler,
+        });
+        var monitor = new ServerLivenessMonitor(livenessConfig, "exec-1", stallSeconds: 0.05, checkIntervalSeconds: 0.02);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (monitor.StalledTaskRef is null && DateTime.UtcNow < deadline)
+            await Task.Delay(20);
+        Assert.NotNull(monitor.StalledTaskRef);
+
+        var (handle, statusHandler) = BuildHandle(_ => (HttpStatusCode.OK, "{}"), monitor);
+
+        var ex = await Assert.ThrowsAsync<WorkerStallException>(() => handle.WaitAsync());
+
+        Assert.Equal("stuck_tool", ex.TaskReferenceName);
+        Assert.Equal("exec-1", ex.ExecutionId);
+        Assert.Empty(statusHandler.Requests);
     }
 }

@@ -75,3 +75,22 @@ public class SSEUnavailableException : AgentspanException
     public SSEUnavailableException(string message) : base(message) { }
     public SSEUnavailableException(string message, Exception inner) : base(message, inner) { }
 }
+
+/// <summary>
+/// A stateful run's task sat unpolled past the configured stall threshold —
+/// the local worker that owns this run's domain likely died. Thrown by
+/// blocking waiters instead of hanging forever (spec R11).
+/// </summary>
+public class WorkerStallException : AgentspanException
+{
+    public string TaskReferenceName { get; }
+    public string ExecutionId { get; }
+
+    public WorkerStallException(string taskReferenceName, string executionId)
+        : base($"Worker stall detected: task '{taskReferenceName}' has not been polled for execution "
+             + $"'{executionId}'. The worker handling this run's domain may have died.")
+    {
+        TaskReferenceName = taskReferenceName;
+        ExecutionId = executionId;
+    }
+}

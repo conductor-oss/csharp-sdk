@@ -460,7 +460,21 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
             payload["static_plan"] = plan.ToJson();
         }
         var executionId = await _http.StartAsync(payload, ct);
-        return new AgentHandle(executionId, _http, runId, streamingEnabled: _agentConfig.StreamingEnabled);
+
+        // Stateful runs enqueue worker tasks under the per-execution domain — if
+        // this process stops polling, nothing else ever will. Watch for that
+        // stall so WaitAsync fails fast instead of hanging forever (spec R11).
+        ServerLivenessMonitor? livenessMonitor = null;
+        if (runId is not null && _agentConfig.LivenessEnabled)
+        {
+            livenessMonitor = new ServerLivenessMonitor(
+                _conductorConfig, executionId,
+                _agentConfig.LivenessStallSeconds, _agentConfig.LivenessCheckIntervalSeconds);
+        }
+
+        return new AgentHandle(
+            executionId, _http, runId,
+            streamingEnabled: _agentConfig.StreamingEnabled, livenessMonitor: livenessMonitor);
     }
 
     private static bool HasStatefulTools(Agent agent)

@@ -229,20 +229,33 @@ public record AgentStatus
 
 public sealed class AgentHandle
 {
+    /// <summary>Overall WaitAsync deadline (Java parity) — bounds a run that never reaches a terminal state.</summary>
+    private static readonly TimeSpan DefaultWaitTimeout = TimeSpan.FromMinutes(10);
+
+    /// <summary>Consecutive transient GetStatus failures tolerated before WaitAsync gives up and rethrows.</summary>
+    private const int MaxConsecutiveStatusErrors = 3;
+
     private readonly string _executionId;
     private readonly IAgentClient _http;
     private readonly string? _runId;
     private readonly bool _streamingEnabled;
+    private readonly ServerLivenessMonitor? _livenessMonitor;
 
-    internal AgentHandle(string executionId, IAgentClient http, string? runId = null, bool streamingEnabled = true)
+    internal AgentHandle(
+        string executionId, IAgentClient http, string? runId = null,
+        bool streamingEnabled = true, ServerLivenessMonitor? livenessMonitor = null)
     {
         _executionId = executionId;
         _http = http;
         _runId = runId;
         _streamingEnabled = streamingEnabled;
+        _livenessMonitor = livenessMonitor;
     }
 
     public string ExecutionId => _executionId;
+
+    /// <summary>Test-only seam — whether a liveness monitor (spec R11) is attached to this handle.</summary>
+    internal bool HasLivenessMonitor => _livenessMonitor is not null;
 
     /// <summary>
     /// The domain UUID used for domain-based routing (stateful agents).
@@ -251,22 +264,58 @@ public sealed class AgentHandle
     /// </summary>
     public string? RunId => _runId;
 
-    /// <summary>Poll until the agent completes, then return the result.</summary>
+    /// <summary>
+    /// Poll until the agent completes, then return the result. Bounded by a
+    /// 10-minute overall deadline and tolerates up to
+    /// <see cref="MaxConsecutiveStatusErrors"/> consecutive transient status-poll
+    /// failures before giving up. For stateful runs with liveness monitoring
+    /// enabled (<see cref="AgentConfig.LivenessEnabled"/>), throws
+    /// <see cref="WorkerStallException"/> as soon as the monitor detects an
+    /// unpolled task instead of waiting out the full deadline.
+    /// </summary>
     public async Task<AgentResult> WaitAsync(CancellationToken cancellationToken = default)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            var status = await _http.GetStatusAsync(_executionId, cancellationToken);
-            var s = status?["status"]?.GetValue<string>() ?? "";
-            if (s is "COMPLETED" or "FAILED" or "TERMINATED" or "TIMED_OUT")
+            var deadline = DateTime.UtcNow + DefaultWaitTimeout;
+            var consecutiveErrors = 0;
+            while (!cancellationToken.IsCancellationRequested)
             {
-                // Fetch full execution record for token usage and finish reason
-                var execution = await _http.GetExecutionAsync(_executionId, cancellationToken);
-                return BuildResult(status!, s, execution);
+                if (_livenessMonitor?.StalledTaskRef is { } stalledRef)
+                    throw new WorkerStallException(stalledRef, _executionId);
+
+                if (DateTime.UtcNow >= deadline)
+                    throw new TimeoutException(
+                        $"Timed out after {DefaultWaitTimeout.TotalMinutes:0}m waiting for execution '{_executionId}' to complete.");
+
+                JsonNode? status;
+                try
+                {
+                    status = await _http.GetStatusAsync(_executionId, cancellationToken);
+                    consecutiveErrors = 0;
+                }
+                catch when (++consecutiveErrors <= MaxConsecutiveStatusErrors)
+                {
+                    await Task.Delay(500, cancellationToken);
+                    continue;
+                }
+
+                var s = status?["status"]?.GetValue<string>() ?? "";
+                if (s is "COMPLETED" or "FAILED" or "TERMINATED" or "TIMED_OUT")
+                {
+                    // Fetch full execution record for token usage and finish reason
+                    var execution = await _http.GetExecutionAsync(_executionId, cancellationToken);
+                    return BuildResult(status!, s, execution);
+                }
+                await Task.Delay(500, cancellationToken);
             }
-            await Task.Delay(500, cancellationToken);
+            throw new OperationCanceledException();
         }
-        throw new OperationCanceledException();
+        finally
+        {
+            if (_livenessMonitor is not null)
+                await _livenessMonitor.DisposeAsync();
+        }
     }
 
     /// <summary>
