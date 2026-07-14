@@ -185,7 +185,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
             await DeployAsync(agent);
             _workers.RegisterAgentTools(agent);
         }
-        _workers.Start();
+        await _workers.StartAsync();
 
         if (!blocking) return;
 
@@ -325,7 +325,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
 
         _workers ??= NewWorkerManager();
         _workers.RegisterAgentTools(agent, domain);
-        _workers.Start();
+        await _workers.StartAsync();
 
         return new AgentHandle(executionId, _http, domain, streamingEnabled: _agentConfig.StreamingEnabled);
     }
@@ -447,7 +447,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
             // Fresh worker manager per run
             _workers ??= NewWorkerManager();
             _workers.RegisterAgentTools(agent, runId);
-            _workers.Start();
+            await _workers.StartAsync();
         }
 
         var payload = AgentConfigSerializer.Serialize(agent, prompt, sessionId ?? "", media);

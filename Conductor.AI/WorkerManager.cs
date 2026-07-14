@@ -11,325 +11,57 @@
  * specific language governing permissions and limitations under the License.
  */
 using System.Text.Json;
-using System.Text.Json.Nodes;
-using Conductor.Api;
 using Conductor.Client;
-using Conductor.Client.Models;
+using Conductor.Client.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Newtonsoft.Json;
 using Task = Conductor.Client.Models.Task;
 
 namespace Conductor.AI;
 
-// ── WorkerPollLoop (per-task-type) ─────────────────────────
-
-/// <summary>
-/// Polls Conductor for a single task type using the conductor-csharp TaskResourceApi.
-/// </summary>
-internal sealed class WorkerPollLoop : IAsyncDisposable
-{
-    private readonly TaskResourceApi _taskClient;
-    private readonly IAgentClient _http;
-    private readonly string _taskName;
-    private readonly string? _domain;
-    private readonly Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> _handler;
-    private readonly CancellationTokenSource _cts = new();
-    private readonly ILogger _logger;
-    private readonly int _pollIntervalMs;
-    private readonly int _threadCount;
-    private readonly string[] _credentialNames;
-    private readonly List<System.Threading.Tasks.Task> _pollTasks = [];
-    private bool _started;
-
-    internal WorkerPollLoop(
-        TaskResourceApi taskClient,
-        IAgentClient http,
-        string taskName,
-        Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> handler,
-        int pollIntervalMs = 100,
-        int threadCount = 1,
-        ILogger? logger = null,
-        string[]? credentialNames = null,
-        string? domain = null)
-    {
-        _taskClient = taskClient;
-        _http = http;
-        _taskName = taskName;
-        _domain = domain;
-        _handler = handler;
-        _pollIntervalMs = pollIntervalMs > 0 ? pollIntervalMs : 100;
-        _threadCount = threadCount > 0 ? threadCount : 1;
-        _logger = logger ?? NullLogger.Instance;
-        _credentialNames = credentialNames ?? [];
-    }
-
-    public void Start()
-    {
-        // Idempotent — a shared WorkerManager can have Start() called more than
-        // once (e.g. overlapping runs on the same AgentRuntime); without this
-        // guard, a loop already polling would spawn a second full set of
-        // `_threadCount` poll tasks and double-dequeue tasks of its type.
-        if (_started) return;
-        _started = true;
-
-        var ct = _cts.Token;
-        // Spawn `_threadCount` concurrent poll loops so a slow handler on one
-        // thread doesn't stall sibling tasks of the same type.
-        for (int i = 0; i < _threadCount; i++)
-            _pollTasks.Add(System.Threading.Tasks.Task.Run(() => PollLoopAsync(ct), ct));
-    }
-
-    /// <summary>Test-only seam — number of spawned poll tasks (idempotent <see cref="Start"/> guard).</summary>
-    internal int PollTaskCount => _pollTasks.Count;
-
-    private async System.Threading.Tasks.Task PollLoopAsync(CancellationToken ct)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(_pollIntervalMs));
-        while (await timer.WaitForNextTickAsync(ct))
-        {
-            try
-            {
-                Task? task = await _taskClient.PollAsync(
-                    _taskName,
-                    workerid: Environment.MachineName,
-                    domain: _domain);
-
-                if (task is not null)
-                    await ExecuteAsync(task, ct);
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Poll error for task {TaskName}", _taskName);
-            }
-        }
-    }
-
-    private async System.Threading.Tasks.Task ExecuteAsync(Task task, CancellationToken ct)
-    {
-        try
-        {
-            var inputData = ConvertInputData(task.InputData);
-            var toolCtx = ExtractToolContext(inputData);
-
-            // Strip internal keys from the handler-visible input
-            var handlerInput = inputData
-                .Where(kv => !string.Equals(kv.Key, "__agentspan_ctx__", StringComparison.OrdinalIgnoreCase)
-                          && !string.Equals(kv.Key, "_agent_state", StringComparison.OrdinalIgnoreCase)
-                          && !string.Equals(kv.Key, "method", StringComparison.OrdinalIgnoreCase))
-                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
-
-            // Resolve and inject credentials via the centralized helper so the
-            // mutation + invocation + restoration is atomic under a single
-            // process-wide lock. See docs/design/secret-injection-contract.md.
-            // Tier-2 (env-injection) path; tier-1 (explicit-key) lands when the
-            // user-facing API exposes a `credentials` parameter to agent factories.
-            Dictionary<string, string> resolvedCredentials = new();
-            if (_credentialNames.Length > 0)
-            {
-                var creds = await _http.ResolveCredentialsAsync(
-                    toolCtx?.ExecutionToken, _credentialNames, ct);
-                foreach (var (k, v) in creds)
-                    resolvedCredentials[k] = v;
-            }
-
-            // Tier-1 (explicit accessor): populate the ambient credential scope so
-            // tool code can read resolved credentials via ToolContext.GetCredential /
-            // Secrets.Get without relying on process-env injection. Tier-2 (env
-            // injection) below remains for framework-passthrough tools.
-            object? result;
-            using (CredentialScope.Begin(resolvedCredentials))
-            {
-                result = await CredentialInjection.InjectViaEnvAsync<object?>(
-                    resolvedCredentials,
-                    () => _handler(handlerInput, toolCtx),
-                    ct);
-            }
-
-            // Wrap primitives — Conductor expects outputData as an object
-            object outputData = result switch
-            {
-                null => new { result = (object?)null },
-                string s => new { result = s },
-                int i => new { result = i },
-                long l => new { result = l },
-                double d => new { result = d },
-                bool b => new { result = b },
-                _ => result,
-            };
-
-            // Include state updates so the server can persist shared state
-            if (toolCtx?.State is { Count: > 0 } state)
-            {
-                if (outputData is Dictionary<string, object> outDict)
-                    outDict["_state_updates"] = state;
-                else if (outputData is Dictionary<string, object?> outDictN)
-                    outDictN["_state_updates"] = state;
-                else
-                {
-                    var wrapper = new Dictionary<string, object?> { ["_state_updates"] = state };
-                    var resultJson = System.Text.Json.JsonSerializer.Serialize(outputData, AgentspanJson.Options);
-                    var resultNode = JsonNode.Parse(resultJson);
-                    if (resultNode is JsonObject obj)
-                        foreach (var kv in obj)
-                            wrapper[kv.Key] = kv.Value?.DeepClone();
-                    else
-                        wrapper["result"] = outputData;
-                    outputData = wrapper;
-                }
-            }
-
-            using var reportCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var taskResult = new TaskResult(
-                workflowInstanceId: task.WorkflowInstanceId,
-                taskId: task.TaskId)
-            {
-                Status = TaskResult.StatusEnum.COMPLETED,
-                OutputData = ToNewtonsoftDict(outputData),
-            };
-            await _taskClient.UpdateTaskAsync(taskResult);
-        }
-        catch (TerminalToolException ex)
-        {
-            using var reportCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var taskResult = new TaskResult(
-                workflowInstanceId: task.WorkflowInstanceId,
-                taskId: task.TaskId)
-            {
-                Status = TaskResult.StatusEnum.FAILEDWITHTERMINALERROR,
-                ReasonForIncompletion = ex.Message,
-            };
-            await _taskClient.UpdateTaskAsync(taskResult);
-        }
-        catch (Exception ex) when (
-            ex is CredentialNotFoundException
-               or CredentialAuthException
-               or CredentialRateLimitException
-               or CredentialServiceException)
-        {
-            // Credential failures are configuration issues — non-retryable.
-            // Marking as terminal so the workflow surfaces the cause immediately
-            // instead of burning retries on a broken config.
-            _logger.LogError(ex, "Credential resolution failed for {TaskName}", _taskName);
-            using var reportCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var taskResult = new TaskResult(
-                workflowInstanceId: task.WorkflowInstanceId,
-                taskId: task.TaskId)
-            {
-                Status = TaskResult.StatusEnum.FAILEDWITHTERMINALERROR,
-                ReasonForIncompletion = $"Credential resolution failed: {ex.Message}",
-            };
-            await _taskClient.UpdateTaskAsync(taskResult);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Worker execution error for {TaskName}", _taskName);
-            using var reportCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var taskResult = new TaskResult(
-                workflowInstanceId: task.WorkflowInstanceId,
-                taskId: task.TaskId)
-            {
-                Status = TaskResult.StatusEnum.FAILED,
-                ReasonForIncompletion = ex.Message,
-            };
-            await _taskClient.UpdateTaskAsync(taskResult);
-        }
-    }
-
-    // ── JSON bridges (Newtonsoft ↔ System.Text.Json) ──────────
-
-    /// <summary>Convert conductor-csharp's Newtonsoft-deserialized inputData to STJ JsonElements.</summary>
-    private static Dictionary<string, JsonElement> ConvertInputData(Dictionary<string, object>? inputData)
-    {
-        if (inputData is null || inputData.Count == 0)
-            return new Dictionary<string, JsonElement>();
-
-        var json = JsonConvert.SerializeObject(inputData);
-        using var doc = System.Text.Json.JsonSerializer.Deserialize<JsonDocument>(json)!;
-        var result = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-        foreach (var prop in doc.RootElement.EnumerateObject())
-            result[prop.Name] = prop.Value.Clone();
-        return result;
-    }
-
-    /// <summary>Convert STJ-serializable output to a Newtonsoft-compatible dict for TaskResult.OutputData.</summary>
-    private static Dictionary<string, object> ToNewtonsoftDict(object outputData)
-    {
-        var json = System.Text.Json.JsonSerializer.Serialize(outputData, AgentspanJson.Options);
-        return JsonConvert.DeserializeObject<Dictionary<string, object>>(json)
-            ?? new Dictionary<string, object>();
-    }
-
-    private static ToolContext? ExtractToolContext(Dictionary<string, JsonElement> inputData)
-    {
-        ToolContext? ctx = null;
-        if (inputData.TryGetValue("__agentspan_ctx__", out var ctxEl))
-        {
-            try { ctx = System.Text.Json.JsonSerializer.Deserialize<ToolContext>(ctxEl.GetRawText(), AgentspanJson.Options); }
-            catch { }
-        }
-
-        Dictionary<string, object>? state = null;
-        if (inputData.TryGetValue("_agent_state", out var agentStateEl) &&
-            agentStateEl.ValueKind == JsonValueKind.Object)
-        {
-            state = new Dictionary<string, object>();
-            foreach (var prop in agentStateEl.EnumerateObject())
-                state[prop.Name] = prop.Value.Clone();
-        }
-
-        if (ctx is null && state is null) return null;
-        return (ctx ?? new ToolContext()) with { State = state ?? ctx?.State };
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        _cts.Cancel();
-        try { await System.Threading.Tasks.Task.WhenAll(_pollTasks); }
-        catch (OperationCanceledException) { }
-        catch { /* individual poll loops log their own errors */ }
-        _cts.Dispose();
-    }
-}
-
 // ── WorkerManager ──────────────────────────────────────────
 
 /// <summary>
-/// Registers all tool workers discovered from the agent tree and manages their lifecycle.
+/// Registers all tool workers discovered from the agent tree as <see cref="AgentToolWorker"/>s
+/// and hosts them on the Worker SDK (guide §25.1 — tools are ordinary Conductor
+/// workers; polling, batching, and update-with-retry-backoff are the SDK's,
+/// not ours). One <see cref="IHost"/> per <see cref="WorkerManager"/> instance
+/// preserves the fresh-manager-per-stateful-run lifecycle.
 /// </summary>
 internal sealed class WorkerManager : IAsyncDisposable
 {
     private readonly IAgentClient _http;
-    private readonly TaskResourceApi _taskClient;
-    private readonly List<WorkerPollLoop> _workers = [];
+    private readonly Configuration _conductorConfig;
+    private readonly List<AgentToolWorker> _workers = [];
     private readonly int _pollIntervalMs;
     private readonly int _threadCount;
+    private IHost? _host;
 
     public WorkerManager(IAgentClient http, Configuration conductorConfig,
         int pollIntervalMs = 100, int threadCount = 1)
     {
         _http = http;
-        _taskClient = new TaskResourceApi(conductorConfig);
+        _conductorConfig = conductorConfig;
         _pollIntervalMs = pollIntervalMs > 0 ? pollIntervalMs : 100;
         _threadCount = threadCount > 0 ? threadCount : 1;
     }
 
-    private WorkerPollLoop NewLoop(
+    /// <summary>Test-only seam — the built host, or null (idempotent <see cref="StartAsync"/> guard).</summary>
+    internal IHost? HostForTesting => _host;
+
+    private AgentToolWorker NewWorker(
         string taskName,
         Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> handler,
         string[]? credentialNames = null,
         string? domain = null)
-        => new(_taskClient, _http, taskName, handler,
-               pollIntervalMs: _pollIntervalMs, threadCount: _threadCount,
-               credentialNames: credentialNames, domain: domain);
+        => new(taskName, new ToolTaskExecutor(_http, taskName, handler, credentialNames), _pollIntervalMs, _threadCount, domain);
 
     public void RegisterTools(IEnumerable<ToolDef> tools, string? domain = null)
     {
         foreach (var tool in tools)
         {
             if (tool.Handler is null) continue;
-            _workers.Add(NewLoop(tool.Name, tool.Handler,
+            _workers.Add(NewWorker(tool.Name, tool.Handler,
                 credentialNames: tool.Credentials.Length > 0 ? tool.Credentials : null,
                 domain: domain));
         }
@@ -345,7 +77,7 @@ internal sealed class WorkerManager : IAsyncDisposable
             var maxRetries = g.MaxRetries;
             var gName = g.Name;
 
-            _workers.Add(NewLoop(g.Name, async (args, _ctx) =>
+            _workers.Add(NewWorker(g.Name, async (args, _ctx) =>
             {
                 string content = args.TryGetValue("content", out var contentEl)
                     ? (contentEl.ValueKind == JsonValueKind.String
@@ -452,7 +184,7 @@ internal sealed class WorkerManager : IAsyncDisposable
     {
         foreach (var worker in Skill.CreateSkillWorkers(agent))
         {
-            _workers.Add(NewLoop(worker.Name, async (args, _ctx) =>
+            _workers.Add(NewWorker(worker.Name, async (args, _ctx) =>
             {
                 var input = args.ToDictionary(
                     kv => kv.Key,
@@ -481,7 +213,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         var taskName = $"{agent.Name}_execute_code";
         var timeout = agent.CodeExecution?.Timeout ?? 30;
 
-        _workers.Add(NewLoop(taskName, async (args, _) =>
+        _workers.Add(NewWorker(taskName, async (args, _) =>
         {
             string language = "python";
             if (args.TryGetValue("language", out var lang) && lang.ValueKind == JsonValueKind.String)
@@ -495,7 +227,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         }, domain: domain));
     }
 
-    private static async Task<object?> ExecuteLocalCodeAsync(string language, string code, int timeoutSeconds)
+    private static async System.Threading.Tasks.Task<object?> ExecuteLocalCodeAsync(string language, string code, int timeoutSeconds)
     {
         // Delegate to the shared LocalCodeExecutor (subprocess + temp file +
         // interpreter table + timeout + cleanup), then map its structured
@@ -531,7 +263,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         {
             var cb = agent.BeforeModelCallback;
             registered.Add("before_model");
-            _workers.Add(NewLoop($"{agent.Name}_before_model", (args, _) =>
+            _workers.Add(NewWorker($"{agent.Name}_before_model", (args, _) =>
             {
                 List<JsonElement>? messages = null;
                 if (args.TryGetValue("messages", out var msgEl) && msgEl.ValueKind == JsonValueKind.Array)
@@ -545,7 +277,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         {
             var cb = agent.AfterModelCallback;
             registered.Add("after_model");
-            _workers.Add(NewLoop($"{agent.Name}_after_model", (args, _) =>
+            _workers.Add(NewWorker($"{agent.Name}_after_model", (args, _) =>
             {
                 string? llmResult = args.TryGetValue("llm_result", out var resEl) && resEl.ValueKind == JsonValueKind.String
                     ? resEl.GetString()
@@ -587,7 +319,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         {
             if (registered.Contains(position)) continue;
             var fns = delegates;
-            _workers.Add(NewLoop($"{agent.Name}_{position}", (args, _) =>
+            _workers.Add(NewWorker($"{agent.Name}_{position}", (args, _) =>
             {
                 foreach (var fn in fns)
                 {
@@ -612,7 +344,7 @@ internal sealed class WorkerManager : IAsyncDisposable
                 if (sourceName == targetName) continue;
                 var toolName = $"{sourceName}_transfer_to_{targetName}";
                 if (!registered.Add(toolName)) continue;
-                _workers.Add(NewLoop(toolName,
+                _workers.Add(NewWorker(toolName,
                     (_, _) => System.Threading.Tasks.Task.FromResult<object?>(new Dictionary<string, object>()),
                     domain: domain));
             }
@@ -620,7 +352,7 @@ internal sealed class WorkerManager : IAsyncDisposable
 
         foreach (var name in allNames)
         {
-            _workers.Add(NewLoop($"{name}_check_transfer", (args, _) =>
+            _workers.Add(NewWorker($"{name}_check_transfer", (args, _) =>
             {
                 if (args.TryGetValue("tool_calls", out var tcEl) && tcEl.ValueKind == JsonValueKind.Array)
                 {
@@ -666,7 +398,7 @@ internal sealed class WorkerManager : IAsyncDisposable
 
         var handoffConditions = agent.Handoffs;
 
-        _workers.Add(NewLoop($"{agent.Name}_handoff_check", (args, _) =>
+        _workers.Add(NewWorker($"{agent.Name}_handoff_check", (args, _) =>
         {
             var activeAgent = args.TryGetValue("active_agent", out var ae) ? ae.GetString() ?? "0" : "0";
             var isTransfer = args.TryGetValue("is_transfer", out var it) && IsTransferTruthy(it);
@@ -722,7 +454,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         var nameToIdx = agent.Agents.Select((a, i) => (a.Name, Index: i.ToString()))
                                     .ToDictionary(t => t.Name, t => t.Index);
 
-        _workers.Add(NewLoop($"{agent.Name}_process_selection", (args, _) =>
+        _workers.Add(NewWorker($"{agent.Name}_process_selection", (args, _) =>
         {
             string selected = "0";
             if (args.TryGetValue("human_output", out var ho))
@@ -753,16 +485,27 @@ internal sealed class WorkerManager : IAsyncDisposable
         }, domain: domain));
     }
 
-    public void Start()
+    /// <summary>
+    /// Build and start the Worker SDK host for every worker registered so far.
+    /// Idempotent — a shared <see cref="WorkerManager"/> can have this invoked
+    /// more than once (e.g. overlapping runs sharing the same AgentRuntime);
+    /// re-invoking must not build a second host and double-poll every task type.
+    /// </summary>
+    public async System.Threading.Tasks.Task StartAsync()
     {
-        foreach (var w in _workers)
-            w.Start();
+        if (_host is not null) return;
+        _host = WorkflowTaskHost.CreateWorkerHost(_conductorConfig, LogLevel.Warning, _workers.ToArray());
+        await _host.StartAsync();
     }
 
     public async System.Threading.Tasks.Task StopAsync()
     {
-        foreach (var w in _workers)
-            await w.DisposeAsync();
+        if (_host is not null)
+        {
+            await _host.StopAsync();
+            _host.Dispose();
+            _host = null;
+        }
         _workers.Clear();
     }
 
