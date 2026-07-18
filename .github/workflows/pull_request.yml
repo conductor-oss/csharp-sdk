@@ -44,6 +44,14 @@ jobs:
           -l "console;verbosity=normal"
           --collect:"XPlat Code Coverage"
           --results-directory coverage
+      - name: Run agent unit tests
+        run: |
+          for p in Conductor.AI.Tests Conductor.AI.OpenAI.Tests Conductor.AI.GoogleADK.Tests Conductor.AI.SemanticKernel.Tests; do
+            dotnet test "$p/$p.csproj" \
+              -l "console;verbosity=normal" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory coverage
+          done
       - name: Upload Cobertura artifact
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
@@ -58,6 +66,19 @@ jobs:
           files: coverage/**/coverage.cobertura.xml
           flags: unittests
           name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
+
+  build_ai_examples:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build agent examples
+        run: dotnet build Conductor.AI.Examples/Conductor.AI.Examples.sln -c Release
 
   integration_tests:
     needs: lint

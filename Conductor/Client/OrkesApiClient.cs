@@ -27,6 +27,13 @@ namespace Conductor.Client
             }
         }
 
+        /// <summary>
+        /// The <see cref="Configuration"/> backing this client — exposed so
+        /// extension points (e.g. the agent SDK's <c>GetAgentClient()</c>) can
+        /// build additional domain clients that share this one's token cache.
+        /// </summary>
+        public Configuration Configuration => _configuration;
+
         public T GetClient<T>() where T : IApiAccessor, new()
         {
             return _configuration.GetClient<T>();

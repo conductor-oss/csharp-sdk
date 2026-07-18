@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Conductor.AI.SemanticKernel</RootNamespace>
+    <AssemblyName>Conductor.AI.SemanticKernel</AssemblyName>
+    <PackageId>conductor-ai-semantic-kernel</PackageId>
+    <Description>Bridge Microsoft Semantic Kernel plugins into Conductor AI agents</Description>
+    <RepositoryUrl>https://github.com/conductor-sdk/conductor-csharp</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573;SKEXP0001;SKEXP0010</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Conductor.AI/Conductor.AI.csproj" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.76.0" />
+  </ItemGroup>
+</Project>

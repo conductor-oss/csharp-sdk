@@ -300,6 +300,14 @@ namespace Conductor.Client.Models
         public long? ResponseTimeoutSeconds { get; set; }
 
         /// <summary>
+        /// Credential values delivered by the server for this poll, keyed by the
+        /// names declared on the task def's <see cref="TaskDef.RuntimeMetadata"/>
+        /// (spec R6, wire-only credential contract).
+        /// </summary>
+        [DataMember(Name = "runtimeMetadata", EmitDefaultValue = false)]
+        public Dictionary<string, string> RuntimeMetadata { get; set; }
+
+        /// <summary>
         /// Gets or Sets Retried
         /// </summary>
         [DataMember(Name = "retried", EmitDefaultValue = false)]
@@ -443,6 +451,7 @@ namespace Conductor.Client.Models
             sb.Append("  ReasonForIncompletion: ").Append(ReasonForIncompletion).Append("\n");
             sb.Append("  ReferenceTaskName: ").Append(ReferenceTaskName).Append("\n");
             sb.Append("  ResponseTimeoutSeconds: ").Append(ResponseTimeoutSeconds).Append("\n");
+            sb.Append("  RuntimeMetadata: ").Append(RuntimeMetadata).Append("\n");
             sb.Append("  Retried: ").Append(Retried).Append("\n");
             sb.Append("  RetriedTaskId: ").Append(RetriedTaskId).Append("\n");
             sb.Append("  RetryCount: ").Append(RetryCount).Append("\n");
@@ -605,6 +614,12 @@ namespace Conductor.Client.Models
                     this.ResponseTimeoutSeconds.Equals(input.ResponseTimeoutSeconds))
                 ) &&
                 (
+                    this.RuntimeMetadata == input.RuntimeMetadata ||
+                    this.RuntimeMetadata != null &&
+                    input.RuntimeMetadata != null &&
+                    this.RuntimeMetadata.SequenceEqual(input.RuntimeMetadata)
+                ) &&
+                (
                     this.Retried == input.Retried ||
                     (this.Retried != null &&
                     this.Retried.Equals(input.Retried))
@@ -757,6 +772,8 @@ namespace Conductor.Client.Models
                     hashCode = hashCode * 59 + this.ReferenceTaskName.GetHashCode();
                 if (this.ResponseTimeoutSeconds != null)
                     hashCode = hashCode * 59 + this.ResponseTimeoutSeconds.GetHashCode();
+                if (this.RuntimeMetadata != null)
+                    hashCode = hashCode * 59 + this.RuntimeMetadata.GetHashCode();
                 if (this.Retried != null)
                     hashCode = hashCode * 59 + this.Retried.GetHashCode();
                 if (this.RetriedTaskId != null)
