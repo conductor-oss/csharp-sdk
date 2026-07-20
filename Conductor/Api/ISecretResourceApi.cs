@@ -56,8 +56,8 @@ namespace conductor_csharp.Api
         /// </remarks>
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="key"></param>
-        /// <returns>Object</returns>
-        Object GetSecret(string key);
+        /// <returns>string</returns>
+        string GetSecret(string key);
 
         /// <summary>
         /// Get tags by secret
@@ -169,8 +169,8 @@ namespace conductor_csharp.Api
         /// </remarks>
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="key"></param>
-        /// <returns>Object</returns>
-        ThreadTask.Task<Object> GetSecretAsync(string key);
+        /// <returns>string</returns>
+        ThreadTask.Task<string> GetSecretAsync(string key);
 
         /// <summary>
         /// Asynchronous Get tags by secret
