@@ -13,6 +13,7 @@
 using Conductor.Api;
 using Tests.Integration.Helpers;
 using Xunit;
+using ThreadTask = System.Threading.Tasks;
 
 namespace Tests.Integration.Orkes
 {
@@ -32,10 +33,24 @@ namespace Tests.Integration.Orkes
         [Fact]
         public void PutSecret_CanBeRetrieved()
         {
-            _secretClient.PutSecret("secret_value", _secretName);
+            const string secretValue = "secret_value";
+            _secretClient.PutSecret(secretValue, _secretName);
             var value = _secretClient.GetSecret(_secretName);
             Assert.NotNull(value);
+            Assert.Equal(secretValue, value);
             Cleanup();
+        }
+
+        [Fact]
+        public async ThreadTask.Task PutSecretAsync_CanBeRetrieved()
+        {
+            const string secretValue = "secret_value_async";
+            var key = TestPrefix.Name("secret_async");
+            await _secretClient.PutSecretAsync(secretValue, key);
+            var value = await _secretClient.GetSecretAsync(key);
+            Assert.NotNull(value);
+            Assert.Equal(secretValue, value);
+            try { await _secretClient.DeleteSecretAsync(key); } catch { }
         }
 
         [Fact]

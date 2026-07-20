@@ -316,10 +316,10 @@ namespace Conductor.Api
         /// </summary>
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="key"></param>
-        /// <returns>Object</returns>
-        public Object GetSecret(string key)
+        /// <returns>string</returns>
+        public string GetSecret(string key)
         {
-            ApiResponse<Object> localVarResponse = GetSecretWithHttpInfo(key);
+            ApiResponse<string> localVarResponse = GetSecretWithHttpInfo(key);
             return localVarResponse.Data;
         }
 
@@ -328,8 +328,8 @@ namespace Conductor.Api
         /// </summary>
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="key"></param>
-        /// <returns>Object</returns>
-        public async ThreadTask.Task<Object> GetSecretAsync(string key)
+        /// <returns>string</returns>
+        public async ThreadTask.Task<string> GetSecretAsync(string key)
         {
             // verify the required parameter 'key' is set
             if (key == null)
@@ -358,7 +358,9 @@ namespace Conductor.Api
 
             if (key != null) localVarPathParams.Add("key", this.Configuration.ApiClient.ParameterToString(key)); // path parameter
 
-            return (await this.Configuration.ApiClient.ExecuteAsync<Object>(localVarPath,
+            // Secret values are raw strings; request as string so the body is returned as-is
+            // (Execute<string> -> Deserialize -> ConvertType) instead of JSON-decoded.
+            return (await this.Configuration.ApiClient.ExecuteAsync<string>(localVarPath,
                 Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetSecret")).Data;
@@ -367,10 +369,14 @@ namespace Conductor.Api
         /// <summary>
         /// Get secret value by key 
         /// </summary>
+        /// <remarks>
+        /// Secret values are raw strings, so the response body is returned as-is without
+        /// JSON deserialization (matching the server, which returns raw strings).
+        /// </remarks>
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="key"></param>
-        /// <returns>ApiResponse of Object</returns>
-        public ApiResponse<Object> GetSecretWithHttpInfo(string key)
+        /// <returns>ApiResponse of string</returns>
+        public ApiResponse<string> GetSecretWithHttpInfo(string key)
         {
             // verify the required parameter 'key' is set
             if (key == null)
@@ -399,7 +405,9 @@ namespace Conductor.Api
 
             if (key != null) localVarPathParams.Add("key", this.Configuration.ApiClient.ParameterToString(key)); // path parameter
 
-            return this.Configuration.ApiClient.Execute<Object>(localVarPath,
+            // Secret values are raw strings; request as string so the body is returned as-is
+            // (Execute<string> -> Deserialize -> ConvertType) instead of JSON-decoded.
+            return this.Configuration.ApiClient.Execute<string>(localVarPath,
                 Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
                 localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
                 ExceptionFactory, "GetSecret");
@@ -790,14 +798,9 @@ namespace Conductor.Api
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
             if (key != null) localVarPathParams.Add("key", this.Configuration.ApiClient.ParameterToString(key)); // path parameter
-            if (body != null && body.GetType() != typeof(byte[]))
-            {
-                localVarPostBody = this.Configuration.ApiClient.Serialize(body); // http body (model) parameter
-            }
-            else
-            {
-                localVarPostBody = body; // byte array
-            }
+            // Secret values are raw strings; send as-is. JSON-serializing a string would
+            // wrap it in quotes and corrupt the stored value.
+            localVarPostBody = body;
 
             return (await this.Configuration.ApiClient.ExecuteAsync<Object>(localVarPath,
                 Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
@@ -844,14 +847,9 @@ namespace Conductor.Api
                 localVarHeaderParams.Add("Accept", localVarHttpHeaderAccept);
 
             if (key != null) localVarPathParams.Add("key", this.Configuration.ApiClient.ParameterToString(key)); // path parameter
-            if (body != null && body.GetType() != typeof(byte[]))
-            {
-                localVarPostBody = this.Configuration.ApiClient.Serialize(body); // http body (model) parameter
-            }
-            else
-            {
-                localVarPostBody = body; // byte array
-            }
+            // Secret values are raw strings; send as-is. JSON-serializing a string would
+            // wrap it in quotes and corrupt the stored value.
+            localVarPostBody = body;
 
             return this.Configuration.ApiClient.Execute<Object>(localVarPath,
                 Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
