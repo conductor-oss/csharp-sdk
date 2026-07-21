@@ -53,6 +53,24 @@ internal sealed class WorkerManager : IAsyncDisposable
     /// <summary>Test-only seam — look up a registered worker by task name to exercise its handler directly.</summary>
     internal AgentToolWorker? WorkerForTesting(string taskName) => _workers.FirstOrDefault(w => w.TaskType == taskName);
 
+    /// <summary>Test-only seam — count registered workers for a task name, to assert dedup.</summary>
+    internal int WorkerCountForTesting(string taskName) => _workers.Count(w => w.TaskType == taskName);
+
+    /// <summary>
+    /// Skip if a worker already exists for (TaskType, Domain) — first-wins. A duplicate
+    /// (same agent/tool/guardrail registered twice) would double-poll one task queue.
+    /// </summary>
+    private void AddWorker(AgentToolWorker worker)
+    {
+        if (_workers.Any(w => w.TaskType == worker.TaskType && w.WorkerSettings.Domain == worker.WorkerSettings.Domain))
+        {
+            System.Diagnostics.Trace.TraceInformation(
+                $"Worker for task '{worker.TaskType}' (domain '{worker.WorkerSettings.Domain}') already registered — skipping duplicate.");
+            return;
+        }
+        _workers.Add(worker);
+    }
+
     private AgentToolWorker NewWorker(
         string taskName,
         Func<Dictionary<string, JsonElement>, ToolContext?, System.Threading.Tasks.Task<object?>> handler,
@@ -94,86 +112,24 @@ internal sealed class WorkerManager : IAsyncDisposable
         foreach (var tool in tools)
         {
             if (tool.Handler is null) continue;
-            _workers.Add(NewWorker(tool.Name, tool.Handler,
+            AddWorker(NewWorker(tool.Name, tool.Handler,
                 credentialNames: tool.Credentials.Length > 0 ? tool.Credentials : null,
                 domain: domain));
         }
     }
 
-    public void RegisterGuardrails(IEnumerable<GuardrailDef> guardrails, string? domain = null)
+    /// <summary>
+    /// One combined worker per scope — <c>{scopeName}_output_guardrail</c>, the taskName
+    /// the serializer stamps on custom guardrails. Regex/llm/external have no
+    /// <see cref="GuardrailDef.Handler"/> and register nothing — server-evaluated.
+    /// </summary>
+    public void RegisterGuardrailWorker(string scopeName, IEnumerable<GuardrailDef> guardrails, string? domain = null)
     {
-        foreach (var g in guardrails)
-        {
-            if (g.Handler is null) continue;
-            var handler = g.Handler;
-            var onFail = g.OnFail;
-            var maxRetries = g.MaxRetries;
-            var gName = g.Name;
+        var local = guardrails.Where(g => g.Handler is not null).ToList();
+        if (local.Count == 0) return;
 
-            _workers.Add(NewWorker(g.Name, async (args, _ctx) =>
-            {
-                string content = args.TryGetValue("content", out var contentEl)
-                    ? (contentEl.ValueKind == JsonValueKind.String
-                        ? contentEl.GetString() ?? ""
-                        : contentEl.GetRawText())
-                    : "";
-
-                int iteration = args.TryGetValue("iteration", out var iterEl) &&
-                                iterEl.ValueKind == JsonValueKind.Number
-                    ? iterEl.GetInt32()
-                    : 0;
-
-                GuardrailResult result;
-                try
-                {
-                    result = await handler(content);
-                }
-                catch (Exception ex)
-                {
-                    var effectiveOnFailOnEx = onFail;
-                    if (effectiveOnFailOnEx == OnFail.Retry && iteration >= maxRetries)
-                        effectiveOnFailOnEx = OnFail.Raise;
-                    return (object)new Dictionary<string, object?>
-                    {
-                        ["passed"] = false,
-                        ["message"] = $"Guardrail error: {ex.Message}",
-                        ["on_fail"] = effectiveOnFailOnEx.ToString().ToLowerInvariant(),
-                        ["fixed_output"] = null,
-                        ["guardrail_name"] = gName,
-                        ["should_continue"] = effectiveOnFailOnEx == OnFail.Retry,
-                    };
-                }
-
-                if (!result.Passed)
-                {
-                    var effectiveOnFail = onFail;
-                    if (effectiveOnFail == OnFail.Retry && iteration >= maxRetries)
-                        effectiveOnFail = OnFail.Raise;
-                    if (effectiveOnFail == OnFail.Fix && result.FixedOutput is null)
-                        effectiveOnFail = OnFail.Raise;
-
-                    return (object)new Dictionary<string, object?>
-                    {
-                        ["passed"] = false,
-                        ["message"] = result.Message ?? "",
-                        ["on_fail"] = effectiveOnFail.ToString().ToLowerInvariant(),
-                        ["fixed_output"] = result.FixedOutput,
-                        ["guardrail_name"] = gName,
-                        ["should_continue"] = effectiveOnFail == OnFail.Retry,
-                    };
-                }
-
-                return (object)new Dictionary<string, object?>
-                {
-                    ["passed"] = true,
-                    ["message"] = "",
-                    ["on_fail"] = "pass",
-                    ["fixed_output"] = null,
-                    ["guardrail_name"] = "",
-                    ["should_continue"] = false,
-                };
-            }, domain: domain));
-        }
+        AddWorker(NewWorker(
+            $"{scopeName}_output_guardrail", GuardrailHandlerFactory.Create(local), domain: domain));
     }
 
     public void RegisterAgentTools(Agent agent, string? domain = null)
@@ -182,9 +138,9 @@ internal sealed class WorkerManager : IAsyncDisposable
             RegisterSkillWorkers(agent, domain);
 
         RegisterTools(agent.Tools, domain);
-        RegisterGuardrails(agent.Guardrails, domain);
+        RegisterGuardrailWorker(agent.Name, agent.Guardrails, domain);
         foreach (var tool in agent.Tools)
-            RegisterGuardrails(tool.Guardrails, domain);
+            RegisterGuardrailWorker(tool.Name, tool.Guardrails, domain);
         RegisterCallbacks(agent, domain);
 
         // Local code execution worker — the server adds an execute_code tool to
@@ -217,7 +173,7 @@ internal sealed class WorkerManager : IAsyncDisposable
     {
         foreach (var worker in Skill.CreateSkillWorkers(agent))
         {
-            _workers.Add(NewWorker(worker.Name, async (args, _ctx) =>
+            AddWorker(NewWorker(worker.Name, async (args, _ctx) =>
             {
                 var input = args.ToDictionary(
                     kv => kv.Key,
@@ -246,7 +202,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         var taskName = $"{agent.Name}_execute_code";
         var timeout = agent.CodeExecution?.Timeout ?? 30;
 
-        _workers.Add(NewWorker(taskName, async (args, _) =>
+        AddWorker(NewWorker(taskName, async (args, _) =>
         {
             string language = "python";
             if (args.TryGetValue("language", out var lang) && lang.ValueKind == JsonValueKind.String)
@@ -296,7 +252,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         {
             var cb = agent.BeforeModelCallback;
             registered.Add("before_model");
-            _workers.Add(NewWorker($"{agent.Name}_before_model", (args, _) =>
+            AddWorker(NewWorker($"{agent.Name}_before_model", (args, _) =>
             {
                 List<JsonElement>? messages = null;
                 if (args.TryGetValue("messages", out var msgEl) && msgEl.ValueKind == JsonValueKind.Array)
@@ -310,7 +266,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         {
             var cb = agent.AfterModelCallback;
             registered.Add("after_model");
-            _workers.Add(NewWorker($"{agent.Name}_after_model", (args, _) =>
+            AddWorker(NewWorker($"{agent.Name}_after_model", (args, _) =>
             {
                 string? llmResult = args.TryGetValue("llm_result", out var resEl) && resEl.ValueKind == JsonValueKind.String
                     ? resEl.GetString()
@@ -352,7 +308,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         {
             if (registered.Contains(position)) continue;
             var fns = delegates;
-            _workers.Add(NewWorker($"{agent.Name}_{position}", (args, _) =>
+            AddWorker(NewWorker($"{agent.Name}_{position}", (args, _) =>
             {
                 foreach (var fn in fns)
                 {
@@ -383,7 +339,7 @@ internal sealed class WorkerManager : IAsyncDisposable
                 // hand-off itself is detected by check_transfer, not this task.
                 // Unreachable-target behavior (allowed_transitions) is unchanged
                 // here — that gate lives in handoff_check below.
-                _workers.Add(NewWorker(toolName, (args, _) =>
+                AddWorker(NewWorker(toolName, (args, _) =>
                 {
                     var message = args.TryGetValue("message", out var msgEl) && msgEl.ValueKind == JsonValueKind.String
                         ? msgEl.GetString() ?? ""
@@ -398,7 +354,7 @@ internal sealed class WorkerManager : IAsyncDisposable
 
         foreach (var name in allNames)
         {
-            _workers.Add(NewWorker($"{name}_check_transfer", (args, _) =>
+            AddWorker(NewWorker($"{name}_check_transfer", (args, _) =>
             {
                 // First-wins: the swarm loop can only hand off to one agent per
                 // turn. Non-winning calls surface as dropped_transfers instead of
@@ -476,7 +432,7 @@ internal sealed class WorkerManager : IAsyncDisposable
 
         var handoffConditions = agent.Handoffs;
 
-        _workers.Add(NewWorker($"{agent.Name}_handoff_check", (args, _) =>
+        AddWorker(NewWorker($"{agent.Name}_handoff_check", (args, _) =>
         {
             var activeAgent = args.TryGetValue("active_agent", out var ae) ? ae.GetString() ?? "0" : "0";
             var isTransfer = args.TryGetValue("is_transfer", out var it) && IsTransferTruthy(it);
@@ -532,7 +488,7 @@ internal sealed class WorkerManager : IAsyncDisposable
         var nameToIdx = agent.Agents.Select((a, i) => (a.Name, Index: i.ToString()))
                                     .ToDictionary(t => t.Name, t => t.Index);
 
-        _workers.Add(NewWorker($"{agent.Name}_process_selection", (args, _) =>
+        AddWorker(NewWorker($"{agent.Name}_process_selection", (args, _) =>
         {
             string selected = "0";
             if (args.TryGetValue("human_output", out var ho))
