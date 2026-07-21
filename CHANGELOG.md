@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sharing that `Configuration`'s token cache. The old bespoke
   `AgentAuthHandler` and its separate token client are deleted; 404s map to
   `AgentNotFoundException`, other non-2xx to `AgentApiException`.
+- Guardrails are server-driven: `RegexGuardrail.Create` / `LLMGuardrail.Create`
+  are data-only, evaluated by the Conductor server itself — no worker,
+  `HttpClient`, or API key needed client-side. `LLMGuardrail.Create` drops
+  its `apiKey` parameter. Custom `[Guardrail]` methods still run your own
+  code, now combined into one worker per agent/tool scope
+  (`{scope}_output_guardrail`) instead of one worker per guardrail.
 - SSE streaming hardened: sources its auth header from
   `Configuration.AccessToken` on every (re)connect, tracks `Last-Event-ID`
   across drops with bounded backoff, and throws `SSEUnavailableException`
