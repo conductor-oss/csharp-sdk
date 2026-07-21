@@ -10,6 +10,7 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
+using System.Linq;
 using Conductor.AI;
 using Xunit;
 
@@ -31,10 +32,58 @@ public class GuardrailTests
         Assert.Null(g.Handler);          // referenced-by-name, no local func
         Assert.True(g.External);
 
-        var json = AgentConfigSerializer.SerializeGuardrail(g);
+        var json = AgentConfigSerializer.SerializeGuardrail(g, "s3_pii_guardrail");
         Assert.Equal("external", json["guardrailType"]!.GetValue<string>());
-        Assert.Equal("pii_remote", json["taskName"]!.GetValue<string>());
         Assert.Equal("pii_remote", json["name"]!.GetValue<string>());
+        // External guardrails dispatch on `name`, not `taskName` — the server's
+        // compileExternalGuardrail names the SIMPLE task from guard.getName().
+        Assert.Null(json["taskName"]);
+    }
+
+    // ── Server-driven serialization: regex/llm carry real data, no taskName ──
+
+    [Fact]
+    public void Regex_serializes_as_regex_with_patterns_no_taskname()
+    {
+        var g = RegexGuardrail.Create(["\\S+@\\S+"], mode: "block", name: "no_pii", message: "no emails");
+        var json = AgentConfigSerializer.SerializeGuardrail(g, "support_agent");
+
+        Assert.Equal("regex", json["guardrailType"]!.GetValue<string>());
+        Assert.Null(json["taskName"]);
+        Assert.Equal("block", json["mode"]!.GetValue<string>());
+        Assert.Equal("no emails", json["message"]!.GetValue<string>());
+        Assert.Equal(1, json["patterns"]!.AsArray().Count);
+        Assert.Equal("\\S+@\\S+", json["patterns"]![0]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Llm_serializes_as_llm_with_model_and_policy_no_taskname()
+    {
+        var g = LLMGuardrail.Create("anthropic/claude-sonnet-4-6", "no bad stuff", maxTokens: 128);
+        var json = AgentConfigSerializer.SerializeGuardrail(g, "support_agent");
+
+        Assert.Equal("llm", json["guardrailType"]!.GetValue<string>());
+        Assert.Null(json["taskName"]);
+        Assert.Equal("anthropic/claude-sonnet-4-6", json["model"]!.GetValue<string>());
+        Assert.Equal("no bad stuff", json["policy"]!.GetValue<string>());
+        Assert.Equal(128, json["maxTokens"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public void Custom_serializes_with_scope_prefixed_taskname()
+    {
+        var host = new CustomGuardrailHost();
+        var g = GuardrailRegistry.FromInstance(host).Single();
+        var json = AgentConfigSerializer.SerializeGuardrail(g, "support_agent");
+
+        Assert.Equal("custom", json["guardrailType"]!.GetValue<string>());
+        Assert.Equal("support_agent_output_guardrail", json["taskName"]!.GetValue<string>());
+    }
+
+    private sealed class CustomGuardrailHost
+    {
+        [Guardrail("check")]
+        public GuardrailResult Check(string content) => new(true);
     }
 
     [Fact]

@@ -11,9 +11,6 @@
  * specific language governing permissions and limitations under the License.
  */
 using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 
 namespace Conductor.AI;
 
@@ -198,6 +195,9 @@ public static class GuardrailRegistry
 /// A guardrail that validates content against regex patterns.
 /// Block mode (default): fails if any pattern matches.
 /// Allow mode: fails if NO pattern matches.
+///
+/// <para>Serialized as <c>guardrailType: "regex"</c> — the Conductor server evaluates the
+/// patterns (ECMAScript/GraalJS dialect). No worker process is needed.</para>
 /// </summary>
 public static class RegexGuardrail
 {
@@ -210,36 +210,16 @@ public static class RegexGuardrail
         OnFail onFail = OnFail.Raise,
         int maxRetries = 3)
     {
-        var patternList = patterns.ToList();
-        var compiled = patternList.Select(p => new Regex(p, RegexOptions.Compiled)).ToList();
-        var guardrailName = name ?? "regex_guardrail";
-
         var def = new GuardrailDef
         {
-            Name = guardrailName,
+            Name = name ?? "regex_guardrail",
             Position = position,
             OnFail = onFail,
             MaxRetries = maxRetries,
             GuardrailType = "regex",
-            Patterns = patternList,
+            Patterns = patterns.ToList(),
             Mode = mode,
             Message = message,
-            Handler = content =>
-            {
-                bool matched = compiled.Any(rx => rx.IsMatch(content));
-
-                if (mode == "block" && matched)
-                {
-                    var msg = message ?? "Content matched a blocked pattern.";
-                    return Task.FromResult(new GuardrailResult(false, msg));
-                }
-                if (mode == "allow" && !matched)
-                {
-                    var msg = message ?? "Content did not match any allowed pattern.";
-                    return Task.FromResult(new GuardrailResult(false, msg));
-                }
-                return Task.FromResult(new GuardrailResult(true));
-            },
         };
         GuardrailDef.Validate(def);
         return def;
@@ -264,12 +244,12 @@ public static class RegexGuardrail
 /// The model receives the policy + content and must respond with JSON:
 ///   {"passed": true/false, "reason": "..."}
 ///
-/// Requires OPENAI_API_KEY in the environment (or set the apiKey parameter).
+/// <para>Serialized as <c>guardrailType: "llm"</c> — the Conductor server calls the
+/// specified model via its own configured LLM providers. No worker process, HTTP client,
+/// or API key is needed on the client side.</para>
 /// </summary>
 public static class LLMGuardrail
 {
-    private static readonly System.Net.Http.HttpClient _http = new();
-
     public static GuardrailDef Create(
         string model,
         string policy,
@@ -277,14 +257,11 @@ public static class LLMGuardrail
         int? maxTokens = null,
         Position position = Position.Output,
         OnFail onFail = OnFail.Raise,
-        int maxRetries = 3,
-        string? apiKey = null)
+        int maxRetries = 3)
     {
-        var guardrailName = name ?? "llm_guardrail";
-
         var def = new GuardrailDef
         {
-            Name = guardrailName,
+            Name = name ?? "llm_guardrail",
             Position = position,
             OnFail = onFail,
             MaxRetries = maxRetries,
@@ -292,64 +269,6 @@ public static class LLMGuardrail
             Model = model,
             Policy = policy,
             MaxTokens = maxTokens,
-            Handler = async content =>
-            {
-                try
-                {
-                    var key = apiKey ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
-                    var prompt =
-                        "You are a content safety evaluator. Evaluate the following content against this policy:\n\n" +
-                        $"POLICY: {policy}\n\n" +
-                        $"CONTENT: {content}\n\n" +
-                        "Respond with ONLY a JSON object: {\"passed\": true/false, \"reason\": \"...\"}";
-
-                    // Parse provider/model format
-                    var modelName = model.Contains('/') ? model.Split('/', 2)[1] : model;
-                    var provider = model.Contains('/') ? model.Split('/', 2)[0] : "openai";
-
-                    string apiUrl = provider switch
-                    {
-                        "anthropic" => "https://api.anthropic.com/v1/messages",
-                        _ => "https://api.openai.com/v1/chat/completions",
-                    };
-
-                    var requestBody = new
-                    {
-                        model = modelName,
-                        messages = new[] { new { role = "user", content = prompt } },
-                        max_tokens = maxTokens ?? 300,
-                        temperature = 0,
-                    };
-
-                    var json = System.Text.Json.JsonSerializer.Serialize(requestBody);
-                    using var req = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, apiUrl);
-                    req.Headers.Add("Authorization", $"Bearer {key}");
-                    req.Content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
-
-                    using var resp = await _http.SendAsync(req);
-                    var body = await resp.Content.ReadAsStringAsync();
-                    var node = System.Text.Json.Nodes.JsonNode.Parse(body);
-                    var text = node?["choices"]?[0]?["message"]?["content"]?.GetValue<string>() ?? "";
-
-                    // Parse JSON response from LLM
-                    try
-                    {
-                        var resultNode = System.Text.Json.Nodes.JsonNode.Parse(text);
-                        var passed = resultNode?["passed"]?.GetValue<bool>() ?? false;
-                        var reason = resultNode?["reason"]?.GetValue<string>() ?? "";
-                        return new GuardrailResult(passed, reason);
-                    }
-                    catch
-                    {
-                        // If LLM didn't return valid JSON, be conservative and fail
-                        return new GuardrailResult(false, $"LLM guardrail returned unparseable response: {text[..Math.Min(200, text.Length)]}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    return new GuardrailResult(false, $"LLM guardrail evaluation error: {ex.Message}");
-                }
-            },
         };
         GuardrailDef.Validate(def);
         return def;
