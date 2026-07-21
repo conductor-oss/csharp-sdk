@@ -500,6 +500,10 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// <summary>Test-only seam — observe whether a worker manager is currently active.</summary>
     internal bool HasActiveWorkers => _workers is not null;
 
+    /// <summary>Test-only seam — look up a registered worker by task name (e.g. to assert a
+    /// server-evaluated guardrail registered no local worker at all).</summary>
+    internal AgentToolWorker? WorkerForTesting(string taskName) => _workers?.WorkerForTesting(taskName);
+
     // ── Disposal ─────────────────────────────────────────────
 
     public async ValueTask DisposeAsync()

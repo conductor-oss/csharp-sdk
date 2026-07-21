@@ -10,11 +10,13 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-// Suite 3 — Guardrail execution: verify guardrail function body runs and
-// that the agent status reflects the guardrail outcome.
+// Suite 3 — Guardrail execution: verify guardrail function bodies run, that
+// server-evaluated (regex/llm) guardrails register no local worker at all,
+// and that retry escalation actually fails a run instead of silently
+// exhausting max_turns.
 //
-// Validation: Interlocked counters on the guardrail function body.
-// We do NOT assert on LLM output text.
+// Validation: Interlocked counters on the guardrail function body plus
+// AgentResult.Status checks. We do NOT assert on LLM output text.
 //
 // CLAUDE.md rule: no LLM for validation; write test → make it fail → confirm failure.
 
@@ -84,10 +86,12 @@ public sealed class Suite3_Guardrails
         Assert.True(result.IsSuccess, $"Agent failed unexpectedly: {result.Error}");
     }
 
-    // ── 3.3  Regex guardrail blocks PII-like content ─────────────────────
+    // ── 3.3  Custom guardrail with a .NET regex check blocks PII ─────────
+    // custom guardrail using System.Text.RegularExpressions in its handler —
+    // not the server-evaluated RegexGuardrail.Create (that's 3.5)
 
     [SkippableFact]
-    public async Task RegexGuardrail_FunctionBodyExecutes()
+    public async Task CustomGuardrail_DotNetRegexCheck_BlocksPii()
     {
         _fixture.RequireServer();
 
@@ -117,30 +121,162 @@ public sealed class Suite3_Guardrails
             $"Unexpected status: {result.Status}");
     }
 
-    // ── 3.4  Tool-level guardrail: wrapper executes before tool ──────────
+    // ── 3.4  Tool-level guardrail actually blocks a violating call ───────
+    // real GuardrailDef attached via WithGuardrails; run must fail on violation
 
     [SkippableFact]
-    public async Task ToolGuardrail_WrapperExecutesBeforeTool()
+    public async Task ToolGuardrail_BlocksViolatingCall_RunFails()
     {
         _fixture.RequireServer();
 
-        var host = new S3ToolGuardrailHost();
-        var tools = ToolRegistry.FromInstance(host);
+        var guardHost = new S3ToolGuardrailDefHost();
+        var guardrail = GuardrailRegistry.FromInstance(guardHost).Single();
 
-        var agent = new Agent("s3_tool_guardrail")
+        var dbHost = new S3DbToolHost();
+        var tools = ToolRegistry.FromInstance(dbHost)
+            .Select(t => t.Name == "run_query" ? t.WithGuardrails(guardrail) : t)
+            .ToList();
+
+        var agent = new Agent("s3_tool_guardrail_raise")
         {
             Model = Settings.LlmModel,
-            Instructions = "Use run_query to answer database questions.",
+            Instructions = "You must call the run_query tool with the exact argument "
+                + "query=\"DROP TABLE users\" and nothing else.",
             Tools = tools,
         };
 
         await using var runtime = new AgentRuntime();
-        // Safe query — tool must execute
-        var result = await runtime.RunAsync(agent, "Find all users in the database.");
+        var result = await runtime.RunAsync(agent, "Run the query as instructed.");
 
-        Assert.True(result.IsSuccess, $"Agent failed: {result.Error}");
-        Assert.True(host.QueryCallCount > 0,
-            "Expected run_query to be called at least once.");
+        Assert.True(guardHost.CheckCount > 0,
+            $"Expected the tool guardrail to be invoked. CheckCount={guardHost.CheckCount}");
+        Assert.True(result.IsFailed || result.Status == Status.Terminated,
+            $"Expected the run to fail after the tool guardrail raised, got {result.Status}.");
+        Assert.Equal(0, dbHost.QueryCallCount);  // blocked pre-execution — the tool body never ran
+    }
+
+    // ── 3.5  RegexGuardrail.Create is server-evaluated: no local worker ──
+
+    [SkippableFact]
+    public async Task RegexGuardrail_ServerEvaluated_NoLocalWorkerRegistered()
+    {
+        _fixture.RequireServer();
+
+        var guard = RegexGuardrail.Create(
+            pattern: @"\d{3}-\d{2}-\d{4}",
+            name: "no_ssn_server_side",
+            message: "Response must not contain a social security number.",
+            onFail: OnFail.Raise);
+
+        var agent = new Agent("s3_regex_server_evaluated")
+        {
+            Model = Settings.LlmModel,
+            Instructions = "Answer briefly.",
+            Guardrails = [guard],
+        };
+
+        await using var runtime = new AgentRuntime();
+        var result = await runtime.RunAsync(agent, "Say hello.");
+
+        // Server-evaluated guardrails carry no local Handler and register no
+        // worker — the Conductor server compiles and runs them itself as an
+        // INLINE GraalJS task.
+        Assert.Null(runtime.WorkerForTesting("s3_regex_server_evaluated_output_guardrail"));
+        Assert.Null(runtime.WorkerForTesting("no_ssn_server_side"));
+        Assert.True(result.IsSuccess || result.IsFailed, $"Unexpected status: {result.Status}");
+    }
+
+    // ── 3.6  LLMGuardrail.Create is server-evaluated: no local worker ────
+
+    [SkippableFact]
+    public async Task LlmGuardrail_ServerEvaluated_NoLocalWorkerRegistered()
+    {
+        _fixture.RequireServer();
+
+        var guard = LLMGuardrail.Create(
+            model: Settings.LlmModel,
+            policy: "Reject any response that contains a number.",
+            name: "no_numbers_server_side",
+            onFail: OnFail.Raise);
+
+        var agent = new Agent("s3_llm_server_evaluated")
+        {
+            Model = Settings.LlmModel,
+            Instructions = "Answer briefly.",
+            Guardrails = [guard],
+        };
+
+        await using var runtime = new AgentRuntime();
+        var result = await runtime.RunAsync(agent, "What is 2+2? Just give the number.");
+
+        Assert.Null(runtime.WorkerForTesting("s3_llm_server_evaluated_output_guardrail"));
+        Assert.Null(runtime.WorkerForTesting("no_numbers_server_side"));
+        Assert.True(result.IsSuccess || result.IsFailed, $"Unexpected status: {result.Status}");
+    }
+
+    // ── 3.7  Agent-level RETRY escalates to RAISE after maxRetries ───────
+    // always-fail guardrail, maxRetries=1 → run must fail before the turn cap;
+    // COMPLETED would mean the loop exhausted max_turns without escalating
+
+    [SkippableFact]
+    public async Task AgentGuardrail_RetryEscalatesToRaise_AfterMaxRetries()
+    {
+        _fixture.RequireServer();
+
+        var host = new S3AlwaysFailGuardrailHost();
+        var guardrails = GuardrailRegistry.FromInstance(host);
+
+        var agent = new Agent("s3_retry_escalation")
+        {
+            Model = Settings.LlmModel,
+            Instructions = "Answer briefly.",
+            Guardrails = guardrails,
+            MaxTurns = 3,
+        };
+
+        await using var runtime = new AgentRuntime();
+        var result = await runtime.RunAsync(agent, "Say hello.");
+
+        Assert.True(host.CheckCount > 0, "Expected the guardrail to run at least once.");
+        Assert.True(result.IsFailed || result.Status == Status.Terminated,
+            $"Expected escalation to fail the run, got {result.Status}.");
+    }
+
+    // ── 3.8  Tool-level RETRY escalates to RAISE after maxRetries ───────
+    // same as 3.7 for a tool guardrail; env-gated — the server hardcodes the
+    // tool-guardrail iteration ref to "1", so retry never escalates today.
+    // set E2E_TOOL_GUARDRAIL_ESCALATION=true once the server fix ships
+
+    [SkippableFact]
+    public async Task ToolGuardrail_RetryEscalatesToRaise_AfterMaxRetries()
+    {
+        _fixture.RequireServer();
+        Skip.IfNot(
+            Environment.GetEnvironmentVariable("E2E_TOOL_GUARDRAIL_ESCALATION") == "true",
+            "Tool-guardrail retry escalation is disabled server-side — set "
+            + "E2E_TOOL_GUARDRAIL_ESCALATION=true once the server fix ships.");
+
+        var guardHost = new S3AlwaysFailToolGuardrailHost();
+        var guardrail = GuardrailRegistry.FromInstance(guardHost).Single();
+
+        var tools = ToolRegistry.FromInstance(new S3DbToolHost())
+            .Select(t => t.Name == "run_query" ? t.WithGuardrails(guardrail) : t)
+            .ToList();
+
+        var agent = new Agent("s3_tool_retry_escalation")
+        {
+            Model = Settings.LlmModel,
+            Instructions = "Call run_query with any query to answer database questions.",
+            Tools = tools,
+            MaxTurns = 3,
+        };
+
+        await using var runtime = new AgentRuntime();
+        var result = await runtime.RunAsync(agent, "Look up all users.");
+
+        Assert.True(guardHost.CheckCount > 0, "Expected the tool guardrail to run at least once.");
+        Assert.True(result.IsFailed || result.Status == Status.Terminated,
+            $"Expected escalation to fail the run, got {result.Status}.");
     }
 }
 
@@ -201,10 +337,8 @@ internal sealed class S3PiiToolHost
     };
 }
 
-internal sealed class S3ToolGuardrailHost
+internal sealed class S3DbToolHost
 {
-    private static readonly Regex DangerPattern = new(@"DROP\s+TABLE|DELETE\s+FROM", RegexOptions.IgnoreCase);
-
     private int _queryCalls;
     public int QueryCallCount => _queryCalls;
 
@@ -212,8 +346,49 @@ internal sealed class S3ToolGuardrailHost
     public string RunQuery(string query)
     {
         Interlocked.Increment(ref _queryCalls);
-        if (DangerPattern.IsMatch(query))
-            return "Blocked: destructive SQL detected.";
-        return $"Results: [('Alice', 30), ('Bob', 25)]";
+        return "Results: [('Alice', 30), ('Bob', 25)]";
+    }
+}
+
+internal sealed class S3ToolGuardrailDefHost
+{
+    private static readonly Regex DangerPattern = new(@"DROP\s+TABLE|DELETE\s+FROM", RegexOptions.IgnoreCase);
+
+    private int _checkCount;
+    public int CheckCount => _checkCount;
+
+    [Guardrail("no_drop_table", Position = Position.Input, OnFail = OnFail.Raise)]
+    public GuardrailResult NoDestructiveSql(string content)
+    {
+        Interlocked.Increment(ref _checkCount);
+        if (DangerPattern.IsMatch(content))
+            return new GuardrailResult(false, "Destructive SQL detected in tool call.");
+        return new GuardrailResult(true);
+    }
+}
+
+internal sealed class S3AlwaysFailGuardrailHost
+{
+    private int _checkCount;
+    public int CheckCount => _checkCount;
+
+    [Guardrail(Position = Position.Output, OnFail = OnFail.Retry, MaxRetries = 1)]
+    public GuardrailResult AlwaysFail(string content)
+    {
+        Interlocked.Increment(ref _checkCount);
+        return new GuardrailResult(false, "always fails, to force escalation");
+    }
+}
+
+internal sealed class S3AlwaysFailToolGuardrailHost
+{
+    private int _checkCount;
+    public int CheckCount => _checkCount;
+
+    [Guardrail(Position = Position.Input, OnFail = OnFail.Retry, MaxRetries = 1)]
+    public GuardrailResult AlwaysFail(string content)
+    {
+        Interlocked.Increment(ref _checkCount);
+        return new GuardrailResult(false, "always fails, to force escalation");
     }
 }
