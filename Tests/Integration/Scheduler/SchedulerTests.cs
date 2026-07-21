@@ -67,7 +67,18 @@ namespace Tests.Integration.Scheduler
             Cleanup();
         }
 
+        // Restricted to Orkes-only until the server HTTP verb is corrected upstream.
+        // The Orkes Conductor server currently exposes pause/resume of a schedule by name as GET
+        // (/scheduler/schedules/{name}/pause and .../resume), which is wrong for a state-mutating
+        // operation and forced every SDK (including this one) to call it with GET. OSS Conductor
+        // already models these correctly as PUT, so running these tests against OSS fails with
+        // "Request method 'GET' is not supported". The enterprise server is in the process of being
+        // updated to PUT. Once the deployed SDK-test enterprise server gets that update, these tests
+        // will start failing there (GET no longer accepted) — that is the signal to switch all SDKs
+        // to PUT for PauseSchedule/ResumeSchedule and remove this Orkes-only restriction so they run
+        // against OSS again (which is already on PUT).
         [Fact]
+        [Trait("ServerType", "Orkes")]
         public void PauseSchedule_ScheduleIsPaused()
         {
             Save();
@@ -77,7 +88,12 @@ namespace Tests.Integration.Scheduler
             Cleanup();
         }
 
+        // Restricted to Orkes-only for the same reason as PauseSchedule_ScheduleIsPaused above:
+        // ResumeSchedule (and the PauseSchedule it depends on) is called as GET to match the current
+        // Orkes server, but OSS correctly requires PUT. Re-enable against OSS (drop this trait) when
+        // the SDKs are switched to PUT after the enterprise server is corrected.
         [Fact]
+        [Trait("ServerType", "Orkes")]
         public void ResumeSchedule_ScheduleIsActive()
         {
             Save();
