@@ -57,18 +57,55 @@ public sealed class GuardrailDef
     // Handler receives the content string and returns a GuardrailResult.
     internal Func<string, Task<GuardrailResult>>? Handler { get; init; }
 
+    // ── Server-evaluated guardrail data (guardrailType "regex") ──
+    public IReadOnlyList<string>? Patterns { get; init; }
+    public string? Mode { get; init; }
+    public string? Message { get; init; }
+
+    // ── Server-evaluated guardrail data (guardrailType "llm") ──
+    public string? Model { get; init; }
+    public string? Policy { get; init; }
+    public int? MaxTokens { get; init; }
+
     /// <summary>
-    /// Validate the position/on_fail combination, mirroring Python's
-    /// <c>Guardrail.__init__</c>: <c>on_fail=human</c> is only valid for
-    /// <c>position=output</c> (input guardrails are client-side and cannot
-    /// pause a workflow).
+    /// Non-blank name, non-negative maxRetries, <c>on_fail=human</c> only for output
+    /// position (input runs client-side, can't pause a workflow), type-specific data
+    /// for regex/llm/custom. Mirrors Java's <c>GuardrailDef.Builder.build()</c>.
     /// </summary>
-    internal static void ValidatePositionOnFail(Position position, OnFail onFail)
+    internal static void Validate(GuardrailDef def)
     {
-        if (onFail == OnFail.Human && position == Position.Input)
+        if (string.IsNullOrWhiteSpace(def.Name))
+            throw new ArgumentException("GuardrailDef requires a non-blank name.");
+        if (def.MaxRetries < 0)
+            throw new ArgumentException($"GuardrailDef '{def.Name}': maxRetries must be non-negative.");
+        if (def.OnFail == OnFail.Human && def.Position == Position.Input)
             throw new ArgumentException(
                 "on_fail='human' is only valid for position='output' " +
                 "(input guardrails are client-side and cannot pause a workflow)");
+
+        switch (def.GuardrailType)
+        {
+            case "regex":
+                if (def.Patterns is null || def.Patterns.Count == 0)
+                    throw new ArgumentException(
+                        $"GuardrailDef '{def.Name}': regex guardrails require at least one pattern.");
+                if (def.Mode != "block" && def.Mode != "allow")
+                    throw new ArgumentException(
+                        $"GuardrailDef '{def.Name}': mode must be 'block' or 'allow', got '{def.Mode}'.");
+                break;
+            case "llm":
+                if (string.IsNullOrWhiteSpace(def.Model))
+                    throw new ArgumentException($"GuardrailDef '{def.Name}': llm guardrails require a model.");
+                if (string.IsNullOrWhiteSpace(def.Policy))
+                    throw new ArgumentException($"GuardrailDef '{def.Name}': llm guardrails require a policy.");
+                break;
+            case "custom":
+                if (def.Handler is null)
+                    throw new ArgumentException(
+                        $"GuardrailDef '{def.Name}': custom guardrails require a handler. " +
+                        "Use Guardrail.External(...) for a guardrail backed by a remote worker.");
+                break;
+        }
     }
 }
 
@@ -95,8 +132,7 @@ public static class Guardrail
         OnFail onFail = OnFail.Raise,
         int maxRetries = 3)
     {
-        GuardrailDef.ValidatePositionOnFail(position, onFail);
-        return new GuardrailDef
+        var def = new GuardrailDef
         {
             Name = name,
             Position = position,
@@ -105,6 +141,8 @@ public static class Guardrail
             GuardrailType = "external",
             Handler = null,
         };
+        GuardrailDef.Validate(def);
+        return def;
     }
 }
 
@@ -124,14 +162,16 @@ public static class GuardrailRegistry
             if (attr is null) continue;
 
             var name = attr.Name ?? ToolRegistry.ToSnakeCase(method.Name);
-            defs.Add(new GuardrailDef
+            var def = new GuardrailDef
             {
                 Name = name,
                 Position = attr.Position,
                 OnFail = attr.OnFail,
                 MaxRetries = attr.MaxRetries,
                 Handler = BuildHandler(instance, method),
-            });
+            };
+            GuardrailDef.Validate(def);
+            defs.Add(def);
         }
         return defs;
     }
@@ -170,20 +210,20 @@ public static class RegexGuardrail
         OnFail onFail = OnFail.Raise,
         int maxRetries = 3)
     {
-        if (mode != "block" && mode != "allow")
-            throw new ArgumentException($"Invalid mode '{mode}'. Must be 'block' or 'allow'.", nameof(mode));
-        GuardrailDef.ValidatePositionOnFail(position, onFail);
-
-        var compiled = patterns.Select(p => new Regex(p, RegexOptions.Compiled)).ToList();
+        var patternList = patterns.ToList();
+        var compiled = patternList.Select(p => new Regex(p, RegexOptions.Compiled)).ToList();
         var guardrailName = name ?? "regex_guardrail";
 
-        return new GuardrailDef
+        var def = new GuardrailDef
         {
             Name = guardrailName,
             Position = position,
             OnFail = onFail,
             MaxRetries = maxRetries,
             GuardrailType = "regex",
+            Patterns = patternList,
+            Mode = mode,
+            Message = message,
             Handler = content =>
             {
                 bool matched = compiled.Any(rx => rx.IsMatch(content));
@@ -201,6 +241,8 @@ public static class RegexGuardrail
                 return Task.FromResult(new GuardrailResult(true));
             },
         };
+        GuardrailDef.Validate(def);
+        return def;
     }
 
     /// <summary>Convenience overload accepting a single pattern string.</summary>
@@ -238,16 +280,18 @@ public static class LLMGuardrail
         int maxRetries = 3,
         string? apiKey = null)
     {
-        GuardrailDef.ValidatePositionOnFail(position, onFail);
         var guardrailName = name ?? "llm_guardrail";
 
-        return new GuardrailDef
+        var def = new GuardrailDef
         {
             Name = guardrailName,
             Position = position,
             OnFail = onFail,
             MaxRetries = maxRetries,
             GuardrailType = "llm",
+            Model = model,
+            Policy = policy,
+            MaxTokens = maxTokens,
             Handler = async content =>
             {
                 try
@@ -307,5 +351,7 @@ public static class LLMGuardrail
                 }
             },
         };
+        GuardrailDef.Validate(def);
+        return def;
     }
 }

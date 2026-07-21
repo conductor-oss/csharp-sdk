@@ -83,4 +83,114 @@ public class GuardrailTests
         var g = Guardrail.External("g", position: Position.Output, onFail: OnFail.Human);
         Assert.Equal(OnFail.Human, g.OnFail);
     }
+
+    // ── GuardrailDef.Validate matrix — every rule x every construction path ──
+    // Closes the bypass where GuardrailRegistry.FromInstance and direct init
+    // skipped validation entirely.
+
+    [Fact]
+    public void Validate_rejects_blank_name_for_external()
+    {
+        Assert.Throws<ArgumentException>(() => Guardrail.External("   "));
+    }
+
+    [Fact]
+    public void Validate_rejects_blank_name_for_regex()
+    {
+        Assert.Throws<ArgumentException>(() => RegexGuardrail.Create("x", name: "  "));
+    }
+
+    [Fact]
+    public void Validate_rejects_blank_name_for_llm()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            LLMGuardrail.Create("openai/gpt-4o-mini", "no bad stuff", name: ""));
+    }
+
+    [Fact]
+    public void Validate_rejects_blank_name_from_attribute_path()
+    {
+        var host = new BlankNameGuardrailHost();
+        Assert.Throws<ArgumentException>(() => GuardrailRegistry.FromInstance(host));
+    }
+
+    [Fact]
+    public void Validate_rejects_negative_max_retries_for_external()
+    {
+        Assert.Throws<ArgumentException>(() => Guardrail.External("g", maxRetries: -1));
+    }
+
+    [Fact]
+    public void Validate_rejects_negative_max_retries_for_regex()
+    {
+        Assert.Throws<ArgumentException>(() => RegexGuardrail.Create("x", maxRetries: -1));
+    }
+
+    [Fact]
+    public void Validate_rejects_negative_max_retries_for_llm()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            LLMGuardrail.Create("openai/gpt-4o-mini", "no bad stuff", maxRetries: -1));
+    }
+
+    [Fact]
+    public void Validate_rejects_negative_max_retries_from_attribute_path()
+    {
+        var host = new NegativeMaxRetriesGuardrailHost();
+        Assert.Throws<ArgumentException>(() => GuardrailRegistry.FromInstance(host));
+    }
+
+    [Fact]
+    public void Validate_rejects_empty_patterns_for_regex()
+    {
+        Assert.Throws<ArgumentException>(() => RegexGuardrail.Create([]));
+    }
+
+    [Fact]
+    public void Validate_rejects_invalid_mode_for_regex()
+    {
+        Assert.Throws<ArgumentException>(() => RegexGuardrail.Create("x", mode: "deny"));
+    }
+
+    [Fact]
+    public void Validate_rejects_blank_model_for_llm()
+    {
+        Assert.Throws<ArgumentException>(() => LLMGuardrail.Create("", "no bad stuff"));
+    }
+
+    [Fact]
+    public void Validate_rejects_blank_policy_for_llm()
+    {
+        Assert.Throws<ArgumentException>(() => LLMGuardrail.Create("openai/gpt-4o-mini", ""));
+    }
+
+    [Fact]
+    public void Validate_accepts_well_formed_regex_guardrail()
+    {
+        var g = RegexGuardrail.Create(["a", "b"], mode: "allow", name: "ok");
+        Assert.Equal("ok", g.Name);
+        Assert.Equal(new[] { "a", "b" }, g.Patterns);
+        Assert.Equal("allow", g.Mode);
+    }
+
+    [Fact]
+    public void Validate_accepts_well_formed_llm_guardrail()
+    {
+        var g = LLMGuardrail.Create("openai/gpt-4o-mini", "reject harmful content", maxTokens: 128);
+        Assert.Equal("openai/gpt-4o-mini", g.Model);
+        Assert.Equal("reject harmful content", g.Policy);
+        Assert.Equal(128, g.MaxTokens);
+    }
+
+    private sealed class BlankNameGuardrailHost
+    {
+        [Guardrail(Name = "  ")]
+        public GuardrailResult Check(string content) => new(true);
+    }
+
+    private sealed class NegativeMaxRetriesGuardrailHost
+    {
+        [Guardrail(MaxRetries = -1)]
+        public GuardrailResult Check(string content) => new(true);
+    }
 }
