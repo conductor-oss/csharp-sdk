@@ -182,7 +182,27 @@ namespace Conductor.Client.Models
             /// Enum WAITFORWEBHOOK for value: WAIT_FOR_WEBHOOK
             /// </summary>
             [EnumMember(Value = "WAIT_FOR_WEBHOOK")]
-            WAITFORWEBHOOK = 30
+            WAITFORWEBHOOK = 30,
+            /// <summary>
+            /// Enum PULLWORKFLOWMESSAGES for value: PULL_WORKFLOW_MESSAGES
+            /// </summary>
+            [EnumMember(Value = "PULL_WORKFLOW_MESSAGES")]
+            PULLWORKFLOWMESSAGES = 31,
+            /// <summary>
+            /// Enum AGENT for value: AGENT
+            /// </summary>
+            [EnumMember(Value = "AGENT")]
+            AGENT = 32,
+            /// <summary>
+            /// Enum GETAGENTCARD for value: GET_AGENT_CARD
+            /// </summary>
+            [EnumMember(Value = "GET_AGENT_CARD")]
+            GETAGENTCARD = 33,
+            /// <summary>
+            /// Enum CANCELAGENT for value: CANCEL_AGENT
+            /// </summary>
+            [EnumMember(Value = "CANCEL_AGENT")]
+            CANCELAGENT = 34
         }
         /// <summary>
         /// Gets or Sets WorkflowTaskType

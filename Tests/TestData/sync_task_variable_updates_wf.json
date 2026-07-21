@@ -106,7 +106,7 @@
     "schemaVersion": 2,
     "restartable": true,
     "workflowStatusListenerEnabled": false,
-    "ownerEmail": "viren@orkes.io",
+    "ownerEmail": "test@conductoross.io",
     "timeoutPolicy": "TIME_OUT_WF",
     "timeoutSeconds": 120,
     "variables": {},

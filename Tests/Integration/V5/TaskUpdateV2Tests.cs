@@ -126,8 +126,8 @@ namespace Tests.Integration.V5
                 System.Threading.Thread.Sleep(500);
             }
 
-            var final_ = _taskClient.GetTask(taskId);
-            Assert.Equal(expected, final_.Status);
+            var final = _taskClient.GetTask(taskId);
+            Assert.Equal(expected, final.Status);
         }
 
         private string StartWorkflow() =>
