@@ -245,13 +245,6 @@ namespace conductor_csharp.test.Api
                     $"Workflow status is {workflow.Status} and status of last task {lastTask.ReferenceTaskName} is {lastTask.Status}");
 
                 // Mark the WAIT task as completed by calling Task completion API
-                var taskResult = new TaskResult
-                {
-                    WorkflowInstanceId = workflowId,
-                    TaskId = lastTask.TaskId,
-                    Status = TaskResult.StatusEnum.COMPLETED,
-                    OutputData = new Dictionary<string, object> { { "greetings", "hello from Orkes" } }
-                };
                 workflow = _taskClient.UpdateTaskSync(
                     new Dictionary<string, object> { { "greetings", "hello from Orkes" } },
                     workflowId, lastTask.ReferenceTaskName, TaskResult.StatusEnum.COMPLETED, "");

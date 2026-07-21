@@ -12,6 +12,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      oss_conductor_version:
+        description: 'OSS Conductor image tag (falls back to E2E_TEST_OSS_CONDUCTOR_VERSION org var)'
+        required: false
+        type: string
 
 jobs:
   lint:
@@ -151,6 +156,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CONDUCTOR_SERVER_URL: http://localhost:8080/api
+      OSS_CONDUCTOR_VERSION: ${{ inputs.oss_conductor_version || vars.E2E_TEST_OSS_CONDUCTOR_VERSION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -159,7 +165,7 @@ jobs:
           cat <<'EOF' > docker-compose-oss.yaml
           services:
             conductor-server:
-              image: conductoross/conductor:latest
+              image: conductoross/conductor:${{ env.OSS_CONDUCTOR_VERSION }}
               environment:
                 - CONFIG_PROP=config-postgres.properties
               ports:
@@ -197,7 +203,7 @@ jobs:
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
-          --filter "Category=Integration&ServerType!=Orkes&Feature!=OSSSchedulerWIP"
+          --filter "Category=Integration&ServerType!=Orkes"
           -l "console;verbosity=normal"
       - name: Dump Conductor logs
         if: failure()
