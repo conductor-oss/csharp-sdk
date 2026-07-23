@@ -240,6 +240,8 @@ public sealed class Suite3_Guardrails
         Assert.True(host.CheckCount > 0, "Expected the guardrail to run at least once.");
         Assert.True(result.IsFailed || result.Status == Status.Terminated,
             $"Expected escalation to fail the run, got {result.Status}.");
+        Assert.False(string.IsNullOrEmpty(result.Error),
+            "Expected the guardrail failure message in Error, got null/empty.");
     }
 
     // ── 3.8  Tool-level RETRY escalates to RAISE after maxRetries ───────
