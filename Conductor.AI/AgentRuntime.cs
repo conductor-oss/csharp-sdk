@@ -383,8 +383,12 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
             IsComplete = node["isComplete"]?.GetValue<bool>() ?? false,
             IsRunning = node["isRunning"]?.GetValue<bool>() ?? false,
             IsWaiting = node["isWaiting"]?.GetValue<bool>() ?? false,
+            Output = node["output"] is JsonObject outObj
+                ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+                    outObj.ToJsonString(), AgentspanJson.Options)
+                : null,
             StatusValue = node["status"]?.GetValue<string>(),
-            Reason = node["reason"]?.GetValue<string>(),
+            Reason = node["reasonForIncompletion"]?.GetValue<string>(),
             CurrentTask = node["currentTask"]?.GetValue<string>(),
             PendingTool = node["pendingTool"] is not null
                 ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(

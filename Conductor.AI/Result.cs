@@ -366,8 +366,11 @@ public sealed class AgentHandle
             IsComplete = node["isComplete"]?.GetValue<bool>() ?? false,
             IsRunning = node["isRunning"]?.GetValue<bool>() ?? false,
             IsWaiting = node["isWaiting"]?.GetValue<bool>() ?? false,
+            Output = node["output"] is JsonObject outObj
+                ? JsonSerializer.Deserialize<Dictionary<string, object>>(outObj.ToJsonString(), AgentspanJson.Options)
+                : null,
             StatusValue = node["status"]?.GetValue<string>(),
-            Reason = node["reason"]?.GetValue<string>(),
+            Reason = node["reasonForIncompletion"]?.GetValue<string>(),
             CurrentTask = node["currentTask"]?.GetValue<string>(),
         };
     }
@@ -533,7 +536,7 @@ public sealed class AgentHandle
             ExecutionId = status["executionId"]?.GetValue<string>() ?? "",
             Status = parsedStatus,
             Output = outputDict,
-            Error = status["error"]?.GetValue<string>(),
+            Error = status["reasonForIncompletion"]?.GetValue<string>(),
             TokenUsage = tokenUsage,
             FinishReason = finishReason,
         };
