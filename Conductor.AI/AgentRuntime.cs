@@ -377,6 +377,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     {
         var node = await _http.GetStatusAsync(executionId, ct);
         if (node is null) return new AgentStatus { ExecutionId = executionId };
+        var statusValue = node["status"]?.GetValue<string>();
         return new AgentStatus
         {
             ExecutionId = node["executionId"]?.GetValue<string>() ?? executionId,
@@ -387,8 +388,8 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
                 ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
                     outObj.ToJsonString(), AgentspanJson.Options)
                 : null,
-            StatusValue = node["status"]?.GetValue<string>(),
-            Reason = node["reasonForIncompletion"]?.GetValue<string>(),
+            StatusValue = statusValue,
+            Reason = statusValue != "COMPLETED" ? node["reasonForIncompletion"]?.GetValue<string>() : null,
             CurrentTask = node["currentTask"]?.GetValue<string>(),
             PendingTool = node["pendingTool"] is not null
                 ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(

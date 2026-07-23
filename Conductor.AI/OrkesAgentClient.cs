@@ -210,6 +210,13 @@ public sealed class OrkesAgentClient : IAgentClient
             queryParams: new List<KeyValuePair<string, string>> { new("includeTasks", "false") },
             nullOnFailure: true);
 
+    /// <summary>Fetch the workflow with its tasks — used to aggregate tool calls from call_* tasks. Enrichment read — null on any failure.</summary>
+    public async Task<JsonNode?> GetWorkflowWithTasksAsync(string executionId, CancellationToken ct = default)
+        => await ExecuteJsonAsync(
+            Method.Get, $"/workflow/{Uri.EscapeDataString(executionId)}", null, ct,
+            queryParams: new List<KeyValuePair<string, string>> { new("includeTasks", "true") },
+            nullOnFailure: true);
+
     // ── Run by name ──────────────────────────────────────────
 
     /// <summary>Start a pre-deployed workflow by name (no agentConfig payload).</summary>

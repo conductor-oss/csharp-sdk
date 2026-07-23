@@ -53,11 +53,15 @@ public sealed class AgentStatusMappingTests
 
     private static (HttpStatusCode, string) RouteStatusAndExecution(
         HttpRequestMessage request, string statusBody, string executionBody = "{}")
+        => Route(request, statusBody, executionBody, "{}");
+
+    private static (HttpStatusCode, string) Route(
+        HttpRequestMessage request, string statusBody, string executionBody, string workflowBody)
     {
         var path = request.RequestUri!.AbsolutePath;
-        return path.EndsWith("/status")
-            ? (HttpStatusCode.OK, statusBody)
-            : (HttpStatusCode.OK, executionBody);
+        if (path.EndsWith("/status")) return (HttpStatusCode.OK, statusBody);
+        if (path.Contains("/execution/")) return (HttpStatusCode.OK, executionBody);
+        return (HttpStatusCode.OK, workflowBody);
     }
 
     // ── AgentRuntime.GetStatusAsync ──────────────────────────────────────
@@ -133,5 +137,72 @@ public sealed class AgentStatusMappingTests
 
         Assert.Equal(Status.Completed, result.Status);
         Assert.Null(result.Error);
+    }
+
+    // ── Java parity: Error only read on non-Completed status ─────────────
+
+    [Fact]
+    public async Task WaitAsync_CompletedWithStrayReasonForIncompletion_ErrorIgnored()
+    {
+        // Defensive gate matching Java's `if (status != COMPLETED)` — even if the
+        // server ever sent a stray reasonForIncompletion on a completed run, it
+        // must not leak into Error.
+        var config = BuildConfig(req => RouteStatusAndExecution(req, """
+            {"executionId":"e1","status":"COMPLETED","isComplete":true,"isRunning":false,
+             "isWaiting":false,"reasonForIncompletion":"should be ignored","output":{"result":"hello"}}
+            """));
+
+        var handle = new AgentHandle("e1", new OrkesAgentClient(config));
+        var result = await handle.WaitAsync();
+
+        Assert.Null(result.Error);
+    }
+
+    // ── Java parity: ToolCalls aggregated from workflow tasks ────────────
+
+    [Fact]
+    public async Task WaitAsync_ExtractsToolCallsFromWorkflowTasks()
+    {
+        var config = BuildConfig(req => Route(
+            req,
+            statusBody: """
+                {"executionId":"e1","status":"COMPLETED","isComplete":true,"isRunning":false,"isWaiting":false}
+                """,
+            executionBody: "{}",
+            workflowBody: """
+                {"tasks":[
+                    {"taskType":"echo","referenceTaskName":"call_echo_1",
+                     "inputData":{"query":"hello","_internal":"drop me","ctx":"drop me too"},
+                     "outputData":{"result":"echoed: hello"}},
+                    {"taskType":"LLM_CHAT_COMPLETE","referenceTaskName":"llm_1",
+                     "inputData":{},"outputData":{"promptTokens":10}}
+                ]}
+                """));
+
+        var handle = new AgentHandle("e1", new OrkesAgentClient(config));
+        var result = await handle.WaitAsync();
+
+        var toolCall = Assert.Single(result.ToolCalls!);
+        Assert.Equal("echo", toolCall["name"]);
+        var args = Assert.IsType<Dictionary<string, object>>(toolCall["args"]);
+        Assert.Equal(["query"], args.Keys);
+        Assert.Equal("echoed: hello", toolCall["result"]!.ToString());
+    }
+
+    [Fact]
+    public async Task WaitAsync_NoMatchingTasks_ToolCallsStaysNull()
+    {
+        var config = BuildConfig(req => Route(
+            req,
+            statusBody: """
+                {"executionId":"e1","status":"COMPLETED","isComplete":true,"isRunning":false,"isWaiting":false}
+                """,
+            executionBody: "{}",
+            workflowBody: """{"tasks":[]}"""));
+
+        var handle = new AgentHandle("e1", new OrkesAgentClient(config));
+        var result = await handle.WaitAsync();
+
+        Assert.Null(result.ToolCalls);
     }
 }
