@@ -168,7 +168,7 @@ Built-in factories (all return `ToolDef`):
 
 **`RegexGuardrail.Create`** — `(string|IEnumerable<string> pattern(s), string mode = "block", string? name = null, string? message = null, Position position = Output, OnFail onFail = Retry, int maxRetries = 3)`. `mode`: `"block"` (fail on match) or `"allow"` (fail when nothing matches).
 
-**`LLMGuardrail.Create`** — `(string model, string policy, string? name = null, int? maxTokens = null, Position position = Output, OnFail onFail = Retry, int maxRetries = 3, string? apiKey = null)`.
+**`LLMGuardrail.Create`** — `(string model, string policy, string? name = null, int? maxTokens = null, Position position = Output, OnFail onFail = Retry, int maxRetries = 3)`. Evaluated server-side — no API key needed in-process.
 
 Enums: `Position` { `Input`, `Output` }; `OnFail` { `Retry`, `Raise`, `Fix`, `Human` }.
 

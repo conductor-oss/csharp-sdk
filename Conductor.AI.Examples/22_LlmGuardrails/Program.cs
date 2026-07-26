@@ -12,15 +12,14 @@
  */
 // LLM Guardrails — AI-powered content safety evaluation.
 //
-// LLMGuardrail.Create() uses a separate LLM to evaluate whether agent
-// output meets a defined policy.  The guardrail LLM receives the policy
-// + content and must respond with {"passed": true/false, "reason": "..."}.
+// LLMGuardrail.Create() is data-only: the Conductor server evaluates the
+// policy against the content using its own configured LLM providers.
+// No worker process or API key is needed on the client side.
 //
 // Requirements:
 //   - Agentspan server with LLM support
 //   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
 //   - AGENTSPAN_LLM_MODEL set in environment
-//   - OPENAI_API_KEY set in environment (for the guardrail LLM call)
 
 using Conductor.AI;
 using Conductor.AI.Examples;

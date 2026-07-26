@@ -52,7 +52,10 @@
 //   - Agentspan server with LLM support
 //   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
 //   - AGENTSPAN_LLM_MODEL set in environment
-//   - OPENAI_API_KEY set in environment (for LLM guardrails)
+//
+// Regex/LLM guardrails are evaluated server-side (no client worker, no API
+// key needed on this process) — rows noted "in worker" below describe
+// custom guardrails only.
 
 using Conductor.AI;
 using Conductor.AI.Examples;

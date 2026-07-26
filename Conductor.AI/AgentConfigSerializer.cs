@@ -259,7 +259,7 @@ internal static class AgentConfigSerializer
         if (agent.Guardrails.Count > 0)
         {
             var guardrails = new JsonArray();
-            foreach (var g in agent.Guardrails) guardrails.Add(SerializeGuardrail(g));
+            foreach (var g in agent.Guardrails) guardrails.Add(SerializeGuardrail(g, agent.Name));
             cfg["guardrails"] = guardrails;
         }
 
@@ -518,7 +518,7 @@ internal static class AgentConfigSerializer
         if (tool.Guardrails.Count > 0)
         {
             var gArr = new JsonArray();
-            foreach (var g in tool.Guardrails) gArr.Add(SerializeGuardrail(g));
+            foreach (var g in tool.Guardrails) gArr.Add(SerializeGuardrail(g, tool.Name));
             t["guardrails"] = gArr;
         }
 
@@ -636,22 +636,49 @@ internal static class AgentConfigSerializer
         return hMap;
     }
 
-    internal static JsonObject SerializeGuardrail(GuardrailDef g) => new()
+    /// <summary>
+    /// Regex/llm: real <c>guardrailType</c> + data, server-evaluated, no worker.
+    /// Custom (local <see cref="GuardrailDef.Handler"/>): <c>taskName = {scopeName}_output_guardrail</c>,
+    /// the combined per-scope worker. External: remote worker by name, no taskName.
+    /// </summary>
+    internal static JsonObject SerializeGuardrail(GuardrailDef g, string scopeName)
     {
-        ["name"] = g.Name,
-        ["position"] = g.Position == Position.Input ? "input" : "output",
-        ["onFail"] = g.OnFail switch
+        GuardrailDef.Validate(g);
+
+        var map = new JsonObject
         {
-            OnFail.Retry => "retry",
-            OnFail.Fix => "fix",
-            OnFail.Human => "human",
-            _ => "raise",
-        },
-        ["maxRetries"] = g.MaxRetries,
-        // External guardrails reference a remote worker by name. Regex/LLM/custom
-        // guardrails run as locally-registered worker tasks, so they serialize as
-        // "custom" (the server treats them identically — a named task).
-        ["guardrailType"] = g.External ? "external" : "custom",
-        ["taskName"] = g.Name,  // Conductor task name = guardrail name
-    };
+            ["name"] = g.Name,
+            ["position"] = g.Position == Position.Input ? "input" : "output",
+            ["onFail"] = g.OnFail switch
+            {
+                OnFail.Retry => "retry",
+                OnFail.Fix => "fix",
+                OnFail.Human => "human",
+                _ => "raise",
+            },
+            ["maxRetries"] = g.MaxRetries,
+            ["guardrailType"] = g.GuardrailType,
+        };
+
+        if (g.Handler is not null)
+            map["taskName"] = $"{scopeName}_output_guardrail";
+
+        if (g.Patterns is { Count: > 0 })
+        {
+            var patterns = new JsonArray();
+            foreach (var p in g.Patterns) patterns.Add(p);
+            map["patterns"] = patterns;
+            map["mode"] = g.Mode ?? "block";
+            if (g.Message is not null) map["message"] = g.Message;
+        }
+
+        if (g.Model is not null)
+        {
+            map["model"] = g.Model;
+            map["policy"] = g.Policy;
+            if (g.MaxTokens is not null) map["maxTokens"] = g.MaxTokens.Value;
+        }
+
+        return map;
+    }
 }

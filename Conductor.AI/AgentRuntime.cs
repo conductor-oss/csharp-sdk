@@ -377,14 +377,19 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     {
         var node = await _http.GetStatusAsync(executionId, ct);
         if (node is null) return new AgentStatus { ExecutionId = executionId };
+        var statusValue = node["status"]?.GetValue<string>();
         return new AgentStatus
         {
             ExecutionId = node["executionId"]?.GetValue<string>() ?? executionId,
             IsComplete = node["isComplete"]?.GetValue<bool>() ?? false,
             IsRunning = node["isRunning"]?.GetValue<bool>() ?? false,
             IsWaiting = node["isWaiting"]?.GetValue<bool>() ?? false,
-            StatusValue = node["status"]?.GetValue<string>(),
-            Reason = node["reason"]?.GetValue<string>(),
+            Output = node["output"] is JsonObject outObj
+                ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+                    outObj.ToJsonString(), AgentspanJson.Options)
+                : null,
+            StatusValue = statusValue,
+            Reason = statusValue != "COMPLETED" ? node["reasonForIncompletion"]?.GetValue<string>() : null,
             CurrentTask = node["currentTask"]?.GetValue<string>(),
             PendingTool = node["pendingTool"] is not null
                 ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
@@ -499,6 +504,10 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
 
     /// <summary>Test-only seam — observe whether a worker manager is currently active.</summary>
     internal bool HasActiveWorkers => _workers is not null;
+
+    /// <summary>Test-only seam — look up a registered worker by task name (e.g. to assert a
+    /// server-evaluated guardrail registered no local worker at all).</summary>
+    internal AgentToolWorker? WorkerForTesting(string taskName) => _workers?.WorkerForTesting(taskName);
 
     // ── Disposal ─────────────────────────────────────────────
 

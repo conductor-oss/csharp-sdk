@@ -11,9 +11,6 @@
  * specific language governing permissions and limitations under the License.
  */
 using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 
 namespace Conductor.AI;
 
@@ -57,18 +54,55 @@ public sealed class GuardrailDef
     // Handler receives the content string and returns a GuardrailResult.
     internal Func<string, Task<GuardrailResult>>? Handler { get; init; }
 
+    // ── Server-evaluated guardrail data (guardrailType "regex") ──
+    public IReadOnlyList<string>? Patterns { get; init; }
+    public string? Mode { get; init; }
+    public string? Message { get; init; }
+
+    // ── Server-evaluated guardrail data (guardrailType "llm") ──
+    public string? Model { get; init; }
+    public string? Policy { get; init; }
+    public int? MaxTokens { get; init; }
+
     /// <summary>
-    /// Validate the position/on_fail combination, mirroring Python's
-    /// <c>Guardrail.__init__</c>: <c>on_fail=human</c> is only valid for
-    /// <c>position=output</c> (input guardrails are client-side and cannot
-    /// pause a workflow).
+    /// Non-blank name, non-negative maxRetries, <c>on_fail=human</c> only for output
+    /// position (input runs client-side, can't pause a workflow), type-specific data
+    /// for regex/llm/custom. Mirrors Java's <c>GuardrailDef.Builder.build()</c>.
     /// </summary>
-    internal static void ValidatePositionOnFail(Position position, OnFail onFail)
+    internal static void Validate(GuardrailDef def)
     {
-        if (onFail == OnFail.Human && position == Position.Input)
+        if (string.IsNullOrWhiteSpace(def.Name))
+            throw new ArgumentException("GuardrailDef requires a non-blank name.");
+        if (def.MaxRetries < 0)
+            throw new ArgumentException($"GuardrailDef '{def.Name}': maxRetries must be non-negative.");
+        if (def.OnFail == OnFail.Human && def.Position == Position.Input)
             throw new ArgumentException(
                 "on_fail='human' is only valid for position='output' " +
                 "(input guardrails are client-side and cannot pause a workflow)");
+
+        switch (def.GuardrailType)
+        {
+            case "regex":
+                if (def.Patterns is null || def.Patterns.Count == 0)
+                    throw new ArgumentException(
+                        $"GuardrailDef '{def.Name}': regex guardrails require at least one pattern.");
+                if (def.Mode != "block" && def.Mode != "allow")
+                    throw new ArgumentException(
+                        $"GuardrailDef '{def.Name}': mode must be 'block' or 'allow', got '{def.Mode}'.");
+                break;
+            case "llm":
+                if (string.IsNullOrWhiteSpace(def.Model))
+                    throw new ArgumentException($"GuardrailDef '{def.Name}': llm guardrails require a model.");
+                if (string.IsNullOrWhiteSpace(def.Policy))
+                    throw new ArgumentException($"GuardrailDef '{def.Name}': llm guardrails require a policy.");
+                break;
+            case "custom":
+                if (def.Handler is null)
+                    throw new ArgumentException(
+                        $"GuardrailDef '{def.Name}': custom guardrails require a handler. " +
+                        "Use Guardrail.External(...) for a guardrail backed by a remote worker.");
+                break;
+        }
     }
 }
 
@@ -95,8 +129,7 @@ public static class Guardrail
         OnFail onFail = OnFail.Raise,
         int maxRetries = 3)
     {
-        GuardrailDef.ValidatePositionOnFail(position, onFail);
-        return new GuardrailDef
+        var def = new GuardrailDef
         {
             Name = name,
             Position = position,
@@ -105,6 +138,8 @@ public static class Guardrail
             GuardrailType = "external",
             Handler = null,
         };
+        GuardrailDef.Validate(def);
+        return def;
     }
 }
 
@@ -124,14 +159,16 @@ public static class GuardrailRegistry
             if (attr is null) continue;
 
             var name = attr.Name ?? ToolRegistry.ToSnakeCase(method.Name);
-            defs.Add(new GuardrailDef
+            var def = new GuardrailDef
             {
                 Name = name,
                 Position = attr.Position,
                 OnFail = attr.OnFail,
                 MaxRetries = attr.MaxRetries,
                 Handler = BuildHandler(instance, method),
-            });
+            };
+            GuardrailDef.Validate(def);
+            defs.Add(def);
         }
         return defs;
     }
@@ -158,6 +195,9 @@ public static class GuardrailRegistry
 /// A guardrail that validates content against regex patterns.
 /// Block mode (default): fails if any pattern matches.
 /// Allow mode: fails if NO pattern matches.
+///
+/// <para>Serialized as <c>guardrailType: "regex"</c> — the Conductor server evaluates the
+/// patterns (ECMAScript/GraalJS dialect). No worker process is needed.</para>
 /// </summary>
 public static class RegexGuardrail
 {
@@ -170,37 +210,19 @@ public static class RegexGuardrail
         OnFail onFail = OnFail.Raise,
         int maxRetries = 3)
     {
-        if (mode != "block" && mode != "allow")
-            throw new ArgumentException($"Invalid mode '{mode}'. Must be 'block' or 'allow'.", nameof(mode));
-        GuardrailDef.ValidatePositionOnFail(position, onFail);
-
-        var compiled = patterns.Select(p => new Regex(p, RegexOptions.Compiled)).ToList();
-        var guardrailName = name ?? "regex_guardrail";
-
-        return new GuardrailDef
+        var def = new GuardrailDef
         {
-            Name = guardrailName,
+            Name = name ?? "regex_guardrail",
             Position = position,
             OnFail = onFail,
             MaxRetries = maxRetries,
             GuardrailType = "regex",
-            Handler = content =>
-            {
-                bool matched = compiled.Any(rx => rx.IsMatch(content));
-
-                if (mode == "block" && matched)
-                {
-                    var msg = message ?? "Content matched a blocked pattern.";
-                    return Task.FromResult(new GuardrailResult(false, msg));
-                }
-                if (mode == "allow" && !matched)
-                {
-                    var msg = message ?? "Content did not match any allowed pattern.";
-                    return Task.FromResult(new GuardrailResult(false, msg));
-                }
-                return Task.FromResult(new GuardrailResult(true));
-            },
+            Patterns = patterns.ToList(),
+            Mode = mode,
+            Message = message,
         };
+        GuardrailDef.Validate(def);
+        return def;
     }
 
     /// <summary>Convenience overload accepting a single pattern string.</summary>
@@ -222,12 +244,12 @@ public static class RegexGuardrail
 /// The model receives the policy + content and must respond with JSON:
 ///   {"passed": true/false, "reason": "..."}
 ///
-/// Requires OPENAI_API_KEY in the environment (or set the apiKey parameter).
+/// <para>Serialized as <c>guardrailType: "llm"</c> — the Conductor server calls the
+/// specified model via its own configured LLM providers. No worker process, HTTP client,
+/// or API key is needed on the client side.</para>
 /// </summary>
 public static class LLMGuardrail
 {
-    private static readonly System.Net.Http.HttpClient _http = new();
-
     public static GuardrailDef Create(
         string model,
         string policy,
@@ -235,77 +257,20 @@ public static class LLMGuardrail
         int? maxTokens = null,
         Position position = Position.Output,
         OnFail onFail = OnFail.Raise,
-        int maxRetries = 3,
-        string? apiKey = null)
+        int maxRetries = 3)
     {
-        GuardrailDef.ValidatePositionOnFail(position, onFail);
-        var guardrailName = name ?? "llm_guardrail";
-
-        return new GuardrailDef
+        var def = new GuardrailDef
         {
-            Name = guardrailName,
+            Name = name ?? "llm_guardrail",
             Position = position,
             OnFail = onFail,
             MaxRetries = maxRetries,
             GuardrailType = "llm",
-            Handler = async content =>
-            {
-                try
-                {
-                    var key = apiKey ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
-                    var prompt =
-                        "You are a content safety evaluator. Evaluate the following content against this policy:\n\n" +
-                        $"POLICY: {policy}\n\n" +
-                        $"CONTENT: {content}\n\n" +
-                        "Respond with ONLY a JSON object: {\"passed\": true/false, \"reason\": \"...\"}";
-
-                    // Parse provider/model format
-                    var modelName = model.Contains('/') ? model.Split('/', 2)[1] : model;
-                    var provider = model.Contains('/') ? model.Split('/', 2)[0] : "openai";
-
-                    string apiUrl = provider switch
-                    {
-                        "anthropic" => "https://api.anthropic.com/v1/messages",
-                        _ => "https://api.openai.com/v1/chat/completions",
-                    };
-
-                    var requestBody = new
-                    {
-                        model = modelName,
-                        messages = new[] { new { role = "user", content = prompt } },
-                        max_tokens = maxTokens ?? 300,
-                        temperature = 0,
-                    };
-
-                    var json = System.Text.Json.JsonSerializer.Serialize(requestBody);
-                    using var req = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, apiUrl);
-                    req.Headers.Add("Authorization", $"Bearer {key}");
-                    req.Content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
-
-                    using var resp = await _http.SendAsync(req);
-                    var body = await resp.Content.ReadAsStringAsync();
-                    var node = System.Text.Json.Nodes.JsonNode.Parse(body);
-                    var text = node?["choices"]?[0]?["message"]?["content"]?.GetValue<string>() ?? "";
-
-                    // Parse JSON response from LLM
-                    try
-                    {
-                        var resultNode = System.Text.Json.Nodes.JsonNode.Parse(text);
-                        var passed = resultNode?["passed"]?.GetValue<bool>() ?? false;
-                        var reason = resultNode?["reason"]?.GetValue<string>() ?? "";
-                        return new GuardrailResult(passed, reason);
-                    }
-                    catch
-                    {
-                        // If LLM didn't return valid JSON, be conservative and fail
-                        return new GuardrailResult(false, $"LLM guardrail returned unparseable response: {text[..Math.Min(200, text.Length)]}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    return new GuardrailResult(false, $"LLM guardrail evaluation error: {ex.Message}");
-                }
-            },
+            Model = model,
+            Policy = policy,
+            MaxTokens = maxTokens,
         };
+        GuardrailDef.Validate(def);
+        return def;
     }
 }
