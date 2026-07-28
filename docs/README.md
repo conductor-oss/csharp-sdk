@@ -58,3 +58,12 @@ The durable AI-agent layer has its own documentation set:
 |---|---|
 | [documentation-standard.md](documentation-standard.md) | How these docs are structured and written. |
 | [documentation-parity.md](documentation-parity.md) | Where this SDK's docs stand against the Java and Python SDKs. |
+
+## Design decisions
+
+Architectural decision records live in [adr/](adr/). The domain glossary is
+[`CONTEXT.md`](../CONTEXT.md) at the repo root.
+
+| ADR | Decision |
+|---|---|
+| [0001](adr/0001-conductor-agent-env-naming.md) | `CONDUCTOR_AGENT_*` env naming, retained `AGENTSPAN_*` aliases, and why the `Agentspan*` type names were not renamed. |
