@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased — Conductor agent env naming]
+
+### Changed
+
+- **Agent runtime environment variables renamed to `CONDUCTOR_AGENT_*`**, matching the
+  Java and Python SDKs. The legacy `AGENTSPAN_*` names remain honored as fallbacks, so
+  **no action is required**:
+
+  | Current | Legacy fallback |
+  |---|---|
+  | `CONDUCTOR_AGENT_WORKER_THREADS` | `AGENTSPAN_WORKER_THREADS` |
+  | `CONDUCTOR_AGENT_WORKER_POLL_INTERVAL` | `AGENTSPAN_WORKER_POLL_INTERVAL` |
+  | `CONDUCTOR_AGENT_AUTO_START_WORKERS` | `AGENTSPAN_AUTO_START_WORKERS` |
+  | `CONDUCTOR_AGENT_DAEMON_WORKERS` | `AGENTSPAN_DAEMON_WORKERS` |
+  | `CONDUCTOR_AGENT_STREAMING_ENABLED` | `AGENTSPAN_STREAMING_ENABLED` |
+  | `CONDUCTOR_AGENT_LIVENESS_ENABLED` | `AGENTSPAN_LIVENESS_ENABLED` |
+  | `CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS` | `AGENTSPAN_LIVENESS_STALL_SECONDS` |
+  | `CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS` | `AGENTSPAN_LIVENESS_CHECK_INTERVAL_SECONDS` |
+
+  Two prefixes coexist on purpose: connection settings stay `CONDUCTOR_*` because they are
+  shared with the core SDK, while these knobs configure only the agent layer.
+
+  For these knobs, a blank or whitespace-only value is now treated as unset and falls
+  through to the legacy name. A *malformed* value still falls back to the built-in default
+  rather than to the legacy name, so a typo cannot silently pick up stale configuration.
+
+- Public type names are deliberately **not** renamed. `AgentspanException` is the base of
+  eight public exception types and `AgentspanJson.Options` appears in user code, so both
+  keep their names for source and binary compatibility.
+
+### Known issue
+
+- Connection-setting resolution (`CONDUCTOR_SERVER_URL` / `_AUTH_KEY` / `_AUTH_SECRET`)
+  falls back only on an **unset** variable, not a blank one. On Unix,
+  `export CONDUCTOR_SERVER_URL=` yields an empty `BasePath` instead of falling through to
+  the legacy name or the default. This contradicts the "blank env vars no longer clobber
+  the fallback chain" note in the entry below, which overstated the fix. The agent knobs
+  above do handle blanks correctly.
+
 ## [Unreleased — async executor / thread-starvation fix]
 
 > **Breaking (source + binary):** ~26 `XxxAsync` methods on the `*ResourceApi`

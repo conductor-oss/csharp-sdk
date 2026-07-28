@@ -54,6 +54,34 @@ public sealed class AgentConfigTests
     }
 
     [Fact]
+    public void EachEnvVar_Honored_CurrentNames()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AGENT_WORKER_POLL_INTERVAL"] = "250",
+            ["CONDUCTOR_AGENT_WORKER_THREADS"] = "4",
+            ["CONDUCTOR_AGENT_AUTO_START_WORKERS"] = "false",
+            ["CONDUCTOR_AGENT_DAEMON_WORKERS"] = "false",
+            ["CONDUCTOR_AGENT_STREAMING_ENABLED"] = "false",
+            ["CONDUCTOR_AGENT_LIVENESS_ENABLED"] = "false",
+            ["CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS"] = "45.5",
+            ["CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS"] = "5.5",
+        };
+        var config = WithEnv(env);
+
+        Assert.Equal(250, config.WorkerPollIntervalMs);
+        Assert.Equal(4, config.WorkerThreadCount);
+        Assert.False(config.AutoStartWorkers);
+        Assert.False(config.DaemonWorkers);
+        Assert.False(config.StreamingEnabled);
+        Assert.False(config.LivenessEnabled);
+        Assert.Equal(45.5, config.LivenessStallSeconds);
+        Assert.Equal(5.5, config.LivenessCheckIntervalSeconds);
+    }
+
+    // Unchanged from before the CONDUCTOR_AGENT_* rename — passing proves the legacy
+    // names still work end to end, not merely that a fallback branch exists.
+    [Fact]
     public void EachEnvVar_Honored()
     {
         var env = new Dictionary<string, string>
@@ -103,6 +131,79 @@ public sealed class AgentConfigTests
     {
         var config = WithEnv(new() { ["AGENTSPAN_WORKER_POLL_INTERVAL"] = "0" });
         Assert.Equal(100, config.WorkerPollIntervalMs);
+    }
+
+    // ── CONDUCTOR_AGENT_* precedence over legacy AGENTSPAN_* ───────────
+
+    [Fact]
+    public void CurrentName_TakesPrecedenceOverLegacy()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AGENT_WORKER_THREADS"] = "8",
+            ["AGENTSPAN_WORKER_THREADS"] = "2",
+        };
+        Assert.Equal(8, WithEnv(env).WorkerThreadCount);
+    }
+
+    [Fact]
+    public void LegacyName_UsedWhenCurrentAbsent()
+    {
+        var env = new Dictionary<string, string> { ["AGENTSPAN_WORKER_THREADS"] = "2" };
+        Assert.Equal(2, WithEnv(env).WorkerThreadCount);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BlankCurrentName_DoesNotClobberLegacy(string blank)
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AGENT_WORKER_THREADS"] = blank,
+            ["AGENTSPAN_WORKER_THREADS"] = "2",
+        };
+        Assert.Equal(2, WithEnv(env).WorkerThreadCount);
+    }
+
+    [Fact]
+    public void BlankBothNames_FallsBackToDefault()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AGENT_WORKER_THREADS"] = "",
+            ["AGENTSPAN_WORKER_THREADS"] = "   ",
+        };
+        Assert.Equal(1, WithEnv(env).WorkerThreadCount);
+    }
+
+    [Fact]
+    public void Precedence_AppliesToBoolAndDoubleFields()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AGENT_AUTO_START_WORKERS"] = "false",
+            ["AGENTSPAN_AUTO_START_WORKERS"] = "true",
+            ["CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS"] = "12.5",
+            ["AGENTSPAN_LIVENESS_STALL_SECONDS"] = "99.9",
+        };
+        var config = WithEnv(env);
+
+        Assert.False(config.AutoStartWorkers);
+        Assert.Equal(12.5, config.LivenessStallSeconds);
+    }
+
+    [Fact]
+    public void InvalidCurrentName_DoesNotSilentlyUseLegacy()
+    {
+        // A malformed current value is not "unset" — it must not resolve to the legacy
+        // value, or a typo would silently pick up stale config.
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AGENT_WORKER_THREADS"] = "not-a-number",
+            ["AGENTSPAN_WORKER_THREADS"] = "7",
+        };
+        Assert.Equal(1, WithEnv(env).WorkerThreadCount);
     }
 
     // ── R4: no connection/auth/log field by construction ───────────────

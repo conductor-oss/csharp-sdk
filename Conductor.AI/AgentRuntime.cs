@@ -81,10 +81,10 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     {
     }
 
-    /// <summary>Worker poll interval in ms (env <c>AGENTSPAN_WORKER_POLL_INTERVAL</c>, default 100).</summary>
+    /// <summary>Worker poll interval in ms (env <c>CONDUCTOR_AGENT_WORKER_POLL_INTERVAL</c>, default 100).</summary>
     public int WorkerPollIntervalMs => _agentConfig.WorkerPollIntervalMs;
 
-    /// <summary>Worker thread count per task type (env <c>AGENTSPAN_WORKER_THREADS</c>, default 1).</summary>
+    /// <summary>Worker thread count per task type (env <c>CONDUCTOR_AGENT_WORKER_THREADS</c>, default 1).</summary>
     public int WorkerThreadCount => _agentConfig.WorkerThreadCount;
 
     /// <summary>

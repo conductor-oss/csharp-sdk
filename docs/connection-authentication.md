@@ -25,9 +25,12 @@ var configuration = new Configuration
 | `CONDUCTOR_AUTH_SECRET` | Core SDK, agent runtime | Key secret. Set together with the key. |
 
 The legacy `AGENTSPAN_SERVER_URL` / `AGENTSPAN_AUTH_KEY` / `AGENTSPAN_AUTH_SECRET`
-names are still honored as fallbacks when the `CONDUCTOR_*` equivalents are unset. The
-`CONDUCTOR_*` names win when both are present, and a blank value does not clobber the
-fallback chain. See [upgrading.md](upgrading.md).
+names are still honored as fallbacks when the `CONDUCTOR_*` equivalents are unset, and the
+`CONDUCTOR_*` names win when both are present. See [upgrading.md](upgrading.md).
+
+> Fallback triggers on an **unset** variable, not a blank one. On Unix,
+> `export CONDUCTOR_SERVER_URL=` produces an empty `BasePath` rather than falling through
+> to the legacy name or the default. Leave a variable unset rather than setting it empty.
 
 ## Authenticated connections
 

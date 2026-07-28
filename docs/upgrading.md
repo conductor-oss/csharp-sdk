@@ -29,9 +29,18 @@ Agent runtime knobs:
 | `CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS` | `AGENTSPAN_LIVENESS_STALL_SECONDS` |
 | `CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS` | `AGENTSPAN_LIVENESS_CHECK_INTERVAL_SECONDS` |
 
-**Precedence:** the current name wins when both are set. A blank value does not clobber
-the fallback chain, so `CONDUCTOR_SERVER_URL=""` with `AGENTSPAN_SERVER_URL` set resolves
-to the legacy value rather than to empty.
+**Precedence:** the current name wins when both are set.
+
+For the **agent runtime knobs**, a blank or whitespace-only value is treated as unset, so
+`CONDUCTOR_AGENT_WORKER_THREADS=""` with `AGENTSPAN_WORKER_THREADS=2` resolves to `2`. A
+*malformed* value (say `not-a-number`) is not treated as unset — it falls back to the
+built-in default rather than to the legacy value, so a typo cannot silently pick up stale
+configuration.
+
+For the **connection settings**, resolution currently falls back only on an unset
+variable, not on a blank one. On Unix, `export CONDUCTOR_SERVER_URL=` yields an empty
+`BasePath` rather than falling through to the legacy name or the default. Set connection
+variables to a real value or leave them unset.
 
 **No action required.** Existing `AGENTSPAN_*` configuration keeps working. Migrate at
 your convenience.
