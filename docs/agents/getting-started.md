@@ -41,7 +41,7 @@ export AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
 # export CONDUCTOR_AUTH_SECRET=...
 ```
 
-The runtime reads these on construction. You can also pass them explicitly via `AgentRuntimeOptions` (see [advanced.md](advanced.md)).
+The runtime reads these on construction. You can also pass them explicitly via `AgentRuntimeOptions` (see [concepts/deploy-serve-run.md](concepts/deploy-serve-run.md#runtime-initialization)).
 
 ## 3. Run an agent
 
@@ -69,7 +69,7 @@ That is the whole loop: define an `Agent`, open an `AgentRuntime`, `await runtim
 
 ## Reading the result
 
-`RunAsync` returns an [`AgentResult`](api-reference.md#agentresult). Common members:
+`RunAsync` returns an [`AgentResult`](reference/api.md#results). Common members:
 
 ```csharp
 result.PrintResult();                 // formatted summary to stdout
@@ -82,6 +82,10 @@ string execId = result.ExecutionId;   // durable execution id on the server
 
 ## Next
 
-- [writing-agents.md](writing-agents.md) — tools, multi-agent orchestration, guardrails, streaming, HITL.
-- [advanced.md](advanced.md) — deploy/serve, the control-plane `IAgentClient`, structured output, credentials.
+- [concepts/tools.md](concepts/tools.md) — tools and credentials.
+- [concepts/multi-agent.md](concepts/multi-agent.md) — multi-agent orchestration and handoffs.
+- [concepts/guardrails.md](concepts/guardrails.md) — input/output validation.
+- [concepts/streaming-hitl.md](concepts/streaming-hitl.md) — streaming and human-in-the-loop.
+- [concepts/deploy-serve-run.md](concepts/deploy-serve-run.md) — deploy/serve, the control-plane `IAgentClient`, PLAN_EXECUTE.
+- [README.md](README.md) — the full index.
 </content>

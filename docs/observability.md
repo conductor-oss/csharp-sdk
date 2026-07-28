@@ -455,8 +455,10 @@ unreleased metrics harmonization work. For a summary, see the project
   - `UpdateWorkflowVariablesWithHttpInfo` fixed from C# string interpolation
     (`$"/workflow/{workflowId}/variables"`) to the standard path-template + pathParams
     pattern used by all other API methods, ensuring the `uri` metric label is bounded.
-  - `docs/readme/workers.md` and `Harness/README.md` updated to point at `docs/metrics.md`.
+  - `docs/readme/workers.md` and `Harness/README.md` updated to point at the metrics
+    documentation (then `docs/metrics.md`, now this page).
 
 ### Removed
 
-- Top-level `METRICS.md` (252 lines, snake_case catalog) replaced by `docs/metrics.md`.
+- Top-level `METRICS.md` (252 lines, snake_case catalog) replaced by the metrics
+  documentation (then `docs/metrics.md`, now this page).
