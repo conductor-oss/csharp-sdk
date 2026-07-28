@@ -12,15 +12,15 @@
  */
 namespace Conductor.AI;
 
-/// <summary>Base exception for all Agentspan errors.</summary>
-public class AgentspanException : Exception
+/// <summary>Base exception for all Conductor errors.</summary>
+public class ConductorAgentException : Exception
 {
-    public AgentspanException(string message) : base(message) { }
-    public AgentspanException(string message, Exception inner) : base(message, inner) { }
+    public ConductorAgentException(string message) : base(message) { }
+    public ConductorAgentException(string message, Exception inner) : base(message, inner) { }
 }
 
 /// <summary>Server returned an HTTP error.</summary>
-public class AgentApiException : AgentspanException
+public class AgentApiException : ConductorAgentException
 {
     public int StatusCode { get; }
     public string? ResponseBody { get; }
@@ -34,13 +34,13 @@ public class AgentApiException : AgentspanException
 }
 
 /// <summary>Invalid agent configuration.</summary>
-public class ConfigurationException : AgentspanException
+public class ConfigurationException : ConductorAgentException
 {
     public ConfigurationException(string message) : base(message) { }
 }
 
 /// <summary>Agent not found on server.</summary>
-public class AgentNotFoundException : AgentspanException
+public class AgentNotFoundException : ConductorAgentException
 {
     public string AgentName { get; }
     public AgentNotFoundException(string agentName)
@@ -48,7 +48,7 @@ public class AgentNotFoundException : AgentspanException
 }
 
 /// <summary>Credential not found in the credential store.</summary>
-public class CredentialNotFoundException : AgentspanException
+public class CredentialNotFoundException : ConductorAgentException
 {
     public string CredentialName { get; }
     public CredentialNotFoundException(string name)
@@ -59,7 +59,7 @@ public class CredentialNotFoundException : AgentspanException
 /// Tool threw a terminal (non-retryable) error.
 /// Maps to Conductor's FAILED_WITH_TERMINAL_ERROR status.
 /// </summary>
-public class TerminalToolException : AgentspanException
+public class TerminalToolException : ConductorAgentException
 {
     public TerminalToolException(string message) : base(message) { }
     public TerminalToolException(string message, Exception inner) : base(message, inner) { }
@@ -70,7 +70,7 @@ public class TerminalToolException : AgentspanException
 /// connect failed or returned a non-2xx status). Callers should fall back to
 /// status polling.
 /// </summary>
-public class SSEUnavailableException : AgentspanException
+public class SSEUnavailableException : ConductorAgentException
 {
     public SSEUnavailableException(string message) : base(message) { }
     public SSEUnavailableException(string message, Exception inner) : base(message, inner) { }
@@ -81,7 +81,7 @@ public class SSEUnavailableException : AgentspanException
 /// the local worker that owns this run's domain likely died. Thrown by
 /// blocking waiters instead of hanging forever (spec R11).
 /// </summary>
-public class WorkerStallException : AgentspanException
+public class WorkerStallException : ConductorAgentException
 {
     public string TaskReferenceName { get; }
     public string ExecutionId { get; }

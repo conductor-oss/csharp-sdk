@@ -117,7 +117,7 @@ internal sealed class ToolTaskExecutor
                 else
                 {
                     var wrapper = new Dictionary<string, object?> { ["_state_updates"] = state };
-                    var resultJson = System.Text.Json.JsonSerializer.Serialize(outputData, AgentspanJson.Options);
+                    var resultJson = System.Text.Json.JsonSerializer.Serialize(outputData, ConductorAgentJson.Options);
                     var resultNode = JsonNode.Parse(resultJson);
                     if (resultNode is JsonObject obj)
                         foreach (var kv in obj)
@@ -184,7 +184,7 @@ internal sealed class ToolTaskExecutor
     /// <summary>Convert STJ-serializable output to a Newtonsoft-compatible dict for TaskResult.OutputData.</summary>
     private static Dictionary<string, object> ToNewtonsoftDict(object outputData)
     {
-        var json = System.Text.Json.JsonSerializer.Serialize(outputData, AgentspanJson.Options);
+        var json = System.Text.Json.JsonSerializer.Serialize(outputData, ConductorAgentJson.Options);
         return JsonConvert.DeserializeObject<Dictionary<string, object>>(json)
             ?? new Dictionary<string, object>();
     }
@@ -194,7 +194,7 @@ internal sealed class ToolTaskExecutor
         ToolContext? ctx = null;
         if (inputData.TryGetValue("__agentspan_ctx__", out var ctxEl))
         {
-            try { ctx = System.Text.Json.JsonSerializer.Deserialize<ToolContext>(ctxEl.GetRawText(), AgentspanJson.Options); }
+            try { ctx = System.Text.Json.JsonSerializer.Deserialize<ToolContext>(ctxEl.GetRawText(), ConductorAgentJson.Options); }
             catch { }
         }
 

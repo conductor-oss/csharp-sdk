@@ -16,11 +16,9 @@ internal static class Settings
 {
     public static string LlmModel =>
         Environment.GetEnvironmentVariable("CONDUCTOR_AGENT_LLM_MODEL")
-        ?? Environment.GetEnvironmentVariable("AGENTSPAN_LLM_MODEL")
         ?? "openai/gpt-4o-mini";
 
     public static string ServerUrl =>
         Environment.GetEnvironmentVariable("CONDUCTOR_SERVER_URL")
-        ?? Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")
         ?? "http://localhost:8080/api";
 }

@@ -26,7 +26,6 @@ public sealed class E2eFixture : IAsyncLifetime
 {
     private static readonly string ServerBase =
         (Environment.GetEnvironmentVariable("CONDUCTOR_SERVER_URL")
-         ?? Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")
          ?? "http://localhost:8080/api")
         .TrimEnd('/').Replace("/api", "");
 

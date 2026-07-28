@@ -166,7 +166,6 @@ public sealed class Suite2_ToolCalling
 
     private static readonly string ApiBase =
         (Environment.GetEnvironmentVariable("CONDUCTOR_SERVER_URL")
-         ?? Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")
          ?? "http://localhost:8080/api")
         .TrimEnd('/');
 

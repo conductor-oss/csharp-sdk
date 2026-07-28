@@ -27,7 +27,7 @@ using System.Threading.Tasks;
 using Conductor.AI;
 using Xunit;
 
-namespace AgentspanE2eTests;
+namespace Conductor.AI.E2eTests;
 
 public class CredentialInjectionConcurrentTest
 {

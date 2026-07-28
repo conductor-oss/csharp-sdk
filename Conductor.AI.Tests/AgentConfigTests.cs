@@ -54,7 +54,7 @@ public sealed class AgentConfigTests
     }
 
     [Fact]
-    public void EachEnvVar_Honored_CurrentNames()
+    public void EachEnvVar_Honored()
     {
         var env = new Dictionary<string, string>
         {
@@ -79,10 +79,47 @@ public sealed class AgentConfigTests
         Assert.Equal(5.5, config.LivenessCheckIntervalSeconds);
     }
 
-    // Unchanged from before the CONDUCTOR_AGENT_* rename — passing proves the legacy
-    // names still work end to end, not merely that a fallback branch exists.
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-a-number")]
+    [InlineData("   ")]
+    public void InvalidOrEmpty_IntField_FallsBackToDefault(string raw)
+    {
+        var config = WithEnv(new() { ["CONDUCTOR_AGENT_WORKER_THREADS"] = raw });
+        Assert.Equal(1, config.WorkerThreadCount);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-a-bool")]
+    public void InvalidOrEmpty_BoolField_FallsBackToDefault(string raw)
+    {
+        var config = WithEnv(new() { ["CONDUCTOR_AGENT_AUTO_START_WORKERS"] = raw });
+        Assert.True(config.AutoStartWorkers);
+    }
+
     [Fact]
-    public void EachEnvVar_Honored()
+    public void NonPositive_IntField_FallsBackToDefault()
+    {
+        var config = WithEnv(new() { ["CONDUCTOR_AGENT_WORKER_POLL_INTERVAL"] = "0" });
+        Assert.Equal(100, config.WorkerPollIntervalMs);
+    }
+
+    // ── Only CONDUCTOR_AGENT_* is supported ────────────────────────────
+    //
+    // The legacy AGENTSPAN_* names were removed outright — no aliasing. These tests
+    // assert the removal positively, so re-introducing a fallback fails the build
+    // rather than passing silently.
+
+    [Fact]
+    public void LegacyAgentspanName_IsIgnored()
+    {
+        var env = new Dictionary<string, string> { ["AGENTSPAN_WORKER_THREADS"] = "2" };
+        Assert.Equal(1, WithEnv(env).WorkerThreadCount);
+    }
+
+    [Fact]
+    public void LegacyAgentspanNames_IgnoredAcrossEveryKnob()
     {
         var env = new Dictionary<string, string>
         {
@@ -97,46 +134,18 @@ public sealed class AgentConfigTests
         };
         var config = WithEnv(env);
 
-        Assert.Equal(250, config.WorkerPollIntervalMs);
-        Assert.Equal(4, config.WorkerThreadCount);
-        Assert.False(config.AutoStartWorkers);
-        Assert.False(config.DaemonWorkers);
-        Assert.False(config.StreamingEnabled);
-        Assert.False(config.LivenessEnabled);
-        Assert.Equal(45.5, config.LivenessStallSeconds);
-        Assert.Equal(5.5, config.LivenessCheckIntervalSeconds);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("not-a-number")]
-    [InlineData("   ")]
-    public void InvalidOrEmpty_IntField_FallsBackToDefault(string raw)
-    {
-        var config = WithEnv(new() { ["AGENTSPAN_WORKER_THREADS"] = raw });
-        Assert.Equal(1, config.WorkerThreadCount);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("not-a-bool")]
-    public void InvalidOrEmpty_BoolField_FallsBackToDefault(string raw)
-    {
-        var config = WithEnv(new() { ["AGENTSPAN_AUTO_START_WORKERS"] = raw });
-        Assert.True(config.AutoStartWorkers);
-    }
-
-    [Fact]
-    public void NonPositive_IntField_FallsBackToDefault()
-    {
-        var config = WithEnv(new() { ["AGENTSPAN_WORKER_POLL_INTERVAL"] = "0" });
         Assert.Equal(100, config.WorkerPollIntervalMs);
+        Assert.Equal(1, config.WorkerThreadCount);
+        Assert.True(config.AutoStartWorkers);
+        Assert.True(config.DaemonWorkers);
+        Assert.True(config.StreamingEnabled);
+        Assert.True(config.LivenessEnabled);
+        Assert.Equal(30.0, config.LivenessStallSeconds);
+        Assert.Equal(10.0, config.LivenessCheckIntervalSeconds);
     }
 
-    // ── CONDUCTOR_AGENT_* precedence over legacy AGENTSPAN_* ───────────
-
     [Fact]
-    public void CurrentName_TakesPrecedenceOverLegacy()
+    public void LegacyName_DoesNotOverrideCurrentName()
     {
         var env = new Dictionary<string, string>
         {
@@ -146,64 +155,27 @@ public sealed class AgentConfigTests
         Assert.Equal(8, WithEnv(env).WorkerThreadCount);
     }
 
-    [Fact]
-    public void LegacyName_UsedWhenCurrentAbsent()
-    {
-        var env = new Dictionary<string, string> { ["AGENTSPAN_WORKER_THREADS"] = "2" };
-        Assert.Equal(2, WithEnv(env).WorkerThreadCount);
-    }
-
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void BlankCurrentName_DoesNotClobberLegacy(string blank)
+    public void BlankValue_FallsBackToDefault(string blank)
     {
-        var env = new Dictionary<string, string>
-        {
-            ["CONDUCTOR_AGENT_WORKER_THREADS"] = blank,
-            ["AGENTSPAN_WORKER_THREADS"] = "2",
-        };
-        Assert.Equal(2, WithEnv(env).WorkerThreadCount);
-    }
-
-    [Fact]
-    public void BlankBothNames_FallsBackToDefault()
-    {
-        var env = new Dictionary<string, string>
-        {
-            ["CONDUCTOR_AGENT_WORKER_THREADS"] = "",
-            ["AGENTSPAN_WORKER_THREADS"] = "   ",
-        };
+        var env = new Dictionary<string, string> { ["CONDUCTOR_AGENT_WORKER_THREADS"] = blank };
         Assert.Equal(1, WithEnv(env).WorkerThreadCount);
     }
 
     [Fact]
-    public void Precedence_AppliesToBoolAndDoubleFields()
+    public void CurrentNames_HonoredForBoolAndDoubleFields()
     {
         var env = new Dictionary<string, string>
         {
             ["CONDUCTOR_AGENT_AUTO_START_WORKERS"] = "false",
-            ["AGENTSPAN_AUTO_START_WORKERS"] = "true",
             ["CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS"] = "12.5",
-            ["AGENTSPAN_LIVENESS_STALL_SECONDS"] = "99.9",
         };
         var config = WithEnv(env);
 
         Assert.False(config.AutoStartWorkers);
         Assert.Equal(12.5, config.LivenessStallSeconds);
-    }
-
-    [Fact]
-    public void InvalidCurrentName_DoesNotSilentlyUseLegacy()
-    {
-        // A malformed current value is not "unset" — it must not resolve to the legacy
-        // value, or a typo would silently pick up stale config.
-        var env = new Dictionary<string, string>
-        {
-            ["CONDUCTOR_AGENT_WORKER_THREADS"] = "not-a-number",
-            ["AGENTSPAN_WORKER_THREADS"] = "7",
-        };
-        Assert.Equal(1, WithEnv(env).WorkerThreadCount);
     }
 
     // ── R4: no connection/auth/log field by construction ───────────────

@@ -460,7 +460,7 @@ public sealed class OrkesAgentClient : IAgentClient
     {
         JsonNode node => node,
         string s => JsonValue.Create(s),
-        _ => JsonSerializer.SerializeToNode(value, AgentspanJson.Options),
+        _ => JsonSerializer.SerializeToNode(value, ConductorAgentJson.Options),
     };
 
     private static JsonObject FrameworkAwarePayload(JsonObject agentConfig)

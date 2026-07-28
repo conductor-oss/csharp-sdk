@@ -1,60 +1,64 @@
-# Conductor agent env naming, and the Agentspan names we kept
+# Conductor agent naming: remove Agentspan outright, no aliases
 
 Status: accepted
 
-The AI-agent layer arrived from Agentspan and brought its own naming. Aligning it
-with the Java and Python SDKs meant renaming eight runtime environment variables to
-`CONDUCTOR_AGENT_*`, but we deliberately stopped short of a complete rebrand: legacy
-`AGENTSPAN_*` variables still resolve as fallbacks, and the public type names
-`AgentspanException` and `AgentspanJson` keep their names. The end state therefore
-looks half-finished, which is why it is written down.
+The AI-agent layer arrived from Agentspan and brought its own naming. We renamed the eight
+runtime environment variables to `CONDUCTOR_AGENT_*`, the connection variables to
+`CONDUCTOR_*`, and the public types to `ConductorAgentException` / `ConductorAgentJson` —
+and we removed the old names **outright**, with no environment-variable aliases and no
+`[Obsolete]` type shims. This is a breaking change, chosen deliberately over a compatible
+migration.
 
 ## Why two prefixes
 
 Connection settings stay `CONDUCTOR_SERVER_URL` / `CONDUCTOR_AUTH_KEY` /
 `CONDUCTOR_AUTH_SECRET` because they are shared with the core SDK — the same variables
 configure a `Configuration` for workflows and workers. The agent runtime knobs take
-`CONDUCTOR_AGENT_*` because they configure only the agent layer. The split is not
-cosmetic: a single prefix would either imply the core SDK reads worker-liveness knobs,
-or that the agent layer owns the connection.
+`CONDUCTOR_AGENT_*` because they configure only the agent layer. The split is not cosmetic:
+a single prefix would either imply the core SDK reads worker-liveness knobs, or that the
+agent layer owns the connection.
 
 This also matches Java and Python, which matters because agents and workflows are
 server-side artifacts shared across SDKs.
 
-## Why the type names stayed
+## Why no aliases
 
-`AgentspanException` is the base of eight public exception types, so renaming it breaks
-every `catch (AgentspanException)` in consumer code. `AgentspanJson.Options` appears in
-user code that deserializes agent output.
+A fallback chain costs one line per knob, so the argument for keeping the old names was
+real and was in fact the initial decision here. It was reversed in review: a partial
+rebrand leaves two names for one setting indefinitely, and every reader has to learn which
+is canonical. Python removed its aliases too — despite its PR description claiming
+otherwise, its config docstring reads *"Only `CONDUCTOR_AGENT_* settings are supported."*
 
-A clean rename is possible — insert `ConductorAgentException` as a new base with
-`AgentspanException : ConductorAgentException` marked `[Obsolete]`, so both catch
-clauses keep working — but it buys IntelliSense tidiness at the cost of permanent
-obsolete surface. We chose API stability and a visibly incomplete rebrand over
-churn in the public surface.
+The cost is borne by existing deployments, which must rename variables. The failure mode is
+the unpleasant part and is worth stating plainly: an unrecognised `AGENTSPAN_*` variable is
+indistinguishable from an unset one, so a missed rename surfaces as **unexpected default
+behaviour, not an error**. `docs/upgrading.md` gives a grep to find stragglers.
 
-## Why the aliases stayed
+## Why the types were renamed too
 
-The Python SDK deleted every `AGENTSPAN_*` read; its config docstring now reads *"Only
-`CONDUCTOR_AGENT_*` settings are supported."* We did not follow, because the cost of
-keeping a fallback chain is one line per knob and the cost of dropping it is every
-existing deployment's configuration.
+`ConductorAgentException` is the base of eight public exception types and
+`ConductorAgentJson.Options` appears in user code. Renaming both is a source-breaking change.
 
-One subtlety worth preserving: a **blank** current value falls through to the legacy
-name, but a **malformed** one does not — it falls back to the built-in default. Without
-that asymmetry, a typo in `CONDUCTOR_AGENT_WORKER_THREADS` would silently resurrect a
-stale `AGENTSPAN_WORKER_THREADS` value, which is worse than using the default.
+We considered inserting `ConductorAgentException` as a new base with
+`AgentspanException : ConductorAgentException` marked `[Obsolete]`, which would have kept
+every existing `catch` compiling. Rejected for the same reason as the env aliases: it leaves
+permanent obsolete surface in the public API to spare a one-line edit in consumer code.
+
+A compile error is the right failure mode here — unlike the env vars, this one cannot fail
+silently.
 
 ## Consequences
 
-- The repo will read as a partially-completed migration for as long as the aliases and
-  type names remain. That is intended; this ADR is the answer to "why didn't they
-  finish?"
-- Examples and docs use only the current names, so new users never learn the legacy
-  ones. `docs/upgrading.md` carries the mapping for existing users.
-- Externally-owned names containing "agentspan" — the `agentspan` CLI, the
+- **This must ship as a minor or major version bump, never a patch.**
+- The OpenTelemetry `ActivitySource` name changed from `agentspan.agents` to
+  `conductor.agents`. Code using `AgentTracing.SourceName` is unaffected, but collector
+  configs and dashboards filtering the literal string will stop matching.
+- Tests assert the removal *positively* — `LegacyAgentspanName_IsIgnored` and friends — so
+  re-introducing a fallback fails the build instead of passing quietly.
+- Names outside this SDK's control were left untouched: the `agentspan` CLI, the
   `agentspan-ai` GitHub org, server properties such as
-  `agentspan.default-context-window` — are outside this SDK's control and were left
-  untouched. Renaming them in docs would point users at things that may not exist.
-- There is no automated check that env-var documentation stays in step with
-  `AgentConfig`. See `docs/documentation-parity.md`.
+  `agentspan.default-context-window`, and the `__agentspan_ctx__` task-input key, which is
+  part of the server's wire contract for `ToolContext` injection. Renaming that last one
+  would silently break tool context delivery.
+- There is no automated check that env-var documentation stays in step with `AgentConfig`.
+  See `docs/documentation-parity.md`.

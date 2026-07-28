@@ -10,11 +10,11 @@ sense is always qualified.
 
 **Agentspan**:
 The retired product name for the AI-agent layer, now part of Conductor.
-_Avoid_ in all prose — say **Conductor** or **the agent layer**. It survives only
-where renaming would break something: the retained public type names
-`AgentspanException` and `AgentspanJson`, and externally-owned names such as the
-`agentspan` CLI, the `agentspan-ai` GitHub org, and server-side properties like
-`agentspan.default-context-window`.
+_Avoid_ everywhere — say **Conductor** or **the agent layer**. Removed from everything
+this SDK owns, including env vars and public type names. It survives only in
+externally-owned names: the `agentspan` CLI, the `agentspan-ai` GitHub org, server-side
+properties like `agentspan.default-context-window`, and the `__agentspan_ctx__` wire key.
+Those are not ours to rename.
 
 **Agent**:
 The single orchestration primitive — an LLM with tools, or a multi-agent system.

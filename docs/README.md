@@ -43,7 +43,7 @@ client surface, and the durable AI-agent layer.
 |---|---|
 | [api-map.md](api-map.md) | Every resource API and what it maps to on the server. |
 | [compatibility.md](compatibility.md) | Framework targets, server versions, support matrix. |
-| [upgrading.md](upgrading.md) | Breaking changes, deprecations, the Agentspan rename. |
+| [upgrading.md](upgrading.md) | Breaking changes, including the Agentspan → Conductor rename. |
 | [examples.md](examples.md) | Where the runnable examples live. |
 | [workflow-testing.md](workflow-testing.md) | Unit and integration testing workflows and workers. |
 
@@ -66,4 +66,4 @@ Architectural decision records live in [adr/](adr/). The domain glossary is
 
 | ADR | Decision |
 |---|---|
-| [0001](adr/0001-conductor-agent-env-naming.md) | `CONDUCTOR_AGENT_*` env naming, retained `AGENTSPAN_*` aliases, and why the `Agentspan*` type names were not renamed. |
+| [0001](adr/0001-conductor-agent-env-naming.md) | `CONDUCTOR_AGENT_*` env naming, and why the Agentspan naming was removed outright rather than aliased. |

@@ -27,10 +27,12 @@ You need a running Conductor server. The defaults assume a local one at
 
 | Variable | Default | Description |
 |---|---|---|
-| `CONDUCTOR_SERVER_URL` | `http://localhost:8080/api` | Server URL. Wins over `AGENTSPAN_SERVER_URL` if both are set. |
-| `CONDUCTOR_AUTH_KEY` | — | Auth key. Unset = no-auth mode (local / OSS). Wins over `AGENTSPAN_AUTH_KEY`. |
-| `CONDUCTOR_AUTH_SECRET` | — | Auth secret. Set together with the key for Orkes Cloud. Wins over `AGENTSPAN_AUTH_SECRET`. |
-| `AGENTSPAN_SERVER_URL` / `AGENTSPAN_AUTH_KEY` / `AGENTSPAN_AUTH_SECRET` | — | Legacy names, still honored as fallbacks when the `CONDUCTOR_*` ones are unset. |
+| `CONDUCTOR_SERVER_URL` | `http://localhost:8080/api` | Server URL. |
+| `CONDUCTOR_AUTH_KEY` | — | Auth key. Unset = no-auth mode (local / OSS). |
+| `CONDUCTOR_AUTH_SECRET` | — | Auth secret. Set together with the key for Orkes Cloud. |
+
+The legacy `AGENTSPAN_*` names were removed and have no effect — see
+[../upgrading.md](../upgrading.md).
 
 ```bash
 export CONDUCTOR_SERVER_URL=http://localhost:8080/api

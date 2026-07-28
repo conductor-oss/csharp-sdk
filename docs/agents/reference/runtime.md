@@ -53,7 +53,7 @@ properties directly.
 | `LivenessStallSeconds` | `CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS` | `30.0` |
 | `LivenessCheckIntervalSeconds` | `CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS` | `10.0` |
 
-Legacy `AGENTSPAN_*` names remain honored as fallbacks. See
+Only `CONDUCTOR_AGENT_*` names are read; the legacy `AGENTSPAN_*` names were removed. See
 [../../upgrading.md](../../upgrading.md).
 
 ## RunSettings

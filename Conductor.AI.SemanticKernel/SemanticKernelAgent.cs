@@ -19,7 +19,7 @@ using Microsoft.SemanticKernel;
 namespace Conductor.AI.SemanticKernel;
 
 /// <summary>
-/// Bridges Microsoft Semantic Kernel plugins to Agentspan <see cref="Agent"/>.
+/// Bridges Microsoft Semantic Kernel plugins to Conductor <see cref="Agent"/>.
 ///
 /// Users who already have classes with <c>[KernelFunction]</c>-annotated methods
 /// can hand them directly to <see cref="From"/> and get back a configured
@@ -28,14 +28,14 @@ namespace Conductor.AI.SemanticKernel;
 public static class SemanticKernelAgent
 {
     /// <summary>
-    /// Create an Agentspan <see cref="Agent"/> from one or more plugin objects.
+    /// Create an Conductor <see cref="Agent"/> from one or more plugin objects.
     /// </summary>
     /// <param name="name">Agent name (must match <c>^[a-zA-Z_][a-zA-Z0-9_-]*$</c>).</param>
     /// <param name="model">LLM model string, e.g. <c>"anthropic/claude-sonnet-4-6"</c>.</param>
     /// <param name="instructions">System prompt for the agent.</param>
     /// <param name="plugins">
     /// Objects with <c>[KernelFunction]</c>-annotated methods, or <see cref="KernelPlugin"/>
-    /// instances. Each plugin contributes its functions as Agentspan tools.
+    /// instances. Each plugin contributes its functions as Conductor tools.
     /// </param>
     public static Agent From(
         string name,

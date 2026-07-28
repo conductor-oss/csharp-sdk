@@ -44,16 +44,20 @@ adapters a routing question rather than a hard blocker — see
 Behaviour parity with the sibling SDKs is checked by
 `Conductor.AI.E2eTests/Suite17_SdkParity.cs`.
 
-## Deprecations
+## Removed surfaces
 
-Deprecated-but-honored surfaces:
+The Agentspan naming was removed outright rather than deprecated — there are no aliases
+and no `[Obsolete]` shims:
 
-| Surface | Status |
+| Removed | Replacement |
 |---|---|
-| `AGENTSPAN_*` environment variables | Honored as fallbacks; `CONDUCTOR_*` / `CONDUCTOR_AGENT_*` win. |
-| `AgentspanException`, `AgentspanJson` | Retained type names; not renamed. |
+| `AGENTSPAN_*` environment variables | `CONDUCTOR_*` (connection) / `CONDUCTOR_AGENT_*` (agent runtime) |
+| `AgentspanException` | `ConductorAgentException` |
+| `AgentspanJson` | `ConductorAgentJson` |
+| OTel source `agentspan.agents` | `conductor.agents` (use `AgentTracing.SourceName`) |
 
-See [upgrading.md](upgrading.md).
+Setting an `AGENTSPAN_*` variable now has no effect, and code referencing the old type
+names will not compile. See [upgrading.md](upgrading.md) for the migration.
 
 ## Known gaps
 

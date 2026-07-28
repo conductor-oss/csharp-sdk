@@ -34,8 +34,11 @@ namespace Conductor.AI;
 /// </summary>
 public static class AgentTracing
 {
-    /// <summary>The <see cref="ActivitySource"/> name used by this SDK. Use this with AddSource().</summary>
-    public const string SourceName = "agentspan.agents";
+    /// <summary>
+    /// The <see cref="ActivitySource"/> name used by this SDK. Use this constant with
+    /// AddSource() rather than the literal, so the value can change without breaking you.
+    /// </summary>
+    public const string SourceName = "conductor.agents";
 
     internal static readonly ActivitySource Source = new(SourceName, "1.0.0");
 

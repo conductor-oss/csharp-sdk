@@ -5,47 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased — Conductor agent env naming]
+## [Unreleased — Conductor agent naming]
+
+> **Breaking (configuration + source):** all Agentspan naming owned by this SDK is
+> **removed**, with no environment-variable aliases and no `[Obsolete]` type shims.
+> `AGENTSPAN_*` variables are no longer read, and code referencing `AgentspanException` or
+> `AgentspanJson` will not compile. This must ship as a **minor or major** version bump,
+> never a patch. See `docs/upgrading.md` for the migration.
+
+### Removed
+
+- **Legacy `AGENTSPAN_*` environment variables.** Both the connection settings
+  (`AGENTSPAN_SERVER_URL` / `_AUTH_KEY` / `_AUTH_SECRET`, previously honored as fallbacks)
+  and the eight agent runtime knobs. Setting them now has **no effect**.
+
+  Note the failure mode: an unrecognised variable is indistinguishable from an unset one,
+  so a missed rename surfaces as unexpected *default* behaviour rather than an error. To
+  find stragglers: `env | grep '^AGENTSPAN_'`.
 
 ### Changed
 
-- **Agent runtime environment variables renamed to `CONDUCTOR_AGENT_*`**, matching the
-  Java and Python SDKs. The legacy `AGENTSPAN_*` names remain honored as fallbacks, so
-  **no action is required**:
+- **Agent runtime environment variables renamed to `CONDUCTOR_AGENT_*`**, matching the Java
+  and Python SDKs:
 
-  | Current | Legacy fallback |
+  | Old (removed) | New |
   |---|---|
-  | `CONDUCTOR_AGENT_WORKER_THREADS` | `AGENTSPAN_WORKER_THREADS` |
-  | `CONDUCTOR_AGENT_WORKER_POLL_INTERVAL` | `AGENTSPAN_WORKER_POLL_INTERVAL` |
-  | `CONDUCTOR_AGENT_AUTO_START_WORKERS` | `AGENTSPAN_AUTO_START_WORKERS` |
-  | `CONDUCTOR_AGENT_DAEMON_WORKERS` | `AGENTSPAN_DAEMON_WORKERS` |
-  | `CONDUCTOR_AGENT_STREAMING_ENABLED` | `AGENTSPAN_STREAMING_ENABLED` |
-  | `CONDUCTOR_AGENT_LIVENESS_ENABLED` | `AGENTSPAN_LIVENESS_ENABLED` |
-  | `CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS` | `AGENTSPAN_LIVENESS_STALL_SECONDS` |
-  | `CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS` | `AGENTSPAN_LIVENESS_CHECK_INTERVAL_SECONDS` |
+  | `AGENTSPAN_WORKER_THREADS` | `CONDUCTOR_AGENT_WORKER_THREADS` |
+  | `AGENTSPAN_WORKER_POLL_INTERVAL` | `CONDUCTOR_AGENT_WORKER_POLL_INTERVAL` |
+  | `AGENTSPAN_AUTO_START_WORKERS` | `CONDUCTOR_AGENT_AUTO_START_WORKERS` |
+  | `AGENTSPAN_DAEMON_WORKERS` | `CONDUCTOR_AGENT_DAEMON_WORKERS` |
+  | `AGENTSPAN_STREAMING_ENABLED` | `CONDUCTOR_AGENT_STREAMING_ENABLED` |
+  | `AGENTSPAN_LIVENESS_ENABLED` | `CONDUCTOR_AGENT_LIVENESS_ENABLED` |
+  | `AGENTSPAN_LIVENESS_STALL_SECONDS` | `CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS` |
+  | `AGENTSPAN_LIVENESS_CHECK_INTERVAL_SECONDS` | `CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS` |
 
   Two prefixes coexist on purpose: connection settings stay `CONDUCTOR_*` because they are
   shared with the core SDK, while these knobs configure only the agent layer.
 
-  For these knobs, a blank or whitespace-only value is now treated as unset and falls
-  through to the legacy name. A *malformed* value still falls back to the built-in default
-  rather than to the legacy name, so a typo cannot silently pick up stale configuration.
+- **Public type names renamed** — `AgentspanException` → `ConductorAgentException`,
+  `AgentspanJson` → `ConductorAgentJson`. `ConductorAgentException` is still the base of
+  every agent exception, so one `catch` covers them all. Consumer code needs a rename and a
+  recompile; a compile error is the intended failure mode.
 
-- Public type names are deliberately **not** renamed. `AgentspanException` is the base of
-  eight public exception types and `AgentspanJson.Options` appears in user code, so both
-  keep their names for source and binary compatibility.
+- **OpenTelemetry `ActivitySource` name** changed from `agentspan.agents` to
+  `conductor.agents`. Code using `AgentTracing.SourceName` is unaffected, but collector
+  configs, dashboards, or alerts filtering the literal string will stop matching.
+
+- The `AgentspanE2eTests` test namespace was folded into `Conductor.AI.E2eTests`.
 
 ### Fixed
 
 - **Blank connection env vars no longer clobber the fallback chain.**
   `AgentRuntime.BuildConfiguration` chained with `??`, which falls back only on `null`, so
   on Unix `export CONDUCTOR_SERVER_URL=` produced an empty `BasePath` instead of falling
-  through to `AGENTSPAN_SERVER_URL` and then to `http://localhost:8080/api`. The same
-  applied to the auth key and secret. Resolution now treats blank and whitespace-only
-  values as unset at every step, including an explicitly-passed `serverUrl` or
-  `AgentRuntimeOptions.ServerUrl`.
+  through to `http://localhost:8080/api`. The same applied to the auth key and secret.
+  Resolution now treats blank and whitespace-only values as unset at every step, including
+  an explicitly-passed `serverUrl` or `AgentRuntimeOptions.ServerUrl`.
 
   This makes good on the claim in the entry below, which previously overstated the fix.
+
+### Not renamed
+
+Names outside this SDK's control keep their Agentspan spelling: the `agentspan` CLI, the
+`agentspan-ai` GitHub organisation, server-side properties such as
+`agentspan.default-context-window`, and the `__agentspan_ctx__` task-input key that carries
+`ToolContext` on the wire.
 
 ## [Unreleased — async executor / thread-starvation fix]
 
@@ -99,10 +123,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `IAgentClient` conveniences. Only non-null fields override the agent;
   everything else keeps the agent's own settings.
 - Connection environment: `CONDUCTOR_SERVER_URL` / `CONDUCTOR_AUTH_KEY` /
-  `CONDUCTOR_AUTH_SECRET` now win over the legacy `AGENTSPAN_*` names (still
-  honored as fallbacks); the default server URL is now
-  `http://localhost:8080/api` (was `:6767`); blank env vars no longer clobber
-  the fallback chain.
+  `CONDUCTOR_AUTH_SECRET` replace the legacy `AGENTSPAN_*` names; the default
+  server URL is now `http://localhost:8080/api` (was `:6767`). (This entry
+  originally said the `AGENTSPAN_*` names stayed honored as fallbacks and that
+  blank values no longer clobbered the chain. Neither held: the blank-value
+  handling was not actually implemented until the fix in the entry above, and
+  the fallbacks have since been removed outright.)
 - `AgentConfig` — construction-time knobs with lenient env parsing
   (invalid/empty values fall back to the default): `AutoStartWorkers`,
   `DaemonWorkers`, `StreamingEnabled`, `LivenessEnabled`,

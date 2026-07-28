@@ -16,7 +16,7 @@ namespace Conductor.AI;
 
 // ── GuardrailAttribute ─────────────────────────────────────
 
-/// <summary>Mark a method as an Agentspan guardrail worker.</summary>
+/// <summary>Mark a method as an Conductor guardrail worker.</summary>
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class GuardrailAttribute : Attribute
 {

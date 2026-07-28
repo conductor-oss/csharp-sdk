@@ -19,7 +19,7 @@ namespace Conductor.AI.Plans;
 ///
 /// <para>These records produce the JSON shape PAC (the server's
 /// PLAN_AND_COMPILE task) consumes. The wire format is identical to the
-/// Python SDK's <c>agentspan.agents.plans</c> dataclasses and the
+/// Python SDK's <c>conductor.ai.agents.plans</c> dataclasses and the
 /// TypeScript SDK's <c>Plan</c> class — same JSON shape, same field names,
 /// same Ref marker (<c>{"$ref": "step_id"}</c>).</para>
 ///

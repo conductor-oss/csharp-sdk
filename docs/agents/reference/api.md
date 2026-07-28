@@ -242,9 +242,8 @@ Other records: `TokenUsage(PromptTokens, CompletionTokens, TotalTokens)`,
 
 ## Exceptions
 
-All agent exceptions derive from `AgentspanException`. The name predates the Conductor
-rebrand and is retained for source and binary compatibility — see
-[../../upgrading.md](../../upgrading.md).
+All agent exceptions derive from `ConductorAgentException`, which was previously named
+`AgentspanException` — see [../../upgrading.md](../../upgrading.md).
 
 | Exception | Raised when |
 |---|---|

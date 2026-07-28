@@ -24,14 +24,13 @@ var configuration = new Configuration
 | `CONDUCTOR_AUTH_KEY` | Core SDK, agent runtime | Key id. Unset means no-auth mode. |
 | `CONDUCTOR_AUTH_SECRET` | Core SDK, agent runtime | Key secret. Set together with the key. |
 
-The legacy `AGENTSPAN_SERVER_URL` / `AGENTSPAN_AUTH_KEY` / `AGENTSPAN_AUTH_SECRET`
-names are still honored as fallbacks when the `CONDUCTOR_*` equivalents are unset, and the
-`CONDUCTOR_*` names win when both are present. See [upgrading.md](upgrading.md).
+The legacy `AGENTSPAN_SERVER_URL` / `AGENTSPAN_AUTH_KEY` / `AGENTSPAN_AUTH_SECRET` names
+were **removed** and now have no effect. If you are still setting them, migrate — see
+[upgrading.md](upgrading.md).
 
-Blank and whitespace-only values are treated as unset at every step, so
-`export CONDUCTOR_SERVER_URL=` falls through to the legacy name and then to the default
-rather than yielding an empty `BasePath`. The same applies to a `ServerUrl` passed
-explicitly via `AgentRuntimeOptions`.
+Blank and whitespace-only values are treated as unset, so `export CONDUCTOR_SERVER_URL=`
+falls through to the default rather than yielding an empty `BasePath`. The same applies to
+a `ServerUrl` passed explicitly via `AgentRuntimeOptions`.
 
 ## Authenticated connections
 

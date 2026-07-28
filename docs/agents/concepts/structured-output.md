@@ -24,16 +24,15 @@ if (result.Output?.TryGetValue("result", out var raw) == true && raw is not null
     var jsonStr = raw is JsonElement je
         ? (je.ValueKind == JsonValueKind.String ? je.GetString() : je.GetRawText())
         : raw.ToString();
-    var report = JsonSerializer.Deserialize<WeatherReport>(jsonStr!, AgentspanJson.Options);
+    var report = JsonSerializer.Deserialize<WeatherReport>(jsonStr!, ConductorAgentJson.Options);
 }
 ```
 
 Use `AgentBuilder` with `.WithOutputType<T>()`, or the field directly.
 
-> `AgentspanJson.Options` is the SDK's shared `JsonSerializerOptions` (camelCase,
-> snake_case enums) — handy when deserializing agent output yourself. The type name
-> predates the Conductor rebrand and is retained for API compatibility; see
-> [../../upgrading.md](../../upgrading.md).
+> `ConductorAgentJson.Options` is the SDK's shared `JsonSerializerOptions` (camelCase,
+> snake_case enums) — handy when deserializing agent output yourself. It was previously
+> named `AgentspanJson`; see [../../upgrading.md](../../upgrading.md).
 
 ## Why the unwrapping dance
 

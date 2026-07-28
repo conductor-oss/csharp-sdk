@@ -56,7 +56,7 @@ if (result.Output?.TryGetValue("result", out var raw) == true && raw is not null
 
     if (jsonStr is not null)
     {
-        var report = JsonSerializer.Deserialize<WeatherReport>(jsonStr, AgentspanJson.Options);
+        var report = JsonSerializer.Deserialize<WeatherReport>(jsonStr, ConductorAgentJson.Options);
         if (report is not null)
         {
             Console.WriteLine($"City:           {report.City}");

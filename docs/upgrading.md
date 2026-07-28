@@ -2,76 +2,104 @@
 
 ## The Agentspan → Conductor rename
 
-The agent layer was originally released under the Agentspan name. It is now part of the
-Conductor SDK, and the naming has been brought in line — but deliberately not all at
-once, and not everywhere.
+> **Breaking change.** The agent layer was originally released under the Agentspan name.
+> All Agentspan naming this SDK owns has now been **removed outright** — there are no
+> environment-variable aliases and no `[Obsolete]` type shims. Action is required if you
+> set `AGENTSPAN_*` variables or reference the old type names.
 
-### Environment variables: renamed, aliases kept
+### Environment variables
+
+Rename these in every environment, deployment manifest, and CI configuration. The old
+names are no longer read and **fail silently** — an unset variable falls back to the
+built-in default, so a missed rename shows up as unexpected default behaviour rather than
+an error.
 
 Connection settings:
 
-| Current | Legacy fallback |
+| Old (removed) | New |
 |---|---|
-| `CONDUCTOR_SERVER_URL` | `AGENTSPAN_SERVER_URL` |
-| `CONDUCTOR_AUTH_KEY` | `AGENTSPAN_AUTH_KEY` |
-| `CONDUCTOR_AUTH_SECRET` | `AGENTSPAN_AUTH_SECRET` |
+| `AGENTSPAN_SERVER_URL` | `CONDUCTOR_SERVER_URL` |
+| `AGENTSPAN_AUTH_KEY` | `CONDUCTOR_AUTH_KEY` |
+| `AGENTSPAN_AUTH_SECRET` | `CONDUCTOR_AUTH_SECRET` |
 
 Agent runtime knobs:
 
-| Current | Legacy fallback |
+| Old (removed) | New |
 |---|---|
-| `CONDUCTOR_AGENT_WORKER_THREADS` | `AGENTSPAN_WORKER_THREADS` |
-| `CONDUCTOR_AGENT_WORKER_POLL_INTERVAL` | `AGENTSPAN_WORKER_POLL_INTERVAL` |
-| `CONDUCTOR_AGENT_AUTO_START_WORKERS` | `AGENTSPAN_AUTO_START_WORKERS` |
-| `CONDUCTOR_AGENT_DAEMON_WORKERS` | `AGENTSPAN_DAEMON_WORKERS` |
-| `CONDUCTOR_AGENT_STREAMING_ENABLED` | `AGENTSPAN_STREAMING_ENABLED` |
-| `CONDUCTOR_AGENT_LIVENESS_ENABLED` | `AGENTSPAN_LIVENESS_ENABLED` |
-| `CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS` | `AGENTSPAN_LIVENESS_STALL_SECONDS` |
-| `CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS` | `AGENTSPAN_LIVENESS_CHECK_INTERVAL_SECONDS` |
+| `AGENTSPAN_WORKER_THREADS` | `CONDUCTOR_AGENT_WORKER_THREADS` |
+| `AGENTSPAN_WORKER_POLL_INTERVAL` | `CONDUCTOR_AGENT_WORKER_POLL_INTERVAL` |
+| `AGENTSPAN_AUTO_START_WORKERS` | `CONDUCTOR_AGENT_AUTO_START_WORKERS` |
+| `AGENTSPAN_DAEMON_WORKERS` | `CONDUCTOR_AGENT_DAEMON_WORKERS` |
+| `AGENTSPAN_STREAMING_ENABLED` | `CONDUCTOR_AGENT_STREAMING_ENABLED` |
+| `AGENTSPAN_LIVENESS_ENABLED` | `CONDUCTOR_AGENT_LIVENESS_ENABLED` |
+| `AGENTSPAN_LIVENESS_STALL_SECONDS` | `CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS` |
+| `AGENTSPAN_LIVENESS_CHECK_INTERVAL_SECONDS` | `CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS` |
 
-**Precedence:** the current name wins when both are set.
+To find stragglers:
 
-For the **agent runtime knobs**, a blank or whitespace-only value is treated as unset, so
-`CONDUCTOR_AGENT_WORKER_THREADS=""` with `AGENTSPAN_WORKER_THREADS=2` resolves to `2`. A
-*malformed* value (say `not-a-number`) is not treated as unset — it falls back to the
-built-in default rather than to the legacy value, so a typo cannot silently pick up stale
-configuration.
+```shell
+env | grep '^AGENTSPAN_'
+grep -rn 'AGENTSPAN_' . --include='*.yml' --include='*.yaml' --include='*.env' --include='Dockerfile*'
+```
 
-The **connection settings** behave the same way: blank and whitespace-only values are
-treated as unset, so `export CONDUCTOR_SERVER_URL=` falls through to
-`AGENTSPAN_SERVER_URL` and then to the default. This also covers a `ServerUrl` passed
-explicitly via `AgentRuntimeOptions`.
-
-**No action required.** Existing `AGENTSPAN_*` configuration keeps working. Migrate at
-your convenience.
+Blank and whitespace-only values are treated as unset and fall back to the default, rather
+than yielding an empty `BasePath` or a failed parse. That applies to a `ServerUrl` passed
+explicitly via `AgentRuntimeOptions` too.
 
 ### Two prefixes, on purpose
 
-Connection settings use `CONDUCTOR_*` because they are shared with the core SDK — the
-same variables configure a `Configuration` for workflows and workers. Agent runtime knobs
-use `CONDUCTOR_AGENT_*` because they configure only the agent layer, and this matches the
-Java and Python SDKs.
+Connection settings use `CONDUCTOR_*` because they are shared with the core SDK — the same
+variables configure a `Configuration` for workflows and workers. Agent runtime knobs use
+`CONDUCTOR_AGENT_*` because they configure only the agent layer, and this matches the Java
+and Python SDKs.
 
-### Type names: not renamed
+### Type names
 
-`AgentspanException` and `AgentspanJson` keep their names.
+| Old (removed) | New |
+|---|---|
+| `AgentspanException` | `ConductorAgentException` |
+| `AgentspanJson` | `ConductorAgentJson` |
 
-`AgentspanException` is the base of every agent exception, so renaming it would break
-`catch (AgentspanException)` in consumer code, and `AgentspanJson.Options` appears in
-user code that deserializes agent output. Both were left alone in favour of source and
-binary compatibility.
+Code referencing the old names **will not compile**, which is the intended failure mode —
+it is preferable to a silent behaviour change. `ConductorAgentException` remains the base
+of every agent exception, so a single `catch` still covers them all.
 
 ```csharp
-// still correct
+// before
 try { await runtime.RunAsync(agent, prompt); }
 catch (AgentspanException ex) { /* ... */ }
 
-// still correct
 var report = JsonSerializer.Deserialize<WeatherReport>(json, AgentspanJson.Options);
+
+// after
+try { await runtime.RunAsync(agent, prompt); }
+catch (ConductorAgentException ex) { /* ... */ }
+
+var report = JsonSerializer.Deserialize<WeatherReport>(json, ConductorAgentJson.Options);
 ```
 
-The `AgentspanE2eTests` namespace in the E2E test project is likewise unchanged; it is
-test-only and not part of the public surface.
+### OpenTelemetry source name
+
+The `ActivitySource` name changed from `agentspan.agents` to `conductor.agents`. Code
+using the constant is unaffected:
+
+```csharp
+.AddSource(AgentTracing.SourceName)   // still correct
+```
+
+But **collector configs, dashboards, or alerts that filter on the literal string
+`agentspan.agents` will stop matching** and need updating.
+
+### What was deliberately left alone
+
+Names outside this SDK's control still contain "agentspan", and renaming them in docs would
+point you at things that may not exist:
+
+- the `agentspan` CLI (`agentspan credentials set …`)
+- the `agentspan-ai` GitHub organisation, referenced by credential examples
+- server-side properties such as `agentspan.default-context-window`
+- the `__agentspan_ctx__` task-input key, which is part of the server's wire contract for
+  `ToolContext` injection
 
 ## Documentation restructure
 

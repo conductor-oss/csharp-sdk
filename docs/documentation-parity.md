@@ -40,14 +40,14 @@ Pages present here but not in the siblings:
 Environment variables for the agent runtime use `CONDUCTOR_AGENT_*`, matching Java and
 Python. Connection settings use `CONDUCTOR_*`, shared with the core SDK.
 
-Two divergences from Python are deliberate:
+This SDK matches Python's *actual* behaviour: legacy `AGENTSPAN_*` names are removed
+outright, not aliased. Note that Python's PR description claims it "kept legacy runtime
+environment-variable aliases"; its diff does not, and its config docstring reads *"Only
+`CONDUCTOR_AGENT_*` settings are supported."* The docstring is the accurate one.
 
-1. **Legacy env aliases are retained.** `AGENTSPAN_*` names still work as fallbacks. Python
-   removed them (its config docstring reads *"Only `CONDUCTOR_AGENT_*` settings are
-   supported"*), despite its PR description claiming otherwise.
-2. **Type names are not renamed.** `AgentspanException` and `AgentspanJson` keep their
-   names for source and binary compatibility — `AgentspanException` is the base of eight
-   public exception types.
+This SDK goes further than Python in one respect: the public type names were renamed too
+(`AgentspanException` → `ConductorAgentException`, `AgentspanJson` → `ConductorAgentJson`),
+so no Agentspan naming remains in the surface this SDK owns.
 
 See [upgrading.md](upgrading.md).
 

@@ -18,7 +18,7 @@ using Conductor.Client.Authentication;
 namespace Conductor.AI;
 
 /// <summary>
-/// Main entry point for running Agentspan agents.
+/// Main entry point for running Conductor agents.
 /// </summary>
 /// <example>
 /// <code>
@@ -58,8 +58,8 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// the same connection/auth object used across the SDK, so the agent client and
     /// the worker plane share one token authority. When <paramref name="configuration"/>
     /// is null, resolves from <c>CONDUCTOR_SERVER_URL</c>/<c>CONDUCTOR_AUTH_KEY</c>/
-    /// <c>CONDUCTOR_AUTH_SECRET</c>, falling back to the legacy <c>AGENTSPAN_*</c>
-    /// names, defaulting to <c>http://localhost:8080/api</c> with no auth.
+    /// <c>CONDUCTOR_AUTH_SECRET</c>, defaulting to <c>http://localhost:8080/api</c>
+    /// with no auth.
     /// <paramref name="settings"/> is behavior-only tuning (worker polling,
     /// auto-start, streaming, liveness) — it defaults to <see cref="AgentConfig.FromEnv"/>
     /// and can never carry connection/auth (spec R4).
@@ -89,9 +89,9 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
 
     /// <summary>
     /// Resolves the shared <see cref="Configuration"/> from explicit values (options
-    /// overload) or environment, in <c>CONDUCTOR_*</c> → <c>AGENTSPAN_*</c> → default
-    /// order. Blank values are treated as unset at every step, so an empty variable
-    /// falls through rather than clobbering the chain.
+    /// overload) or environment, in explicit → <c>CONDUCTOR_*</c> → default order.
+    /// Blank values are treated as unset at every step, so an empty variable falls
+    /// through rather than clobbering the chain.
     /// AuthenticationSettings is left null for OSS Conductor (no token exchange
     /// needed). For Orkes Cloud, set the key+secret pair and the SDK uses
     /// <see cref="OrkesAuthenticationSettings"/> to obtain a JWT automatically.
@@ -99,15 +99,10 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// <summary>Internal for T6 env-precedence tests — resolves the same way the public ctors do.</summary>
     internal static Configuration BuildConfiguration(string? serverUrl, string? authKey, string? authSecret)
     {
-        var resolvedUrl = FirstNonBlank(
-                serverUrl,
-                EnvLookup("CONDUCTOR_SERVER_URL"),
-                EnvLookup("AGENTSPAN_SERVER_URL"))
+        var resolvedUrl = FirstNonBlank(serverUrl, EnvLookup("CONDUCTOR_SERVER_URL"))
             ?? "http://localhost:8080/api";
-        var resolvedKey = FirstNonBlank(
-            authKey, EnvLookup("CONDUCTOR_AUTH_KEY"), EnvLookup("AGENTSPAN_AUTH_KEY"));
-        var resolvedSecret = FirstNonBlank(
-            authSecret, EnvLookup("CONDUCTOR_AUTH_SECRET"), EnvLookup("AGENTSPAN_AUTH_SECRET"));
+        var resolvedKey = FirstNonBlank(authKey, EnvLookup("CONDUCTOR_AUTH_KEY"));
+        var resolvedSecret = FirstNonBlank(authSecret, EnvLookup("CONDUCTOR_AUTH_SECRET"));
 
         var config = new Configuration { BasePath = resolvedUrl };
         if (!string.IsNullOrEmpty(resolvedKey) && !string.IsNullOrEmpty(resolvedSecret))
@@ -118,7 +113,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// <summary>
     /// First value that is neither null nor blank, or null if there is none. Blank is
     /// treated as unset so that <c>export CONDUCTOR_SERVER_URL=</c> falls through to the
-    /// legacy name and then the default, rather than yielding an empty BasePath.
+    /// default, rather than yielding an empty BasePath.
     /// </summary>
     private static string? FirstNonBlank(params string?[] candidates)
     {
@@ -403,14 +398,14 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
             IsWaiting = node["isWaiting"]?.GetValue<bool>() ?? false,
             Output = node["output"] is JsonObject outObj
                 ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
-                    outObj.ToJsonString(), AgentspanJson.Options)
+                    outObj.ToJsonString(), ConductorAgentJson.Options)
                 : null,
             StatusValue = statusValue,
             Reason = statusValue != "COMPLETED" ? node["reasonForIncompletion"]?.GetValue<string>() : null,
             CurrentTask = node["currentTask"]?.GetValue<string>(),
             PendingTool = node["pendingTool"] is not null
                 ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
-                    node["pendingTool"]!.ToJsonString(), AgentspanJson.Options)
+                    node["pendingTool"]!.ToJsonString(), ConductorAgentJson.Options)
                 : null,
         };
     }

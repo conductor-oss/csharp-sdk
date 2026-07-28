@@ -53,8 +53,8 @@ values fall back to the default rather than throwing:
 | `LivenessStallSeconds` | `CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS` | `30.0` | How long an unpolled tool task may sit before it's flagged as stalled. |
 | `LivenessCheckIntervalSeconds` | `CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS` | `10.0` | How often the liveness monitor polls the workflow's task list. |
 
-The legacy `AGENTSPAN_*` equivalents are still honored as fallbacks when the
-`CONDUCTOR_AGENT_*` name is unset. See [../../upgrading.md](../../upgrading.md).
+Only these names are read. The legacy `AGENTSPAN_*` equivalents were removed and now have
+no effect. See [../../upgrading.md](../../upgrading.md).
 
 ```csharp
 using var runtime = new AgentRuntime();

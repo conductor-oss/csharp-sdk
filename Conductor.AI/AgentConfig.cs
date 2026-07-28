@@ -76,9 +76,8 @@ public sealed class AgentConfig
     /// empty values fall back to the default rather than throwing.
     /// </summary>
     /// <remarks>
-    /// Each knob is read from its <c>CONDUCTOR_AGENT_*</c> name first, falling back to
-    /// the legacy <c>AGENTSPAN_*</c> name. A blank or whitespace-only value is treated
-    /// as unset, so it does not clobber the rest of the chain.
+    /// Only <c>CONDUCTOR_AGENT_*</c> settings are supported. A blank or whitespace-only
+    /// value is treated as unset and falls back to the default.
     /// </remarks>
     public static AgentConfig FromEnv() => new()
     {
@@ -93,17 +92,13 @@ public sealed class AgentConfig
     };
 
     /// <summary>
-    /// Reads <c>CONDUCTOR_AGENT_{suffix}</c>, falling back to the legacy
-    /// <c>AGENTSPAN_{suffix}</c>. Blank values are treated as unset so they don't
-    /// short-circuit the chain. Returns null when neither is set.
+    /// Reads <c>CONDUCTOR_AGENT_{suffix}</c>. Blank and whitespace-only values are
+    /// treated as unset, so callers fall back to the default rather than parsing "".
     /// </summary>
     private static string? ResolveEnv(string suffix)
     {
-        var current = EnvLookup("CONDUCTOR_AGENT_" + suffix);
-        if (!string.IsNullOrWhiteSpace(current)) return current;
-
-        var legacy = EnvLookup("AGENTSPAN_" + suffix);
-        return string.IsNullOrWhiteSpace(legacy) ? null : legacy;
+        var value = EnvLookup("CONDUCTOR_AGENT_" + suffix);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     private static int ParseInt(string suffix, int defaultValue, int min)

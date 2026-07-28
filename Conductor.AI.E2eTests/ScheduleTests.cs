@@ -18,7 +18,7 @@ using System.Text.Json.Nodes;
 using Conductor.AI.Scheduling;
 using Xunit;
 
-namespace AgentspanE2eTests;
+namespace Conductor.AI.E2eTests;
 
 /// <summary>
 /// Unit + integration tests for the C# scheduling SDK.
