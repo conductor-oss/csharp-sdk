@@ -1,8 +1,22 @@
 # Guardrails
 
 Guardrails validate input or output and can retry, raise, fix, or escalate to a
-human. `Position` is `Input` or `Output`; `OnFail` is `Retry`, `Raise`, `Fix`, or
-`Human`.
+human. `Position` is `Input` or `Output`; `OnFail` is `Retry`, `Raise` (the default),
+`Fix`, or `Human`.
+
+## Two kinds, evaluated in two different places
+
+This distinction determines whether your process does any work at all:
+
+- **`RegexGuardrail.Create` / `LLMGuardrail.Create`** are data-only — no local code
+  runs them. The Conductor server evaluates the patterns (as an inline script) or calls
+  the model itself using its own configured LLM providers. No worker process, HTTP
+  client, or API key is needed in your application.
+- **Custom guardrails** (`[Guardrail]` methods via `GuardrailRegistry.FromInstance`)
+  run your own function. The SDK registers one combined worker per agent/tool scope
+  that evaluates all of that scope's custom guardrails — use these when the check needs
+  code you write: a database lookup, a call to an internal service, logic no built-in
+  type covers.
 
 ## `[Guardrail]` methods + `GuardrailRegistry.FromInstance`
 
@@ -26,7 +40,8 @@ var agent = new Agent("support_agent")
 
 ## Regex guardrail
 
-`mode: "block"` fails on a match; `"allow"` fails when nothing matches.
+Evaluated server-side. `mode: "block"` fails on a match; `"allow"` fails when nothing
+matches.
 
 ```csharp
 var noEmails = RegexGuardrail.Create(
@@ -41,7 +56,8 @@ var noEmails = RegexGuardrail.Create(
 
 ## LLM guardrail
 
-A model judges content against a policy and returns `{passed, reason}`:
+Evaluated server-side: the server calls the specified model with the policy plus the
+content and expects `{passed, reason}` back. No API key is needed in your process.
 
 ```csharp
 var safety = LLMGuardrail.Create(

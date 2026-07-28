@@ -132,9 +132,9 @@ loads an agentskills.io skill directory as an `Agent` (requires `SKILL.md`);
 
 **`GuardrailRegistry.FromInstance(object)`** → `List<GuardrailDef>`.
 
-**`RegexGuardrail.Create`** — `(string|IEnumerable<string> pattern(s), string mode = "block", string? name = null, string? message = null, Position position = Output, OnFail onFail = Retry, int maxRetries = 3)`. `mode`: `"block"` fails on match, `"allow"` fails when nothing matches.
+**`RegexGuardrail.Create`** — `(string|IEnumerable<string> pattern(s), string mode = "block", string? name = null, string? message = null, Position position = Output, OnFail onFail = Raise, int maxRetries = 3)`. `mode`: `"block"` fails on match, `"allow"` fails when nothing matches. Evaluated server-side.
 
-**`LLMGuardrail.Create`** — `(string model, string policy, string? name = null, int? maxTokens = null, Position position = Output, OnFail onFail = Retry, int maxRetries = 3, string? apiKey = null)`.
+**`LLMGuardrail.Create`** — `(string model, string policy, string? name = null, int? maxTokens = null, Position position = Output, OnFail onFail = Raise, int maxRetries = 3)`. Evaluated server-side — no API key needed in-process.
 
 Enums: `Position` { `Input`, `Output` }; `OnFail` { `Retry`, `Raise`, `Fix`, `Human` }.
 
@@ -220,7 +220,11 @@ Positions map to server task names: `before_agent`, `after_agent`, `before_model
 overloads `ApproveAsync(AgentEvent, ...)` / `RejectAsync(AgentEvent, reason)` /
 `RespondAsync(AgentEvent, object)`, `IsWaitingAsync(ct)`,
 `WaitUntilWaitingAsync(timeout, pollInterval? = null, ct)`, `StopAsync()` / `Stop()`,
-`CancelAsync(reason)` / `Cancel(reason)`.
+`CancelAsync(reason)` / `Cancel(reason)`, `PauseAsync()` / `Pause()`,
+`UnpauseAsync()` / `Unpause()`.
+
+`PauseAsync` stops tasks being scheduled until `UnpauseAsync`; it is distinct from
+`AgentRuntime.ResumeAsync`, which re-attaches workers to an existing execution by id.
 
 **`AgentEvent`** (record): `Type` (`EventType`), `Content`, `ToolName`, `Args`,
 `Result`, `Target`, `Output`, `ExecutionId`, `GuardrailName`, `Timestamp`, `Status`.

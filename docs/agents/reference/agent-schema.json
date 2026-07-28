@@ -138,13 +138,38 @@
     },
     "guardrail": {
       "type": "object",
-      "required": ["name"],
+      "required": ["name", "guardrailType"],
       "properties": {
         "name": { "type": "string" },
-        "guardrailType": { "type": "string" },
+        "guardrailType": {
+          "type": "string",
+          "enum": ["custom", "regex", "llm", "external"],
+          "default": "custom"
+        },
         "position": { "type": "string", "enum": ["input", "output"] },
-        "onFail": { "type": "string", "enum": ["retry", "raise", "fix", "human"] },
+        "onFail": {
+          "type": "string",
+          "enum": ["retry", "raise", "fix", "human"],
+          "default": "raise"
+        },
         "maxRetries": { "type": "integer", "default": 3 },
+        "taskName": {
+          "type": "string",
+          "description": "Present for custom guardrails only: {scope}_output_guardrail, the combined per-scope worker."
+        },
+        "patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "guardrailType=regex. Server-evaluated; no worker."
+        },
+        "mode": { "type": "string", "enum": ["block", "allow"], "default": "block" },
+        "message": { "type": "string" },
+        "model": {
+          "type": "string",
+          "description": "guardrailType=llm. Server calls the model itself."
+        },
+        "policy": { "type": "string" },
+        "maxTokens": { "type": "integer" },
         "maskedFields": { "type": "array", "items": { "type": "string" } }
       }
     },

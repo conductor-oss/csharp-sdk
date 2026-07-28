@@ -81,6 +81,9 @@ public interface IAgentClient : IDisposable, IAsyncDisposable
     /// <summary>Fetch the workflow definition (without tasks) — e.g. to read taskToDomain. Null on any failure (enrichment read).</summary>
     Task<JsonNode?> GetWorkflowAsync(string executionId, CancellationToken ct = default);
 
+    /// <summary>Fetch the workflow with its tasks — used to aggregate tool calls from call_* tasks. Null on any failure (enrichment read).</summary>
+    Task<JsonNode?> GetWorkflowWithTasksAsync(string executionId, CancellationToken ct = default);
+
     // ── Conveniences (agent-level, control-plane) ──────────────
 
     /// <summary>Compile + register + start an agent, then poll to a result. No local tool workers.</summary>

@@ -305,7 +305,10 @@ public sealed class AgentHandle
                 {
                     // Fetch full execution record for token usage and finish reason
                     var execution = await _http.GetExecutionAsync(_executionId, cancellationToken);
-                    return BuildResult(status!, s, execution);
+                    // Java parity: walk the workflow's tasks once to aggregate tool calls
+                    // from call_* tasks (enrichment read — null is fine, yields no tool calls).
+                    var workflowWithTasks = await _http.GetWorkflowWithTasksAsync(_executionId, cancellationToken);
+                    return BuildResult(status!, s, execution, workflowWithTasks);
                 }
                 await Task.Delay(500, cancellationToken);
             }
@@ -360,14 +363,18 @@ public sealed class AgentHandle
         var node = await _http.GetStatusAsync(_executionId, cancellationToken);
         if (node is null) return new AgentStatus { ExecutionId = _executionId };
 
+        var statusValue = node["status"]?.GetValue<string>();
         return new AgentStatus
         {
             ExecutionId = node["executionId"]?.GetValue<string>() ?? _executionId,
             IsComplete = node["isComplete"]?.GetValue<bool>() ?? false,
             IsRunning = node["isRunning"]?.GetValue<bool>() ?? false,
             IsWaiting = node["isWaiting"]?.GetValue<bool>() ?? false,
-            StatusValue = node["status"]?.GetValue<string>(),
-            Reason = node["reason"]?.GetValue<string>(),
+            Output = node["output"] is JsonObject outObj
+                ? JsonSerializer.Deserialize<Dictionary<string, object>>(outObj.ToJsonString(), AgentspanJson.Options)
+                : null,
+            StatusValue = statusValue,
+            Reason = statusValue != "COMPLETED" ? node["reasonForIncompletion"]?.GetValue<string>() : null,
             CurrentTask = node["currentTask"]?.GetValue<string>(),
         };
     }
@@ -480,7 +487,8 @@ public sealed class AgentHandle
     /// <summary>Send a signal message to this execution (synchronous).</summary>
     public void Signal(object message) => SignalAsync(message).GetAwaiter().GetResult();
 
-    private static AgentResult BuildResult(JsonNode status, string statusStr, JsonNode? execution = null)
+    private static AgentResult BuildResult(
+        JsonNode status, string statusStr, JsonNode? execution = null, JsonNode? workflowWithTasks = null)
     {
         var output = status["output"];
         var parsedStatus = statusStr switch
@@ -533,9 +541,50 @@ public sealed class AgentHandle
             ExecutionId = status["executionId"]?.GetValue<string>() ?? "",
             Status = parsedStatus,
             Output = outputDict,
-            Error = status["error"]?.GetValue<string>(),
+            Error = parsedStatus != Status.Completed ? status["reasonForIncompletion"]?.GetValue<string>() : null,
+            ToolCalls = ExtractToolCalls(workflowWithTasks),
             TokenUsage = tokenUsage,
             FinishReason = finishReason,
         };
+    }
+
+    /// <summary>
+    /// Java parity (<c>AgentHandle.extractFromTasks</c>): walk the workflow's tasks
+    /// and collect one entry per LLM-dispatched tool call — tasks whose
+    /// <c>referenceTaskName</c> starts with <c>call_</c> — capturing the tool name,
+    /// its input args (internal runtime fields stripped), and its result.
+    /// </summary>
+    private static List<Dictionary<string, object>>? ExtractToolCalls(JsonNode? workflowWithTasks)
+    {
+        if (workflowWithTasks?["tasks"] is not JsonArray tasks) return null;
+
+        List<Dictionary<string, object>>? toolCalls = null;
+        foreach (var task in tasks)
+        {
+            var refName = task?["referenceTaskName"]?.GetValue<string>();
+            var outputData = task?["outputData"] as JsonObject;
+            if (refName is null || !refName.StartsWith("call_", StringComparison.Ordinal) || outputData is null)
+                continue;
+
+            var tc = new Dictionary<string, object> { ["name"] = task!["taskType"]?.GetValue<string>() ?? "" };
+            if (task["inputData"] is JsonObject inputData)
+            {
+                var cleaned = new Dictionary<string, object>();
+                foreach (var kv in inputData)
+                {
+                    var k = kv.Key;
+                    if (k.StartsWith('_') || k is "method" or "evaluatorType" or "expression" or "ctx"
+                        or "workerTag" or "agentConfig")
+                        continue;
+                    cleaned[k] = JsonSerializer.Deserialize<object>(kv.Value?.ToJsonString() ?? "null", AgentspanJson.Options)!;
+                }
+                tc["args"] = cleaned;
+            }
+            if (outputData.TryGetPropertyValue("result", out var resultNode) && resultNode is not null)
+                tc["result"] = JsonSerializer.Deserialize<object>(resultNode.ToJsonString(), AgentspanJson.Options)!;
+
+            (toolCalls ??= new List<Dictionary<string, object>>()).Add(tc);
+        }
+        return toolCalls;
     }
 }

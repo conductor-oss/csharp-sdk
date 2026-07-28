@@ -78,10 +78,20 @@ Composites use `and` / `or` with a `conditions` array.
 
 ## Guardrail objects
 
-`guardrailType` (`custom`, regex, LLM), `name`, `position` (`input` / `output`),
-`onFail` (`retry`, `raise`, `fix`, `human`), `maxRetries`, plus type-specific fields
-such as the regex pattern or LLM policy. Sensitive values may be listed in
-`maskedFields`.
+Every guardrail carries `name`, `guardrailType`, `position` (`input` / `output`),
+`onFail` (`retry`, `raise`, `fix`, `human` — default `raise`), and `maxRetries`.
+`guardrailType` selects how the server evaluates it, and determines which additional
+fields appear:
+
+| `guardrailType` | Extra fields | Evaluated by |
+|---|---|---|
+| `regex` | `patterns`, `mode` (`block`/`allow`), `message` | Server, as an inline script |
+| `llm` | `model`, `policy`, `maxTokens` | Server, calling the model itself |
+| `custom` | `taskName` = `{scope}_output_guardrail` | Your combined per-scope worker |
+| `external` | — | A remote worker, by name |
+
+Only `custom` guardrails involve a worker in your process. Sensitive values may be
+listed in `maskedFields`.
 
 ## Maintenance
 
