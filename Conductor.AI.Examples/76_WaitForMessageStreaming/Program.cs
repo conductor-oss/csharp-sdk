@@ -23,8 +23,8 @@
 //
 // Requirements:
 //   - Conductor server with WMQ support (conductor.workflow-message-queue.enabled=true)
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Conductor.AI;
 using Conductor.AI.Examples;

@@ -112,7 +112,7 @@ public sealed class Suite2_ToolCalling
         };
 
         await using var runtime = new AgentRuntime();
-        var result = await runtime.RunAsync(agent, "Echo 'agentspan-e2e-marker' and tell me what you got back.");
+        var result = await runtime.RunAsync(agent, "Echo 'conductor-e2e-marker' and tell me what you got back.");
 
         Assert.True(host.CallCount > 0,
             "Expected echo_token to be called but it wasn't.");
@@ -165,7 +165,9 @@ public sealed class Suite2_ToolCalling
     private const string LCRED_B = "E2E_DOTNET_CRED_B";
 
     private static readonly string ApiBase =
-        (Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL") ?? "http://localhost:8080/api")
+        (Environment.GetEnvironmentVariable("CONDUCTOR_SERVER_URL")
+         ?? Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")
+         ?? "http://localhost:8080/api")
         .TrimEnd('/');
 
     [SkippableFact]
@@ -287,7 +289,7 @@ public sealed class Suite2_ToolCalling
             // run (a server-flavor capability, not an SDK regression; mirrors the
             // Java port's putSecret assumption-skip). The fail-closed steps still
             // run everywhere; the full lifecycle only runs on the writable-store
-            // (agentspan) flavor.
+            // (Conductor) flavor.
             Skip.If(body.Contains("read-only"),
                 "server secret store is read-only (env-backed) — skipping write-dependent step");
             resp.EnsureSuccessStatusCode();

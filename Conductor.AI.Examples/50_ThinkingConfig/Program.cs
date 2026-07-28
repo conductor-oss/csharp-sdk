@@ -17,10 +17,10 @@
 // This improves performance on complex analytical tasks.
 //
 // Requirements:
-//   - Agentspan server with thinking config support
+//   - Conductor server with thinking config support
 //   - A model that supports extended thinking (e.g., Claude with thinking)
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Conductor.AI;
 using Conductor.AI.Examples;

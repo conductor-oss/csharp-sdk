@@ -22,8 +22,8 @@ dotnet add package conductor-ai
 
 ## 2. Point at a server
 
-You need a running Conductor (or Agentspan) server. The defaults assume a
-local one at `http://localhost:8080/api`.
+You need a running Conductor server. The defaults assume a local one at
+`http://localhost:8080/api`.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -35,13 +35,15 @@ local one at `http://localhost:8080/api`.
 ```bash
 export CONDUCTOR_SERVER_URL=http://localhost:8080/api
 export OPENAI_API_KEY=<YOUR-KEY>
-export AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
+export CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini
 # Orkes Cloud only:
 # export CONDUCTOR_AUTH_KEY=...
 # export CONDUCTOR_AUTH_SECRET=...
 ```
 
-The runtime reads these on construction. You can also pass them explicitly via `AgentRuntimeOptions` (see [concepts/deploy-serve-run.md](concepts/deploy-serve-run.md#runtime-initialization)).
+The runtime reads the `CONDUCTOR_*` connection variables on construction. You can also pass them explicitly via `AgentRuntimeOptions` (see [concepts/deploy-serve-run.md](concepts/deploy-serve-run.md#runtime-initialization)).
+
+`CONDUCTOR_AGENT_LLM_MODEL` is a convention of the bundled examples, not something the SDK itself reads — an `Agent` takes its model from the `Model` property. It's shown here because every example under `Conductor.AI.Examples/` picks it up.
 
 ## 3. Run an agent
 

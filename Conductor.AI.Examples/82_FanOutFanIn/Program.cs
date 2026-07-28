@@ -28,8 +28,8 @@
 //   The Collector aggregates the three answers into a side-by-side report.
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using System.Text.Json;
 using Conductor.AI;

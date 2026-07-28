@@ -33,9 +33,9 @@
 //   agentspan credentials set MCP_TEST_API_KEY <secret>
 //
 // Requirements:
-//   - Agentspan server running at AGENTSPAN_SERVER_URL
+//   - Conductor server running at CONDUCTOR_SERVER_URL
 //   - mcp-testkit running on http://localhost:3001 (see above)
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using System.Text.Json.Nodes;
 using Conductor.AI;

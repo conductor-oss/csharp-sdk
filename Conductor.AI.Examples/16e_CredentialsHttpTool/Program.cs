@@ -25,8 +25,8 @@
 //   agentspan credentials set GITHUB_TOKEN <your-github-token>
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - GITHUB_TOKEN stored via `agentspan credentials set`
 
 using Conductor.AI;
@@ -43,7 +43,7 @@ var listRepos = HttpTools.Create(
         ["Authorization"] = "Bearer ${GITHUB_TOKEN}",
         ["Accept"] = "application/vnd.github.v3+json",
         ["X-GitHub-Api-Version"] = "2022-11-28",
-        ["User-Agent"] = "agentspan-sdk",
+        ["User-Agent"] = "conductor-sdk",
     },
     credentials: ["GITHUB_TOKEN"]);
 

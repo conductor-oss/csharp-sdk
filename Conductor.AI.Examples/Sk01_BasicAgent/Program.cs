@@ -18,9 +18,9 @@ using Microsoft.SemanticKernel;
 namespace Conductor.AI.Examples.Sk01;
 
 /// <summary>
-/// Bridge a plain C# class with [KernelFunction] methods into Agentspan.
+/// Bridge a plain C# class with [KernelFunction] methods into Conductor.
 ///
-/// No Kernel setup, no SK ChatClient — Agentspan uses the LLM, SK only contributes
+/// No Kernel setup, no SK ChatClient — Conductor uses the LLM, SK only contributes
 /// the function metadata + invocation glue.
 /// </summary>
 public sealed class CalculatorPlugin

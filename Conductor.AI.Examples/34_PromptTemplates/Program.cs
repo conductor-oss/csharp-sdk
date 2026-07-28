@@ -27,9 +27,9 @@
 // If the template is absent the agent still runs with server defaults.
 //
 // Requirements:
-//   - Agentspan server with the "order-support" prompt template defined
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server with the "order-support" prompt template defined
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Conductor.AI;
 using Conductor.AI.Examples;

@@ -23,8 +23,8 @@
 //   - code_reviewer:   temperature=0.1, max_tokens=300
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api
-//   - AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api
+//   - CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini
 
 using Conductor.AI;
 using Conductor.AI.Examples;

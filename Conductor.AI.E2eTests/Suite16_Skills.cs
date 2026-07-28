@@ -149,7 +149,7 @@ public sealed class Suite16_Skills
     {
         public string Path { get; } = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(),
-            $"agentspan-csharp-skill-{Guid.NewGuid():N}");
+            $"conductor-csharp-skill-{Guid.NewGuid():N}");
 
         public TempSkillDir()
         {
@@ -197,7 +197,7 @@ public sealed class Suite16_Skills
     {
         public string Root { get; } = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(),
-            $"agentspan-csharp-cross-skill-{Guid.NewGuid():N}");
+            $"conductor-csharp-cross-skill-{Guid.NewGuid():N}");
 
         public string ParentPath => System.IO.Path.Combine(Root, "parent-skill");
 
@@ -241,7 +241,7 @@ public sealed class Suite16_Skills
     {
         public string Root { get; } = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(),
-            $"agentspan-csharp-search-skill-{Guid.NewGuid():N}");
+            $"conductor-csharp-search-skill-{Guid.NewGuid():N}");
 
         public string ParentPath => System.IO.Path.Combine(Root, "parent");
         public string SearchRoot => System.IO.Path.Combine(Root, "external");

@@ -24,17 +24,17 @@
 //   3. Back to step 1
 //
 // Requirements:
-//   - Agentspan server running at http://localhost:8080
-//   - Kafka broker on localhost:9092 with topic "agentspan_topic"
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server running at http://localhost:8080
+//   - Kafka broker on localhost:9092 with topic "conductor_topic"
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Confluent.Kafka;
 using Conductor.AI;
 using Conductor.AI.Examples;
 
 const string KafkaBootstrap = "localhost:9092";
-const string KafkaTopic = "agentspan_topic";
+const string KafkaTopic = "conductor_topic";
 const string KafkaGroup = "agentspan-echo-group";
 
 // ── Tools ─────────────────────────────────────────────────────

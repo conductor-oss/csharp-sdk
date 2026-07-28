@@ -15,7 +15,9 @@ namespace Conductor.AI.Examples;
 internal static class Settings
 {
     public static string LlmModel =>
-        Environment.GetEnvironmentVariable("AGENTSPAN_LLM_MODEL") ?? "openai/gpt-4o-mini";
+        Environment.GetEnvironmentVariable("CONDUCTOR_AGENT_LLM_MODEL")
+        ?? Environment.GetEnvironmentVariable("AGENTSPAN_LLM_MODEL")
+        ?? "openai/gpt-4o-mini";
 
     public static string ServerUrl =>
         Environment.GetEnvironmentVariable("CONDUCTOR_SERVER_URL")

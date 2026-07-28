@@ -16,9 +16,9 @@
 // HTTP endpoint directly without dispatching to a local worker.
 //
 // Requirements:
-//   - Agentspan server with LLM support
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server with LLM support
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using System.Text.Json.Nodes;
 using Conductor.AI;
@@ -58,7 +58,7 @@ var agent = new Agent("http_tools_demo")
 // ── Run ───────────────────────────────────────────────────────────────
 
 await using var runtime = new AgentRuntime();
-var result = await runtime.RunAsync(agent, "Write a formatted report about the Agentspan C# SDK features.");
+var result = await runtime.RunAsync(agent, "Write a formatted report about the Conductor C# SDK features.");
 result.PrintResult();
 
 // ── Tool class ────────────────────────────────────────────────────────

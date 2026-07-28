@@ -34,8 +34,8 @@
 //   block pending approval. Type Y to approve or N to reject.
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using System.Threading.Channels;
 using Conductor.AI;

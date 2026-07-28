@@ -18,9 +18,9 @@
 //   - Local @tool for in-memory ticket CRUD
 //
 // Requirements:
-//   - Agentspan server with MCP support
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server with MCP support
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - GH_TOKEN in environment (for GitHub MCP server)
 
 using Conductor.AI;

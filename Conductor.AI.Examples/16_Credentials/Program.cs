@@ -25,9 +25,8 @@
 // into the process environment for the duration of the handler call.
 //
 // Requirements:
-//   - Conductor/Agentspan server running at CONDUCTOR_SERVER_URL
-//     (or AGENTSPAN_SERVER_URL as a fallback)
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server running at CONDUCTOR_SERVER_URL
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - GITHUB_TOKEN stored via `agentspan credentials set`
 
 using System.Net.Http.Headers;
@@ -73,7 +72,7 @@ internal sealed class GitHubTools
             HttpMethod.Get,
             $"https://api.github.com/users/{username}/repos?per_page=5&sort=updated");
 
-        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("agentspan-csharp-sdk", "0.1"));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("conductor-csharp-sdk", "0.1"));
         if (!string.IsNullOrEmpty(token))
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 

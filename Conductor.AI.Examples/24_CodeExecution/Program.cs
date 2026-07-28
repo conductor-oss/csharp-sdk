@@ -16,10 +16,10 @@
 // The agent writes code, executes it, and shows results.
 //
 // Requirements:
-//   - Agentspan server with LLM support
+//   - Conductor server with LLM support
 //   - Python 3.x installed locally
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using System.Diagnostics;
 using Conductor.AI;
@@ -59,7 +59,7 @@ internal sealed class LocalCodeExecutor(int timeout = 10)
     [Tool("Execute Python code and return the output. Use this to run code and show results.")]
     public async Task<Dictionary<string, object>> ExecuteCode(string code, string language = "python")
     {
-        var tmpFile = Path.Combine(Path.GetTempPath(), $"agentspan_{Guid.NewGuid():N}.py");
+        var tmpFile = Path.Combine(Path.GetTempPath(), $"conductor_{Guid.NewGuid():N}.py");
         try
         {
             await File.WriteAllTextAsync(tmpFile, code);

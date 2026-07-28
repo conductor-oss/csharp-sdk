@@ -30,9 +30,8 @@
 //   agentspan credentials set GITHUB_TOKEN <your-github-token>
 //
 // Requirements:
-//   - Conductor/Agentspan server running at CONDUCTOR_SERVER_URL
-//     (or AGENTSPAN_SERVER_URL as a fallback)
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server running at CONDUCTOR_SERVER_URL
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - GITHUB_TOKEN stored via `agentspan credentials set`
 //   - An external worker polling for "github_lookup" tasks (see comments below)
 
@@ -109,7 +108,7 @@ result.PrintResult();
  *   using System.Net.Http.Headers;
  *
  *   var serverUrl = Environment.GetEnvironmentVariable("CONDUCTOR_SERVER_URL")
- *       ?? Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")!;
+ *       ?? "http://localhost:8080/api";
  *   var taskClient = new TaskResourceApi(new Configuration { BasePath = serverUrl });
  *
  *   while (true)
@@ -130,7 +129,7 @@ result.PrintResult();
  *       using var ghClient = new HttpClient();
  *       ghClient.DefaultRequestHeaders.Authorization =
  *           new AuthenticationHeaderValue("Bearer", token);
- *       ghClient.DefaultRequestHeaders.Add("User-Agent", "agentspan-worker");
+ *       ghClient.DefaultRequestHeaders.Add("User-Agent", "conductor-worker");
  *
  *       var resp = await ghClient.GetAsync($"https://api.github.com/users/{username}");
  *       // ... complete the Conductor task with the response data
