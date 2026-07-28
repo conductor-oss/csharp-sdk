@@ -90,24 +90,41 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// <summary>
     /// Resolves the shared <see cref="Configuration"/> from explicit values (options
     /// overload) or environment, in <c>CONDUCTOR_*</c> → <c>AGENTSPAN_*</c> → default
-    /// order. AuthenticationSettings is left null for OSS Conductor (no token exchange
+    /// order. Blank values are treated as unset at every step, so an empty variable
+    /// falls through rather than clobbering the chain.
+    /// AuthenticationSettings is left null for OSS Conductor (no token exchange
     /// needed). For Orkes Cloud, set the key+secret pair and the SDK uses
     /// <see cref="OrkesAuthenticationSettings"/> to obtain a JWT automatically.
     /// </summary>
     /// <summary>Internal for T6 env-precedence tests — resolves the same way the public ctors do.</summary>
     internal static Configuration BuildConfiguration(string? serverUrl, string? authKey, string? authSecret)
     {
-        var resolvedUrl = serverUrl
-            ?? EnvLookup("CONDUCTOR_SERVER_URL")
-            ?? EnvLookup("AGENTSPAN_SERVER_URL")
+        var resolvedUrl = FirstNonBlank(
+                serverUrl,
+                EnvLookup("CONDUCTOR_SERVER_URL"),
+                EnvLookup("AGENTSPAN_SERVER_URL"))
             ?? "http://localhost:8080/api";
-        var resolvedKey = authKey ?? EnvLookup("CONDUCTOR_AUTH_KEY") ?? EnvLookup("AGENTSPAN_AUTH_KEY");
-        var resolvedSecret = authSecret ?? EnvLookup("CONDUCTOR_AUTH_SECRET") ?? EnvLookup("AGENTSPAN_AUTH_SECRET");
+        var resolvedKey = FirstNonBlank(
+            authKey, EnvLookup("CONDUCTOR_AUTH_KEY"), EnvLookup("AGENTSPAN_AUTH_KEY"));
+        var resolvedSecret = FirstNonBlank(
+            authSecret, EnvLookup("CONDUCTOR_AUTH_SECRET"), EnvLookup("AGENTSPAN_AUTH_SECRET"));
 
         var config = new Configuration { BasePath = resolvedUrl };
         if (!string.IsNullOrEmpty(resolvedKey) && !string.IsNullOrEmpty(resolvedSecret))
             config.AuthenticationSettings = new OrkesAuthenticationSettings(resolvedKey, resolvedSecret);
         return config;
+    }
+
+    /// <summary>
+    /// First value that is neither null nor blank, or null if there is none. Blank is
+    /// treated as unset so that <c>export CONDUCTOR_SERVER_URL=</c> falls through to the
+    /// legacy name and then the default, rather than yielding an empty BasePath.
+    /// </summary>
+    private static string? FirstNonBlank(params string?[] candidates)
+    {
+        foreach (var candidate in candidates)
+            if (!string.IsNullOrWhiteSpace(candidate)) return candidate;
+        return null;
     }
 
     private WorkerManager NewWorkerManager()

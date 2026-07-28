@@ -104,6 +104,73 @@ public sealed class AgentRuntimeEnvTests
         Assert.Null(config.AuthenticationSettings);
     }
 
+    // ── Blank values are treated as unset, not as a value ──────────────
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BlankConductorServerUrl_FallsThroughToAgentspan(string blank)
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_SERVER_URL"] = blank,
+            ["AGENTSPAN_SERVER_URL"] = "http://legacy/api",
+        };
+        var config = WithEnv(env, () => AgentRuntime.BuildConfiguration(null, null, null));
+
+        Assert.Equal("http://legacy/api", config.BasePath.TrimEnd('/'));
+    }
+
+    [Fact]
+    public void BlankBothServerUrls_FallsThroughToDefault()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_SERVER_URL"] = "",
+            ["AGENTSPAN_SERVER_URL"] = "   ",
+        };
+        var config = WithEnv(env, () => AgentRuntime.BuildConfiguration(null, null, null));
+
+        Assert.Equal("http://localhost:8080/api", config.BasePath.TrimEnd('/'));
+    }
+
+    [Fact]
+    public void BlankExplicitServerUrl_FallsThroughToEnv()
+    {
+        var env = new Dictionary<string, string> { ["CONDUCTOR_SERVER_URL"] = "http://env-wins/api" };
+        var config = WithEnv(env, () => AgentRuntime.BuildConfiguration("", null, null));
+
+        Assert.Equal("http://env-wins/api", config.BasePath.TrimEnd('/'));
+    }
+
+    [Fact]
+    public void BlankAuthSecret_YieldsNoAuthenticationSettings()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AUTH_KEY"] = "ck",
+            ["CONDUCTOR_AUTH_SECRET"] = "   ",
+        };
+        var config = WithEnv(env, () => AgentRuntime.BuildConfiguration(null, null, null));
+
+        Assert.Null(config.AuthenticationSettings);
+    }
+
+    [Fact]
+    public void BlankConductorAuthKey_FallsThroughToAgentspan()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AUTH_KEY"] = "",
+            ["CONDUCTOR_AUTH_SECRET"] = "",
+            ["AGENTSPAN_AUTH_KEY"] = "ak",
+            ["AGENTSPAN_AUTH_SECRET"] = "as",
+        };
+        var config = WithEnv(env, () => AgentRuntime.BuildConfiguration(null, null, null));
+
+        Assert.NotNull(config.AuthenticationSettings);
+    }
+
     // ── Ctor-shape contract: zero-arg resolves the primary ctor unambiguously ──
 
     [Fact]

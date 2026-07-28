@@ -35,14 +35,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   eight public exception types and `AgentspanJson.Options` appears in user code, so both
   keep their names for source and binary compatibility.
 
-### Known issue
+### Fixed
 
-- Connection-setting resolution (`CONDUCTOR_SERVER_URL` / `_AUTH_KEY` / `_AUTH_SECRET`)
-  falls back only on an **unset** variable, not a blank one. On Unix,
-  `export CONDUCTOR_SERVER_URL=` yields an empty `BasePath` instead of falling through to
-  the legacy name or the default. This contradicts the "blank env vars no longer clobber
-  the fallback chain" note in the entry below, which overstated the fix. The agent knobs
-  above do handle blanks correctly.
+- **Blank connection env vars no longer clobber the fallback chain.**
+  `AgentRuntime.BuildConfiguration` chained with `??`, which falls back only on `null`, so
+  on Unix `export CONDUCTOR_SERVER_URL=` produced an empty `BasePath` instead of falling
+  through to `AGENTSPAN_SERVER_URL` and then to `http://localhost:8080/api`. The same
+  applied to the auth key and secret. Resolution now treats blank and whitespace-only
+  values as unset at every step, including an explicitly-passed `serverUrl` or
+  `AgentRuntimeOptions.ServerUrl`.
+
+  This makes good on the claim in the entry below, which previously overstated the fix.
 
 ## [Unreleased — async executor / thread-starvation fix]
 

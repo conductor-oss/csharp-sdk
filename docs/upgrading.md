@@ -37,10 +37,10 @@ For the **agent runtime knobs**, a blank or whitespace-only value is treated as 
 built-in default rather than to the legacy value, so a typo cannot silently pick up stale
 configuration.
 
-For the **connection settings**, resolution currently falls back only on an unset
-variable, not on a blank one. On Unix, `export CONDUCTOR_SERVER_URL=` yields an empty
-`BasePath` rather than falling through to the legacy name or the default. Set connection
-variables to a real value or leave them unset.
+The **connection settings** behave the same way: blank and whitespace-only values are
+treated as unset, so `export CONDUCTOR_SERVER_URL=` falls through to
+`AGENTSPAN_SERVER_URL` and then to the default. This also covers a `ServerUrl` passed
+explicitly via `AgentRuntimeOptions`.
 
 **No action required.** Existing `AGENTSPAN_*` configuration keeps working. Migrate at
 your convenience.
