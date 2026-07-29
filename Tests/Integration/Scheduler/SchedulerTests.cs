@@ -67,7 +67,23 @@ namespace Tests.Integration.Scheduler
             Cleanup();
         }
 
+        // Restricted to Orkes-only until the SDK is switched to PUT for pause/resume.
+        // The Orkes Conductor server exposes pause/resume of a schedule by name as GET
+        // (/scheduler/schedules/{name}/pause and .../resume), which is wrong for a state-mutating
+        // operation and forced every SDK (including this one) to call it with GET. OSS Conductor
+        // already models these correctly as PUT, so running these tests against OSS fails with
+        // "Request method 'GET' is not supported".
+        //
+        // The server fix (orkes-conductor branch fix/scheduler-hyphen-names-and-pause-resume) makes
+        // the endpoints accept BOTH GET and PUT, keeping GET for backward compatibility. So this
+        // GET-based SDK will keep passing against enterprise even after the fix ships — there is no
+        // future failure that will signal us to migrate. The migration path is therefore explicit:
+        //   1. Deploy the fixed server (accepts PUT) to the SDK-test enterprise servers.
+        //   2. Switch PauseSchedule/ResumeSchedule in the SDK to Method.Put (works against both OSS
+        //      and the updated enterprise server, since enterprise still also accepts GET).
+        //   3. Drop this [Trait("ServerType", "Orkes")] restriction so both tests run against OSS again.
         [Fact]
+        [Trait("ServerType", "Orkes")]
         public void PauseSchedule_ScheduleIsPaused()
         {
             Save();
@@ -77,7 +93,13 @@ namespace Tests.Integration.Scheduler
             Cleanup();
         }
 
+        // Restricted to Orkes-only for the same reason as PauseSchedule_ScheduleIsPaused above:
+        // ResumeSchedule (and the PauseSchedule it depends on) is called as GET to match the Orkes
+        // server, but OSS correctly requires PUT. Re-enable against OSS (drop this trait) once the
+        // fixed server is deployed and the SDK is switched to Method.Put (see the migration steps
+        // on PauseSchedule_ScheduleIsPaused above).
         [Fact]
+        [Trait("ServerType", "Orkes")]
         public void ResumeSchedule_ScheduleIsActive()
         {
             Save();

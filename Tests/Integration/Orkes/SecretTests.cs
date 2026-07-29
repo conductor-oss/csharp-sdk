@@ -19,6 +19,7 @@ namespace Tests.Integration.Orkes
 {
     [Collection("Integration")]
     [Trait("Category", "Integration")]
+    [Trait("ServerType", "Orkes")]
     public class SecretTests : IClassFixture<ConductorFixture>
     {
         private readonly SecretResourceApi _secretClient;

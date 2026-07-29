@@ -18,6 +18,7 @@ namespace Tests.Integration.Environment
 {
     [Collection("Integration")]
     [Trait("Category", "Integration")]
+    [Trait("ServerType", "Orkes")]
     public class EnvironmentVariableTests : IClassFixture<ConductorFixture>
     {
         private readonly EnvironmentResourceApi _envClient;
