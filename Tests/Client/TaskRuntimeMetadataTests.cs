@@ -33,7 +33,8 @@ namespace Tests.Client
                 {
                     { "GITHUB_TOKEN", "ghp_secret" },
                     { "GH_APP_ID", "42" }
-                });
+                }
+            };
 
             var json = JsonConvert.SerializeObject(task);
             Assert.Contains("\"runtimeMetadata\"", json);
