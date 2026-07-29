@@ -27,9 +27,9 @@ namespace Tests.Client
         [Fact]
         public void RuntimeMetadata_RoundTrips()
         {
-            var task = new ModelTask(
-                taskId: "t1",
-                runtimeMetadata: new Dictionary<string, string>
+            var task = new ModelTask(taskId: "t1")
+            {
+                RuntimeMetadata = new Dictionary<string, string>
                 {
                     { "GITHUB_TOKEN", "ghp_secret" },
                     { "GH_APP_ID", "42" }
