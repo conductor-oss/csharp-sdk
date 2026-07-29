@@ -102,6 +102,8 @@ jobs:
         run: ./scripts/test-package-e2e-bundle.sh --build
 
   integration_tests:
+    # Repository secrets are intentionally unavailable to pull requests from forks.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     needs: lint
     runs-on: ubuntu-latest
     env:
@@ -128,6 +130,8 @@ jobs:
           -l "console;verbosity=normal"
 
   legacy_integration_tests:
+    # Repository secrets are intentionally unavailable to pull requests from forks.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     needs: lint
     runs-on: ubuntu-latest
     env:
@@ -152,4 +156,3 @@ jobs:
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
           --filter "Category=CloudIntegration"
           -l "console;verbosity=normal"
-
