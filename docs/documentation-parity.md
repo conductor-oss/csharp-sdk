@@ -4,16 +4,56 @@ Where this SDK's documentation stands against the Java and Python SDKs. Java is 
 reference structure; Python adopted it in
 [python-sdk#441](https://github.com/conductor-oss/python-sdk/pull/441).
 
-## Structural parity
+## Structural parity — file counts
+
+Measured against the 43 documentation files python-sdk#441 added:
+
+| Group | Python | .NET | Missing |
+|---|---|---|---|
+| Top-level `docs/*.md` | 21 | 21 | **0** |
+| `docs/agents/concepts/` | 11 | 11 | **0** |
+| `docs/agents/reference/` | 6 | 6 | **0** |
+| `docs/agents/frameworks/` | 5 | 6 | **0** (+`semantic-kernel.md`) |
+| **Total** | **43** | **44** | **0** |
 
 | Area | Java | Python | .NET |
 |---|---|---|---|
 | `docs/README.md` index | ✅ | ✅ | ✅ |
-| Top-level topic docs | ✅ | ✅ | ✅ |
-| `docs/agents/concepts/` | ✅ | ✅ | ✅ |
-| `docs/agents/frameworks/` | ✅ | ✅ | ✅ |
-| `docs/agents/reference/` | ✅ | ✅ | ✅ |
+| `docs/agents/README.md` index | ✅ | ✅ | ✅ |
+| Root `README.md` as navigation hub | ✅ | ✅ | ✅ |
+| Examples index README | — | ✅ | ✅ |
 | `agent-schema.json` | ✅ generated | ✅ | ⚠️ hand-maintained |
+
+### Reproducing the comparison
+
+```shell
+gh api --paginate "repos/conductor-oss/python-sdk/pulls/441/files" \
+  --jq '.[] | select(.status=="added") | .filename' | grep '^docs/'
+```
+
+### Why python-sdk's `docs/` looks larger
+
+A directory listing shows **33** files in python-sdk's `docs/`, not 21. The extra 12 are
+legacy SCREAMING_CASE documents that predate the restructure and that PR #441 did not
+touch:
+
+```
+AUTHORIZATION.md  INTEGRATION.md  LEASE_EXTENSION.md  METADATA.md
+PROMPT.md  SCHEDULE.md  SECRET_MANAGEMENT.md  TASK_MANAGEMENT.md
+WORKER.md  WORKFLOW.md  WORKFLOW_TESTING.md  workflow-message-queue.md
+```
+
+They are not part of the target structure — their content is covered by the new topic docs
+(`WORKER.md` → `workers.md`, `WORKFLOW.md` → `workflows.md`, `SCHEDULE.md` →
+`schedules-events.md`, `SECRET_MANAGEMENT.md` → `security.md`). Literal filename parity
+would mean importing files python-sdk has not finished retiring, so this SDK does not
+mirror them.
+
+## Content parity is not a goal
+
+Structure is aligned; **content is not, and should not be**. Code samples are C#, package
+names are NuGet ids, and four pages document functionality .NET does not have. Reading
+"1:1" as identical prose would mean documenting a different SDK.
 
 ## Page-level differences
 
@@ -86,6 +126,33 @@ Core-SDK topic pages were authored for this restructure from the SDK source, sin
 repo previously documented the core SDK only in `README.md` and two files under
 `docs/readme/`. They are correspondingly newer and less battle-tested than the agent pages,
 which were relocated from existing documentation.
+
+## READMEs
+
+PR #441 did not only add files under `docs/` — it also gutted several READMEs, moving their
+content into the new structure. The equivalents here:
+
+| README | Python (#441) | .NET |
+|---|---|---|
+| Root `README.md` | +112 / −525 — rebuilt as a navigation hub | Rebuilt to the same section structure |
+| `docs/README.md` | added | added |
+| `docs/agents/README.md` | +33 / −26 | rewritten as the agent index |
+| Examples index | `examples/agents/README.md`, +21 / −341 | `Conductor.AI.Examples/README.md`, added |
+
+The root README follows python-sdk's section order — Choose your path · Choose your
+Conductor server · Why Conductor? · Requirements and compatibility · Install the SDK · AI
+agent quickstart · Workflow and worker quickstart · Common tasks · Troubleshooting ·
+Support and project policies · License — so a reader moving between SDKs finds the same
+shape.
+
+The inline Hello World that previously lived in the root README now lives in
+[core-quickstart.md](core-quickstart.md), which removes a duplicated copy that would have
+drifted.
+
+Python's per-framework example READMEs (`examples/agents/adk/`, `openai/`, `langgraph/`)
+have no .NET counterpart, because this repo keeps all 175 agent examples in one flat
+directory rather than per-framework subdirectories. The single
+`Conductor.AI.Examples/README.md` indexes them by prefix instead.
 
 ## Known content gaps
 
