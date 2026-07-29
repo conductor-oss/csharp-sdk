@@ -24,6 +24,8 @@
     <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="10.0.0" />
     <PackageReference Include="OpenTelemetry" Version="1.15.1" />
     <PackageReference Include="OpenTelemetry.Exporter.Prometheus.HttpListener" Version="1.15.1-beta.1" />
-    <None Include="/package/Conductor/README.md" Pack="true" PackagePath="/" />
+    <!-- Relative so `dotnet pack` works outside the Dockerfile too; in the
+         Docker build this resolves to /package/README.md, same file as before. -->
+    <None Include="../README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>

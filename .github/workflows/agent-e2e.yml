@@ -85,33 +85,11 @@ jobs:
 
       # A dead/unhealthy server makes every [SkippableFact] skip silently — that
       # must never read as green. Fail on 0 executed or server-unreachable skips.
+      # Shared verbatim with the released bundle (package-e2e-bundle.sh copies
+      # this same script in), so the two lanes cannot guard differently.
       - name: Guard against vacuous run
         if: always()
-        run: |
-          python3 - <<'EOF'
-          import glob, sys
-          import xml.etree.ElementTree as ET
-          NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
-          paths = sorted(glob.glob("results/*.trx"))
-          if not paths:
-              print("GUARD: no TRX files found — vacuous run"); sys.exit(1)
-          executed = unreachable = 0
-          for p in paths:
-              root = ET.parse(p).getroot()
-              counters = root.find(".//t:ResultSummary/t:Counters", NS)
-              executed += int(counters.get("executed", "0"))
-              for r in root.findall(".//t:UnitTestResult", NS):
-                  if r.get("outcome") == "NotExecuted":
-                      msg = r.find(".//t:Message", NS)
-                      if msg is not None and "server is not reachable" in (msg.text or ""):
-                          unreachable += 1
-          print(f"GUARD: executed={executed}, server-unreachable skips={unreachable}")
-          if executed == 0:
-              print("GUARD: 0 tests executed — vacuous run"); sys.exit(1)
-          if unreachable > 0:
-              print("GUARD: suite skipped due to unreachable server — vacuous run"); sys.exit(1)
-          print("GUARD: OK")
-          EOF
+        run: python3 scripts/check-results.py 'results/*.trx'
 
       - name: Upload results
         if: always()
