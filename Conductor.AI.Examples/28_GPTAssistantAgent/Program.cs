@@ -10,7 +10,7 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-// GPTAssistantAgent — wrap OpenAI Assistants API as an Agentspan agent.
+// GPTAssistantAgent — wrap OpenAI Assistants API as an Conductor agent.
 //
 // GPTAssistantAgent.Create() builds an Agent whose internal tool
 // creates an OpenAI Thread, posts a message, polls the Run to completion,
@@ -22,9 +22,9 @@
 //
 // Requirements:
 //   - OPENAI_API_KEY in environment
-//   - Agentspan server with LLM support
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server with LLM support
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Conductor.AI;
 using Conductor.AI.Examples;

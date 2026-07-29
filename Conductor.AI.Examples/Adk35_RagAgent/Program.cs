@@ -13,7 +13,7 @@
 // Adk35 — RAG Agent.
 //
 // A RAG agent flow with index + search tools. The Python source uses
-// Agentspan's search_tool / index_tool factories (mapped to Conductor's
+// Conductor's search_tool / index_tool factories (mapped to Conductor's
 // LLM_INDEX_TEXT / LLM_SEARCH_INDEX system tasks).
 //
 // Note: simplified from Java original — no equivalent search_tool /
@@ -22,8 +22,8 @@
 // canned shapes — preserving the example flow.
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api
-//   - AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api
+//   - CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini
 
 using Conductor.AI;
 using Conductor.AI.Examples;

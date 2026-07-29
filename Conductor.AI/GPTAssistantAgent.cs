@@ -29,7 +29,7 @@ public static class GPTAssistantAgent
     /// <summary>Create an agent that uses an existing OpenAI Assistant.</summary>
     /// <param name="name">Agent name.</param>
     /// <param name="assistantId">An existing OpenAI Assistant ID (e.g. <c>asst_abc123</c>).</param>
-    /// <param name="model">LLM model for the outer Agentspan agent.</param>
+    /// <param name="model">LLM model for the outer Conductor agent.</param>
     /// <param name="apiKey">OpenAI API key (falls back to <c>OPENAI_API_KEY</c> env var).</param>
     public static Agent FromExistingAssistant(
         string name,
@@ -41,7 +41,7 @@ public static class GPTAssistantAgent
         return BuildAgent(name, model, null, runner);
     }
 
-    /// <summary>Create a new OpenAI Assistant on the fly and wrap it as an Agentspan agent.</summary>
+    /// <summary>Create a new OpenAI Assistant on the fly and wrap it as an Conductor agent.</summary>
     /// <param name="name">Agent name.</param>
     /// <param name="model">OpenAI model (e.g. <c>"anthropic/claude-sonnet-4-6"</c>).</param>
     /// <param name="instructions">System instructions for the assistant.</param>

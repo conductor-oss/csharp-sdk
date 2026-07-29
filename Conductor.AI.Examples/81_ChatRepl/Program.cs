@@ -33,15 +33,15 @@
 //   dotnet run --project 81_ChatRepl
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - Conductor server with WMQ support (conductor.workflow-message-queue.enabled=true)
 
 using System.Threading.Channels;
 using Conductor.AI;
 using Conductor.AI.Examples;
 
-const string SessionFile = "/tmp/agentspan_chat_repl_81.session";
+const string SessionFile = "/tmp/conductor_chat_repl_81.session";
 
 // ── In-process IPC ────────────────────────────────────────────────────
 // In Python the workers run in separate OS processes so replies are sent via

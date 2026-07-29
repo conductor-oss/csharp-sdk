@@ -31,7 +31,7 @@ public sealed class SkillWorker
     public required Func<Dictionary<string, object?>, Task<object?>> Handler { get; init; }
 }
 
-/// <summary>Load agentskills.io skill directories as Agentspan agents.</summary>
+/// <summary>Load agentskills.io skill directories as Conductor agents.</summary>
 public static class Skill
 {
     private static readonly Regex Frontmatter = new("^---\\s*\\n(.*?)\\n---\\s*\\n", RegexOptions.Singleline);

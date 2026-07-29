@@ -24,12 +24,12 @@
 //   # Start with auth (to demonstrate credential resolution):
 //   mcp-testkit --transport http --auth <secret>
 //
-//   # Store credentials via CLI or Agentspan UI:
+//   # Store credentials via CLI or Conductor UI:
 //   agentspan credentials set MCP_API_KEY <secret>
 //
 // Requirements:
-//   - Agentspan server running at AGENTSPAN_SERVER_URL
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server running at CONDUCTOR_SERVER_URL
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - mcp-testkit running on http://localhost:3001 (see above)
 //   - MCP_API_KEY stored via `agentspan credentials set`
 

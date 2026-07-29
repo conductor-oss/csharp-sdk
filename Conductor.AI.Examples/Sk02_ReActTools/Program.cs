@@ -16,8 +16,8 @@
 // in sequence to answer a compound question.
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api
-//   - AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api
+//   - CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini
 
 using System.ComponentModel;
 using System.Globalization;
@@ -54,7 +54,7 @@ public static class Program
         await using var runtime = new AgentRuntime(new AgentRuntimeOptions { ServerUrl = Settings.ServerUrl });
         var result = await runtime.RunAsync(
             agent,
-            "What is the length of the string 'agentspan', what is it reversed, and what is today's date?");
+            "What is the length of the string 'conductor', what is it reversed, and what is today's date?");
         result.PrintResult();
     }
 }

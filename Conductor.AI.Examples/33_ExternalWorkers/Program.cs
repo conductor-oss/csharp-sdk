@@ -23,11 +23,11 @@
 //   - You want to reuse existing Conductor task definitions
 //
 // Requirements:
-//   - Agentspan server with LLM support
+//   - Conductor server with LLM support
 //   - External workers for process_order, delete_account, get_customer,
 //     and check_inventory must be running elsewhere
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Conductor.AI;
 using Conductor.AI.Examples;

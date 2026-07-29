@@ -29,8 +29,8 @@
 //   5. github_agent commits, pushes, creates PR → done
 //
 // Requirements:
-//   - Agentspan server running at AGENTSPAN_SERVER_URL
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server running at CONDUCTOR_SERVER_URL
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - gh CLI authenticated: gh auth status
 //   - Git configured with push access to the repo
 

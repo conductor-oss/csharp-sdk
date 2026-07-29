@@ -10,15 +10,15 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-// Skills — load an agentskills.io skill directory as an Agentspan Agent.
+// Skills — load an agentskills.io skill directory as an Conductor Agent.
 //
 // Skill scripts become worker tools, and resources under references/,
 // examples/, assets/, plus root resource files, are available through the
 // generated read_skill_file tool.
 //
 // Usage:
-//   AGENTSPAN_SERVER_URL=http://localhost:8080/api \
-//   AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini \
+//   CONDUCTOR_SERVER_URL=http://localhost:8080/api \
+//   CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini \
 //   dotnet run --project sdk/csharp/examples/91_Skills/Example91Skills.csproj \
 //     -- /path/to/skill "Review this repository"
 

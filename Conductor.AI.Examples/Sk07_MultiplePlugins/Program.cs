@@ -16,8 +16,8 @@
 // into a single tool list on the agent.
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api
-//   - AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api
+//   - CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini
 
 using System.ComponentModel;
 using System.Globalization;
@@ -62,7 +62,7 @@ public static class Program
         await using var runtime = new AgentRuntime(new AgentRuntimeOptions { ServerUrl = Settings.ServerUrl });
         var result = await runtime.RunAsync(
             agent,
-            "What is 12 * 7? Also tell me today's date, and uppercase the word 'agentspan'.");
+            "What is 12 * 7? Also tell me today's date, and uppercase the word 'conductor'.");
         result.PrintResult();
     }
 }

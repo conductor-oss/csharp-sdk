@@ -31,7 +31,7 @@ public sealed class Suite14_PdfTools
     public Suite14_PdfTools(E2eFixture fixture) => _fixture = fixture;
 
     private const string SampleMarkdown = """
-        # Agentspan E2E Test Report
+        # Conductor E2E Test Report
 
         ## Overview
         This document validates the PDF generation pipeline.

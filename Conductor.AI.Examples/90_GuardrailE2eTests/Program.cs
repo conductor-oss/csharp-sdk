@@ -49,9 +49,9 @@
 //   ╚════╧══════════════╧════════╧════════╧══════════════════════════════════════╝
 //
 // Requirements:
-//   - Agentspan server with LLM support
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server with LLM support
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //
 // Regex/LLM guardrails are evaluated server-side (no client worker, no API
 // key needed on this process) — rows noted "in worker" below describe

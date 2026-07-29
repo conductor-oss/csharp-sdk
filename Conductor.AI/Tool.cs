@@ -19,8 +19,8 @@ namespace Conductor.AI;
 
 // ── Shared JSON options ─────────────────────────────────────
 
-/// <summary>Shared <see cref="JsonSerializerOptions"/> for all Agentspan serialization.</summary>
-public static class AgentspanJson
+/// <summary>Shared <see cref="JsonSerializerOptions"/> for all Conductor serialization.</summary>
+public static class ConductorAgentJson
 {
     public static readonly JsonSerializerOptions Options = new()
     {
@@ -64,7 +64,7 @@ public record PromptTemplate(
 
 // ── Tool attribute ─────────────────────────────────────────
 
-/// <summary>Mark a method as an Agentspan tool. The method becomes a Conductor worker task.</summary>
+/// <summary>Mark a method as an Conductor tool. The method becomes a Conductor worker task.</summary>
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class ToolAttribute : Attribute
 {

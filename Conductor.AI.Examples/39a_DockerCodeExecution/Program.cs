@@ -21,8 +21,8 @@
 // other tool and sees its stdout/stderr output.
 //
 // Requirements:
-//   - Agentspan server running at AGENTSPAN_SERVER_URL
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server running at CONDUCTOR_SERVER_URL
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - Docker installed and daemon running
 //   - python:3.12-slim image available (docker pull python:3.12-slim)
 

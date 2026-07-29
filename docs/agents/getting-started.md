@@ -22,26 +22,30 @@ dotnet add package conductor-ai
 
 ## 2. Point at a server
 
-You need a running Conductor (or Agentspan) server. The defaults assume a
-local one at `http://localhost:8080/api`.
+You need a running Conductor server. The defaults assume a local one at
+`http://localhost:8080/api`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `CONDUCTOR_SERVER_URL` | `http://localhost:8080/api` | Server URL. Wins over `AGENTSPAN_SERVER_URL` if both are set. |
-| `CONDUCTOR_AUTH_KEY` | — | Auth key. Unset = no-auth mode (local / OSS). Wins over `AGENTSPAN_AUTH_KEY`. |
-| `CONDUCTOR_AUTH_SECRET` | — | Auth secret. Set together with the key for Orkes Cloud. Wins over `AGENTSPAN_AUTH_SECRET`. |
-| `AGENTSPAN_SERVER_URL` / `AGENTSPAN_AUTH_KEY` / `AGENTSPAN_AUTH_SECRET` | — | Legacy names, still honored as fallbacks when the `CONDUCTOR_*` ones are unset. |
+| `CONDUCTOR_SERVER_URL` | `http://localhost:8080/api` | Server URL. |
+| `CONDUCTOR_AUTH_KEY` | — | Auth key. Unset = no-auth mode (local / OSS). |
+| `CONDUCTOR_AUTH_SECRET` | — | Auth secret. Set together with the key for Orkes Cloud. |
+
+The legacy `AGENTSPAN_*` names were removed and have no effect — see
+[../upgrading.md](../upgrading.md).
 
 ```bash
 export CONDUCTOR_SERVER_URL=http://localhost:8080/api
 export OPENAI_API_KEY=<YOUR-KEY>
-export AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
+export CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini
 # Orkes Cloud only:
 # export CONDUCTOR_AUTH_KEY=...
 # export CONDUCTOR_AUTH_SECRET=...
 ```
 
-The runtime reads these on construction. You can also pass them explicitly via `AgentRuntimeOptions` (see [advanced.md](advanced.md)).
+The runtime reads the `CONDUCTOR_*` connection variables on construction. You can also pass them explicitly via `AgentRuntimeOptions` (see [concepts/deploy-serve-run.md](concepts/deploy-serve-run.md#runtime-initialization)).
+
+`CONDUCTOR_AGENT_LLM_MODEL` is a convention of the bundled examples, not something the SDK itself reads — an `Agent` takes its model from the `Model` property. It's shown here because every example under `Conductor.AI.Examples/` picks it up.
 
 ## 3. Run an agent
 
@@ -69,7 +73,7 @@ That is the whole loop: define an `Agent`, open an `AgentRuntime`, `await runtim
 
 ## Reading the result
 
-`RunAsync` returns an [`AgentResult`](api-reference.md#agentresult). Common members:
+`RunAsync` returns an [`AgentResult`](reference/api.md#results). Common members:
 
 ```csharp
 result.PrintResult();                 // formatted summary to stdout
@@ -82,6 +86,10 @@ string execId = result.ExecutionId;   // durable execution id on the server
 
 ## Next
 
-- [writing-agents.md](writing-agents.md) — tools, multi-agent orchestration, guardrails, streaming, HITL.
-- [advanced.md](advanced.md) — deploy/serve, the control-plane `IAgentClient`, structured output, credentials.
+- [concepts/tools.md](concepts/tools.md) — tools and credentials.
+- [concepts/multi-agent.md](concepts/multi-agent.md) — multi-agent orchestration and handoffs.
+- [concepts/guardrails.md](concepts/guardrails.md) — input/output validation.
+- [concepts/streaming-hitl.md](concepts/streaming-hitl.md) — streaming and human-in-the-loop.
+- [concepts/deploy-serve-run.md](concepts/deploy-serve-run.md) — deploy/serve, the control-plane `IAgentClient`, PLAN_EXECUTE.
+- [README.md](README.md) — the full index.
 </content>

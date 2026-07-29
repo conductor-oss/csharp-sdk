@@ -17,8 +17,8 @@
 // resume, run-now, preview next fires, and purge on cleanup.
 //
 // Usage:
-//   AGENTSPAN_SERVER_URL=http://localhost:8080/api \
-//   AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini \
+//   CONDUCTOR_SERVER_URL=http://localhost:8080/api \
+//   CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini \
 //   dotnet run --project sdk/csharp/examples/92_ScheduledAgent/Example92ScheduledAgent.csproj
 
 using Conductor.AI;

@@ -17,9 +17,9 @@
 //   - Custom guardrail via [Guardrail] attribute: enforce minimum length (worker)
 //
 // Requirements:
-//   - Agentspan server with LLM support
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server with LLM support
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Conductor.AI;
 using Conductor.AI.Examples;

@@ -22,9 +22,9 @@
 // workers, or executing.
 //
 // Requirements:
-//   - Agentspan server running
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server running
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using System.Text.Json;
 using System.Text.Json.Nodes;

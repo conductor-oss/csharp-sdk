@@ -31,13 +31,13 @@
 //
 // Requirements:
 //   - Conductor server with WMQ support (conductor.workflow-message-queue.enabled=true)
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Conductor.AI;
 using Conductor.AI.Examples;
 
-const string SessionFile = "/tmp/agentspan_stateful_resume_83.session";
+const string SessionFile = "/tmp/conductor_stateful_resume_83.session";
 
 var agent = new Agent("resumable_agent_83")
 {

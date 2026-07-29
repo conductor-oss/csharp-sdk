@@ -15,7 +15,7 @@ using Conductor.AI;
 namespace Conductor.AI.GoogleADK;
 
 /// <summary>
-/// Bridges the Google ADK (Agent Development Kit) shape to an Agentspan <see cref="Agent"/>.
+/// Bridges the Google ADK (Agent Development Kit) shape to an Conductor <see cref="Agent"/>.
 ///
 /// <para>Mirrors the Python pattern:</para>
 /// <code>
@@ -46,11 +46,11 @@ namespace Conductor.AI.GoogleADK;
 /// </summary>
 public static class GoogleADKAgent
 {
-    /// <summary>Start a builder for a Google-ADK-shape Agentspan agent.</summary>
+    /// <summary>Start a builder for a Google-ADK-shape Conductor agent.</summary>
     public static AgentBuilder Builder() => new();
 
     /// <summary>
-    /// Convenience shortcut: build an ADK Agentspan agent from name + model +
+    /// Convenience shortcut: build an ADK Conductor agent from name + model +
     /// instruction + optional tool objects.
     /// </summary>
     public static Agent From(string name, string model, string instruction, params object[] toolObjects)

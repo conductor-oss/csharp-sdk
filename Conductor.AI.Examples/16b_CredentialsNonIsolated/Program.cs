@@ -20,7 +20,7 @@
 //   - Graceful degradation when the credential isn't found
 //
 // In C#, all tool workers run in the same process (no subprocess isolation).
-// The Agentspan SDK automatically resolves declared credentials from the
+// The Conductor SDK automatically resolves declared credentials from the
 // server's credential store and injects them as environment variables before
 // each tool invocation.
 //
@@ -28,8 +28,8 @@
 //   agentspan credentials set GITHUB_TOKEN <your-github-token>
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - GITHUB_TOKEN stored via `agentspan credentials set`
 
 using System.Net.Http.Headers;
@@ -69,7 +69,7 @@ internal sealed class GitHubLookupTools
 
         var request = new HttpRequestMessage(
             HttpMethod.Get, $"https://api.github.com/users/{username}");
-        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("agentspan-csharp", "0.1"));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("conductor-csharp", "0.1"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         try

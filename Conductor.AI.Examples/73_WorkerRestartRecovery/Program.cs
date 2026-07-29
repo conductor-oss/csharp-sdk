@@ -18,7 +18,7 @@
 //   - Watching the same workflow complete after the worker service starts
 //
 // This proves worker-service durability. The workflow remains stored on the
-// Agentspan/Conductor server while .NET tool workers are unavailable. When
+// Conductor server while .NET tool workers are unavailable. When
 // a worker service comes back online, the server dispatches the stalled task
 // and the workflow continues to completion.
 //
@@ -32,8 +32,8 @@
 //   Client:  runtime.StartByNameAsync(name, prompt)
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Conductor.AI;
 using Conductor.AI.Examples;

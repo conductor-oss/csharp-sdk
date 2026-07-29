@@ -17,8 +17,8 @@
 // this into a Conductor workflow.
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api
-//   - AGENTSPAN_LLM_MODEL=openai/gpt-4o-mini
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api
+//   - CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini
 
 using Conductor.AI;
 using Conductor.AI.Examples;

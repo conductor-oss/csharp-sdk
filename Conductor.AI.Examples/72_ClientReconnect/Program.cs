@@ -19,7 +19,7 @@
 //   - Approving the HITL step and completing from the new runtime
 //
 // This proves client-process durability. The local .NET process can die,
-// but the workflow state remains stored on the Agentspan/Conductor server.
+// but the workflow state remains stored on the Conductor server.
 // Workers re-register under the original domain — the workflow continues
 // as if nothing happened.
 //
@@ -31,13 +31,13 @@
 //   2. Resume process — reads execution ID, calls ResumeAsync(), approves
 //
 // Requirements:
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using Conductor.AI;
 using Conductor.AI.Examples;
 
-const string ExecutionFile = "/tmp/agentspan_client_reconnect_72.execution_id";
+const string ExecutionFile = "/tmp/conductor_client_reconnect_72.execution_id";
 
 var agent = new Agent("client_reconnect_demo_72")
 {

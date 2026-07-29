@@ -15,7 +15,7 @@ using Conductor.AI;
 namespace Conductor.AI.OpenAI;
 
 /// <summary>
-/// Bridges the OpenAI Agents SDK shape to an Agentspan <see cref="Agent"/>.
+/// Bridges the OpenAI Agents SDK shape to an Conductor <see cref="Agent"/>.
 ///
 /// <para>Mirrors the Python pattern:</para>
 /// <code>
@@ -40,16 +40,16 @@ namespace Conductor.AI.OpenAI;
 ///
 /// <para>Tool objects passed to the Tools method are scanned for
 /// <c>[Tool]</c>-annotated methods via <c>ToolRegistry.FromInstance</c>.
-/// Each method becomes an Agentspan worker tool; the OpenAI Agents server-side
+/// Each method becomes an Conductor worker tool; the OpenAI Agents server-side
 /// runner calls them via the standard tool-call dispatch.</para>
 /// </summary>
 public static class OpenAIAgent
 {
-    /// <summary>Start a builder for an OpenAI-shape Agentspan agent.</summary>
+    /// <summary>Start a builder for an OpenAI-shape Conductor agent.</summary>
     public static AgentBuilder Builder() => new();
 
     /// <summary>
-    /// Convenience shortcut: build an OpenAI Agentspan agent from name + model +
+    /// Convenience shortcut: build an OpenAI Conductor agent from name + model +
     /// instructions + optional tool objects.
     /// </summary>
     public static Agent From(string name, string model, string instructions, params object[] toolObjects)

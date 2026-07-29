@@ -116,8 +116,7 @@ await ShowExecutedSteps(result.ExecutionId);
 
 static async Task ShowExecutedSteps(string executionId)
 {
-    var baseUrl = (Environment.GetEnvironmentVariable("AGENTSPAN_SERVER_URL")
-        ?? "http://localhost:8080/api")
+    var baseUrl = Settings.ServerUrl
         .TrimEnd('/')
         .Replace("/api", "");
     using var http = new HttpClient();

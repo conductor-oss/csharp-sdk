@@ -25,8 +25,8 @@
 //   dotnet run --project 63d_ServeFromAssembly
 //
 // Requirements:
-//   - Agentspan server running at AGENTSPAN_SERVER_URL
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server running at CONDUCTOR_SERVER_URL
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using System.Reflection;
 using Conductor.AI;

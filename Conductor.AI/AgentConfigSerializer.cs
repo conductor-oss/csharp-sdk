@@ -68,7 +68,7 @@ internal static class AgentConfigSerializer
             if (agent.FrameworkConfig is not null)
             {
                 foreach (var (k, v) in agent.FrameworkConfig)
-                    skill[k] = JsonNode.Parse(JsonSerializer.Serialize(v, AgentspanJson.Options));
+                    skill[k] = JsonNode.Parse(JsonSerializer.Serialize(v, ConductorAgentJson.Options));
             }
             return skill;
         }
@@ -292,7 +292,7 @@ internal static class AgentConfigSerializer
         }
 
         if (agent.Metadata is not null)
-            cfg["metadata"] = JsonNode.Parse(JsonSerializer.Serialize(agent.Metadata, AgentspanJson.Options))!;
+            cfg["metadata"] = JsonNode.Parse(JsonSerializer.Serialize(agent.Metadata, ConductorAgentJson.Options))!;
 
         // Condition-based handoffs (SWARM triggers)
         if (agent.Handoffs.Count > 0)
@@ -378,7 +378,7 @@ internal static class AgentConfigSerializer
                 {
                     ["toolName"] = pt.ToolName,
                     ["arguments"] = JsonNode.Parse(
-                        JsonSerializer.Serialize(pt.Arguments, AgentspanJson.Options))!,
+                        JsonSerializer.Serialize(pt.Arguments, ConductorAgentJson.Options))!,
                 });
             }
             cfg["prefillTools"] = arr;
@@ -458,7 +458,7 @@ internal static class AgentConfigSerializer
         {
             foreach (var (k, v) in agent.FrameworkConfig)
             {
-                map[k] = JsonNode.Parse(JsonSerializer.Serialize(v, AgentspanJson.Options));
+                map[k] = JsonNode.Parse(JsonSerializer.Serialize(v, ConductorAgentJson.Options));
             }
         }
 
@@ -467,7 +467,7 @@ internal static class AgentConfigSerializer
 
     private static JsonNode GenerateSchema(Type type)
     {
-        var opts = new JsonSerializerOptions(AgentspanJson.Options);
+        var opts = new JsonSerializerOptions(ConductorAgentJson.Options);
         opts.MakeReadOnly(populateMissingResolver: true);
         return JsonSchemaExporter.GetJsonSchemaAsNode(opts, type);
     }
@@ -551,13 +551,13 @@ internal static class AgentConfigSerializer
             var configCopy = new Dictionary<string, object>(tool.Config);
             if (tool.Credentials.Length > 0)
                 configCopy["credentials"] = tool.Credentials.ToList();
-            t["config"] = JsonNode.Parse(JsonSerializer.Serialize(configCopy, AgentspanJson.Options))!;
+            t["config"] = JsonNode.Parse(JsonSerializer.Serialize(configCopy, ConductorAgentJson.Options))!;
         }
         else if (tool.Credentials.Length > 0)
         {
             t["config"] = JsonNode.Parse(JsonSerializer.Serialize(
                 new Dictionary<string, object> { ["credentials"] = tool.Credentials.ToList() },
-                AgentspanJson.Options))!;
+                ConductorAgentJson.Options))!;
         }
 
         return t;

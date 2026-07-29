@@ -29,8 +29,8 @@
 //
 // Requirements:
 //   - Conductor server with LLM support
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 //   - mcp-testkit running on http://localhost:3001 (for examples 1-3)
 //   - GITHUB_TOKEN credential set (for example 4)
 
@@ -102,7 +102,7 @@ var multiToolAgent = new Agent("multi_tool_assistant_71")
 // For large APIs (300+ operations), maxTools controls filtering.
 // A lightweight LLM automatically selects the most relevant operations.
 //
-// Before running: set GITHUB_TOKEN credential in Agentspan server.
+// Before running: set GITHUB_TOKEN credential in Conductor server.
 
 var github = ApiTools.Create(
     url: "https://api.github.com",

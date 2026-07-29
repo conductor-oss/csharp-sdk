@@ -241,12 +241,12 @@ public sealed class Suite17_SdkParity
     [Fact]
     public void WorkerTuning_ReadsEnvVars()
     {
-        var prevThreads = Environment.GetEnvironmentVariable("AGENTSPAN_WORKER_THREADS");
-        var prevPoll = Environment.GetEnvironmentVariable("AGENTSPAN_WORKER_POLL_INTERVAL");
+        var prevThreads = Environment.GetEnvironmentVariable("CONDUCTOR_AGENT_WORKER_THREADS");
+        var prevPoll = Environment.GetEnvironmentVariable("CONDUCTOR_AGENT_WORKER_POLL_INTERVAL");
         try
         {
-            Environment.SetEnvironmentVariable("AGENTSPAN_WORKER_THREADS", "4");
-            Environment.SetEnvironmentVariable("AGENTSPAN_WORKER_POLL_INTERVAL", "250");
+            Environment.SetEnvironmentVariable("CONDUCTOR_AGENT_WORKER_THREADS", "4");
+            Environment.SetEnvironmentVariable("CONDUCTOR_AGENT_WORKER_POLL_INTERVAL", "250");
 
             using var runtime = new AgentRuntime();
             Assert.Equal(4, runtime.WorkerThreadCount);
@@ -254,13 +254,13 @@ public sealed class Suite17_SdkParity
         }
         finally
         {
-            Environment.SetEnvironmentVariable("AGENTSPAN_WORKER_THREADS", prevThreads);
-            Environment.SetEnvironmentVariable("AGENTSPAN_WORKER_POLL_INTERVAL", prevPoll);
+            Environment.SetEnvironmentVariable("CONDUCTOR_AGENT_WORKER_THREADS", prevThreads);
+            Environment.SetEnvironmentVariable("CONDUCTOR_AGENT_WORKER_POLL_INTERVAL", prevPoll);
         }
 
         // Counterfactual: unset → defaults.
-        Environment.SetEnvironmentVariable("AGENTSPAN_WORKER_THREADS", null);
-        Environment.SetEnvironmentVariable("AGENTSPAN_WORKER_POLL_INTERVAL", null);
+        Environment.SetEnvironmentVariable("CONDUCTOR_AGENT_WORKER_THREADS", null);
+        Environment.SetEnvironmentVariable("CONDUCTOR_AGENT_WORKER_POLL_INTERVAL", null);
         using var def = new AgentRuntime();
         Assert.Equal(1, def.WorkerThreadCount);
         Assert.Equal(100, def.WorkerPollIntervalMs);

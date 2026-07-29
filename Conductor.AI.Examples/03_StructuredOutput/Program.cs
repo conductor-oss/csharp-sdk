@@ -16,9 +16,9 @@
 // (C# record) instead of free-form text. The server enforces the schema.
 //
 // Requirements:
-//   - Agentspan server with LLM support
-//   - AGENTSPAN_SERVER_URL=http://localhost:8080/api in environment
-//   - AGENTSPAN_LLM_MODEL set in environment
+//   - Conductor server with LLM support
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -56,7 +56,7 @@ if (result.Output?.TryGetValue("result", out var raw) == true && raw is not null
 
     if (jsonStr is not null)
     {
-        var report = JsonSerializer.Deserialize<WeatherReport>(jsonStr, AgentspanJson.Options);
+        var report = JsonSerializer.Deserialize<WeatherReport>(jsonStr, ConductorAgentJson.Options);
         if (report is not null)
         {
             Console.WriteLine($"City:           {report.City}");

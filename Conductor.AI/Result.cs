@@ -371,7 +371,7 @@ public sealed class AgentHandle
             IsRunning = node["isRunning"]?.GetValue<bool>() ?? false,
             IsWaiting = node["isWaiting"]?.GetValue<bool>() ?? false,
             Output = node["output"] is JsonObject outObj
-                ? JsonSerializer.Deserialize<Dictionary<string, object>>(outObj.ToJsonString(), AgentspanJson.Options)
+                ? JsonSerializer.Deserialize<Dictionary<string, object>>(outObj.ToJsonString(), ConductorAgentJson.Options)
                 : null,
             StatusValue = statusValue,
             Reason = statusValue != "COMPLETED" ? node["reasonForIncompletion"]?.GetValue<string>() : null,
@@ -504,7 +504,7 @@ public sealed class AgentHandle
         if (output is JsonObject obj)
         {
             outputDict = JsonSerializer.Deserialize<Dictionary<string, object>>(
-                obj.ToJsonString(), AgentspanJson.Options);
+                obj.ToJsonString(), ConductorAgentJson.Options);
         }
         else if (output is not null)
         {
@@ -576,12 +576,12 @@ public sealed class AgentHandle
                     if (k.StartsWith('_') || k is "method" or "evaluatorType" or "expression" or "ctx"
                         or "workerTag" or "agentConfig")
                         continue;
-                    cleaned[k] = JsonSerializer.Deserialize<object>(kv.Value?.ToJsonString() ?? "null", AgentspanJson.Options)!;
+                    cleaned[k] = JsonSerializer.Deserialize<object>(kv.Value?.ToJsonString() ?? "null", ConductorAgentJson.Options)!;
                 }
                 tc["args"] = cleaned;
             }
             if (outputData.TryGetPropertyValue("result", out var resultNode) && resultNode is not null)
-                tc["result"] = JsonSerializer.Deserialize<object>(resultNode.ToJsonString(), AgentspanJson.Options)!;
+                tc["result"] = JsonSerializer.Deserialize<object>(resultNode.ToJsonString(), ConductorAgentJson.Options)!;
 
             (toolCalls ??= new List<Dictionary<string, object>>()).Add(tc);
         }

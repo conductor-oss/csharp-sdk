@@ -58,14 +58,14 @@ public sealed class AgentConfigTests
     {
         var env = new Dictionary<string, string>
         {
-            ["AGENTSPAN_WORKER_POLL_INTERVAL"] = "250",
-            ["AGENTSPAN_WORKER_THREADS"] = "4",
-            ["AGENTSPAN_AUTO_START_WORKERS"] = "false",
-            ["AGENTSPAN_DAEMON_WORKERS"] = "false",
-            ["AGENTSPAN_STREAMING_ENABLED"] = "false",
-            ["AGENTSPAN_LIVENESS_ENABLED"] = "false",
-            ["AGENTSPAN_LIVENESS_STALL_SECONDS"] = "45.5",
-            ["AGENTSPAN_LIVENESS_CHECK_INTERVAL_SECONDS"] = "5.5",
+            ["CONDUCTOR_AGENT_WORKER_POLL_INTERVAL"] = "250",
+            ["CONDUCTOR_AGENT_WORKER_THREADS"] = "4",
+            ["CONDUCTOR_AGENT_AUTO_START_WORKERS"] = "false",
+            ["CONDUCTOR_AGENT_DAEMON_WORKERS"] = "false",
+            ["CONDUCTOR_AGENT_STREAMING_ENABLED"] = "false",
+            ["CONDUCTOR_AGENT_LIVENESS_ENABLED"] = "false",
+            ["CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS"] = "45.5",
+            ["CONDUCTOR_AGENT_LIVENESS_CHECK_INTERVAL_SECONDS"] = "5.5",
         };
         var config = WithEnv(env);
 
@@ -85,7 +85,7 @@ public sealed class AgentConfigTests
     [InlineData("   ")]
     public void InvalidOrEmpty_IntField_FallsBackToDefault(string raw)
     {
-        var config = WithEnv(new() { ["AGENTSPAN_WORKER_THREADS"] = raw });
+        var config = WithEnv(new() { ["CONDUCTOR_AGENT_WORKER_THREADS"] = raw });
         Assert.Equal(1, config.WorkerThreadCount);
     }
 
@@ -94,15 +94,88 @@ public sealed class AgentConfigTests
     [InlineData("not-a-bool")]
     public void InvalidOrEmpty_BoolField_FallsBackToDefault(string raw)
     {
-        var config = WithEnv(new() { ["AGENTSPAN_AUTO_START_WORKERS"] = raw });
+        var config = WithEnv(new() { ["CONDUCTOR_AGENT_AUTO_START_WORKERS"] = raw });
         Assert.True(config.AutoStartWorkers);
     }
 
     [Fact]
     public void NonPositive_IntField_FallsBackToDefault()
     {
-        var config = WithEnv(new() { ["AGENTSPAN_WORKER_POLL_INTERVAL"] = "0" });
+        var config = WithEnv(new() { ["CONDUCTOR_AGENT_WORKER_POLL_INTERVAL"] = "0" });
         Assert.Equal(100, config.WorkerPollIntervalMs);
+    }
+
+    // ── Only CONDUCTOR_AGENT_* is supported ────────────────────────────
+    //
+    // The legacy AGENTSPAN_* names were removed outright — no aliasing. These tests
+    // assert the removal positively, so re-introducing a fallback fails the build
+    // rather than passing silently.
+
+    [Fact]
+    public void LegacyAgentspanName_IsIgnored()
+    {
+        var env = new Dictionary<string, string> { ["AGENTSPAN_WORKER_THREADS"] = "2" };
+        Assert.Equal(1, WithEnv(env).WorkerThreadCount);
+    }
+
+    [Fact]
+    public void LegacyAgentspanNames_IgnoredAcrossEveryKnob()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["AGENTSPAN_WORKER_POLL_INTERVAL"] = "250",
+            ["AGENTSPAN_WORKER_THREADS"] = "4",
+            ["AGENTSPAN_AUTO_START_WORKERS"] = "false",
+            ["AGENTSPAN_DAEMON_WORKERS"] = "false",
+            ["AGENTSPAN_STREAMING_ENABLED"] = "false",
+            ["AGENTSPAN_LIVENESS_ENABLED"] = "false",
+            ["AGENTSPAN_LIVENESS_STALL_SECONDS"] = "45.5",
+            ["AGENTSPAN_LIVENESS_CHECK_INTERVAL_SECONDS"] = "5.5",
+        };
+        var config = WithEnv(env);
+
+        Assert.Equal(100, config.WorkerPollIntervalMs);
+        Assert.Equal(1, config.WorkerThreadCount);
+        Assert.True(config.AutoStartWorkers);
+        Assert.True(config.DaemonWorkers);
+        Assert.True(config.StreamingEnabled);
+        Assert.True(config.LivenessEnabled);
+        Assert.Equal(30.0, config.LivenessStallSeconds);
+        Assert.Equal(10.0, config.LivenessCheckIntervalSeconds);
+    }
+
+    [Fact]
+    public void LegacyName_DoesNotOverrideCurrentName()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AGENT_WORKER_THREADS"] = "8",
+            ["AGENTSPAN_WORKER_THREADS"] = "2",
+        };
+        Assert.Equal(8, WithEnv(env).WorkerThreadCount);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BlankValue_FallsBackToDefault(string blank)
+    {
+        var env = new Dictionary<string, string> { ["CONDUCTOR_AGENT_WORKER_THREADS"] = blank };
+        Assert.Equal(1, WithEnv(env).WorkerThreadCount);
+    }
+
+    [Fact]
+    public void CurrentNames_HonoredForBoolAndDoubleFields()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["CONDUCTOR_AGENT_AUTO_START_WORKERS"] = "false",
+            ["CONDUCTOR_AGENT_LIVENESS_STALL_SECONDS"] = "12.5",
+        };
+        var config = WithEnv(env);
+
+        Assert.False(config.AutoStartWorkers);
+        Assert.Equal(12.5, config.LivenessStallSeconds);
     }
 
     // ── R4: no connection/auth/log field by construction ───────────────

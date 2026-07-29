@@ -25,7 +25,7 @@
 // in this process.
 //
 // Requirements:
-//   - Agentspan server running at AGENTSPAN_SERVER_URL
+//   - Conductor server running at CONDUCTOR_SERVER_URL
 //   - monitoring_63d agent previously deployed (run 63d first)
 
 using Conductor.AI;

@@ -25,8 +25,8 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      AGENTSPAN_SERVER_URL: http://localhost:8080/api
-      AGENTSPAN_LLM_MODEL: openai/gpt-4o-mini
+      CONDUCTOR_SERVER_URL: http://localhost:8080/api
+      CONDUCTOR_AGENT_LLM_MODEL: openai/gpt-4o-mini
     steps:
       - uses: actions/checkout@v4
 
