@@ -1,0 +1,108 @@
+/*
+ * Copyright 2024 Conductor Authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+// Code Execution — sandboxed Python code runner as an agent tool.
+//
+// LocalCodeExecutor runs Python code in a subprocess and returns stdout.
+// The agent writes code, executes it, and shows results.
+//
+// Requirements:
+//   - Conductor server with LLM support
+//   - Python 3.x installed locally
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
+
+using System.Diagnostics;
+using Conductor.AI;
+using Conductor.AI.Examples;
+
+// ── Local code executor tool ─────────────────────────────────────────
+
+var executorTools = ToolRegistry.FromInstance(new LocalCodeExecutor(timeout: 10));
+
+// ── Agent with code execution tool ──────────────────────────────────
+
+var coder = new Agent("local_coder")
+{
+    Model = Settings.LlmModel,
+    Tools = executorTools,
+    Instructions =
+        "You are a Python developer. Write and execute code to solve problems. " +
+        "Always use the execute_code tool to run your code and show results.",
+};
+
+// ── Run ───────────────────────────────────────────────────────────────
+
+await using var runtime = new AgentRuntime();
+
+Console.WriteLine("--- Local Code Execution ---");
+var result = await runtime.RunAsync(
+    coder,
+    "Write a Python function to find the first 10 Fibonacci numbers and print them.");
+
+result.PrintResult();
+
+// ── LocalCodeExecutor ─────────────────────────────────────────────────
+
+/// <summary>Runs Python code in a local subprocess.</summary>
+internal sealed class LocalCodeExecutor(int timeout = 10)
+{
+    [Tool("Execute Python code and return the output. Use this to run code and show results.")]
+    public async Task<Dictionary<string, object>> ExecuteCode(string code, string language = "python")
+    {
+        var tmpFile = Path.Combine(Path.GetTempPath(), $"conductor_{Guid.NewGuid():N}.py");
+        try
+        {
+            await File.WriteAllTextAsync(tmpFile, code);
+
+            using var proc = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "python3",
+                    Arguments = tmpFile,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                },
+            };
+
+            proc.Start();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
+
+            var stdout = await proc.StandardOutput.ReadToEndAsync(cts.Token);
+            var stderr = await proc.StandardError.ReadToEndAsync(cts.Token);
+            await proc.WaitForExitAsync(cts.Token);
+
+            return new Dictionary<string, object>
+            {
+                ["stdout"] = stdout.TrimEnd(),
+                ["stderr"] = stderr.TrimEnd(),
+                ["exit_code"] = proc.ExitCode,
+                ["language"] = language,
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return new Dictionary<string, object>
+            {
+                ["error"] = $"Code execution timed out after {timeout}s",
+                ["language"] = language,
+            };
+        }
+        finally
+        {
+            try { File.Delete(tmpFile); } catch { /* best-effort */ }
+        }
+    }
+}

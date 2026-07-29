@@ -1,0 +1,77 @@
+/*
+ * Copyright 2024 Conductor Authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+// Sk11 — Rich math calculator plugin.
+//
+// Add, subtract, multiply, divide, power, sqrt — each as a separate
+// [KernelFunction]. The agent composes them to evaluate an expression.
+//
+// Requirements:
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api
+//   - CONDUCTOR_AGENT_LLM_MODEL=openai/gpt-4o-mini
+
+using System.ComponentModel;
+using Conductor.AI;
+using Conductor.AI.Examples;
+using Conductor.AI.SemanticKernel;
+using Microsoft.SemanticKernel;
+
+namespace Conductor.AI.Examples.Sk11;
+
+public sealed class MathCalculatorPlugin
+{
+    [KernelFunction, Description("Add two numbers.")]
+    public double Add(double a, double b) => a + b;
+
+    [KernelFunction, Description("Subtract b from a.")]
+    public double Subtract(double a, double b) => a - b;
+
+    [KernelFunction, Description("Multiply two numbers.")]
+    public double Multiply(double a, double b) => a * b;
+
+    [KernelFunction, Description("Divide a by b. Throws on division by zero.")]
+    public double Divide(double a, double b)
+    {
+        if (b == 0) throw new DivideByZeroException();
+        return a / b;
+    }
+
+    [KernelFunction, Description("Raise base to the given exponent.")]
+    public double Power(
+        [Description("base")] double @base,
+        [Description("exponent")] double exponent) => Math.Pow(@base, exponent);
+
+    [KernelFunction, Description("Square root of a non-negative number.")]
+    public double Sqrt([Description("non-negative value")] double value)
+    {
+        if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
+        return Math.Sqrt(value);
+    }
+}
+
+public static class Program
+{
+    public static async Task Main()
+    {
+        var agent = SemanticKernelAgent.From(
+            name: "sk_math_calc",
+            model: Settings.LlmModel,
+            instructions: "Evaluate arithmetic by calling the math tools step by step.",
+            new MathCalculatorPlugin());
+
+        await using var runtime = new AgentRuntime(new AgentRuntimeOptions { ServerUrl = Settings.ServerUrl });
+        var result = await runtime.RunAsync(
+            agent,
+            "Compute sqrt(144) + 3^4, then divide that by 2.");
+        result.PrintResult();
+    }
+}

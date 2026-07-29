@@ -204,6 +204,14 @@ namespace Conductor.Client.Models
         public List<string> OutputKeys { get; set; }
 
         /// <summary>
+        /// Names of secrets this task type requires — stamped by the SDK at
+        /// registration time and delivered on the polled Task by the server
+        /// (spec R6, wire-only credential contract).
+        /// </summary>
+        [DataMember(Name = "runtimeMetadata", EmitDefaultValue = false)]
+        public List<string> RuntimeMetadata { get; set; }
+
+        /// <summary>
         /// Gets or Sets OwnerApp
         /// </summary>
         [DataMember(Name = "ownerApp", EmitDefaultValue = false)]
@@ -290,6 +298,7 @@ namespace Conductor.Client.Models
             sb.Append("  IsolationGroupId: ").Append(IsolationGroupId).Append("\n");
             sb.Append("  Name: ").Append(Name).Append("\n");
             sb.Append("  OutputKeys: ").Append(OutputKeys).Append("\n");
+            sb.Append("  RuntimeMetadata: ").Append(RuntimeMetadata).Append("\n");
             sb.Append("  OwnerApp: ").Append(OwnerApp).Append("\n");
             sb.Append("  OwnerEmail: ").Append(OwnerEmail).Append("\n");
             sb.Append("  PollTimeoutSeconds: ").Append(PollTimeoutSeconds).Append("\n");
@@ -396,6 +405,12 @@ namespace Conductor.Client.Models
                     this.OutputKeys.SequenceEqual(input.OutputKeys)
                 ) &&
                 (
+                    this.RuntimeMetadata == input.RuntimeMetadata ||
+                    this.RuntimeMetadata != null &&
+                    input.RuntimeMetadata != null &&
+                    this.RuntimeMetadata.SequenceEqual(input.RuntimeMetadata)
+                ) &&
+                (
                     this.OwnerApp == input.OwnerApp ||
                     (this.OwnerApp != null &&
                     this.OwnerApp.Equals(input.OwnerApp))
@@ -493,6 +508,8 @@ namespace Conductor.Client.Models
                     hashCode = hashCode * 59 + this.Name.GetHashCode();
                 if (this.OutputKeys != null)
                     hashCode = hashCode * 59 + this.OutputKeys.GetHashCode();
+                if (this.RuntimeMetadata != null)
+                    hashCode = hashCode * 59 + this.RuntimeMetadata.GetHashCode();
                 if (this.OwnerApp != null)
                     hashCode = hashCode * 59 + this.OwnerApp.GetHashCode();
                 if (this.OwnerEmail != null)

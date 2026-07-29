@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/conductor-oss/csharp-sdk/docs/agents/reference/agent-schema.json",
+  "title": "Conductor agentConfig (.NET SDK)",
+  "description": "Wire format produced by Conductor.AI.AgentConfigSerializer when an Agent is submitted to the server. Maintained by hand; see agent-schema.md.",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_-]*$"
+    },
+    "model": { "type": "string", "description": "provider/model" },
+    "instructions": { "type": "string" },
+    "instruction": { "type": "string", "description": "Google ADK adapter (singular)" },
+    "prompt": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "variables": { "type": "object" }
+      },
+      "required": ["name"]
+    },
+    "tools": { "type": "array", "items": { "$ref": "#/$defs/tool" } },
+    "agents": { "type": "array", "items": { "$ref": "#" } },
+    "strategy": { "$ref": "#/$defs/strategy" },
+    "router": { "$ref": "#" },
+    "maxTurns": { "type": "integer", "minimum": 1 },
+    "maxTokens": { "type": "integer", "minimum": 1 },
+    "temperature": { "type": "number" },
+    "timeoutSeconds": { "type": "integer", "minimum": 1 },
+    "guardrails": { "type": "array", "items": { "$ref": "#/$defs/guardrail" } },
+    "termination": { "$ref": "#/$defs/termination" },
+    "handoffs": { "type": "array", "items": { "$ref": "#/$defs/handoff" } },
+    "gate": {
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "caseSensitive": { "type": "boolean" }
+      },
+      "required": ["text"]
+    },
+    "allowedTransitions": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "callbacks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "string",
+            "enum": [
+              "before_agent", "after_agent",
+              "before_model", "after_model",
+              "before_tool", "after_tool"
+            ]
+          },
+          "taskName": { "type": "string" },
+          "workerNames": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "outputType": { "type": "string" },
+    "outputSchema": { "type": "object" },
+    "stateful": { "type": "boolean" },
+    "enablePlanning": { "type": "boolean" },
+    "planner": { "$ref": "#" },
+    "fallback": { "$ref": "#" },
+    "fallbackMaxTurns": { "type": "integer", "minimum": 1 },
+    "external": { "type": "boolean" },
+    "framework": { "type": "string", "enum": ["openai", "google_adk"] },
+    "config": { "type": "object" },
+    "metadata": { "type": "object" },
+    "reasoningEffort": { "type": "string" },
+    "thinkingConfig": {
+      "type": "object",
+      "properties": { "budgetTokens": { "type": "integer" } }
+    },
+    "includeContents": { "type": "string" },
+    "introduction": { "type": "string" },
+    "requiredTools": { "type": "array", "items": { "type": "string" } },
+    "version": { "type": ["string", "integer"] },
+    "rawConfig": { "type": "object" }
+  },
+  "$defs": {
+    "strategy": {
+      "type": "string",
+      "enum": [
+        "handoff", "sequential", "parallel", "router",
+        "round_robin", "random", "swarm", "manual", "plan_execute"
+      ]
+    },
+    "tool": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "inputSchema": { "type": "object" },
+        "toolType": { "type": "string" },
+        "approvalRequired": { "type": "boolean" },
+        "external": { "type": "boolean" },
+        "timeoutSeconds": { "type": "integer" },
+        "credentials": { "type": "array", "items": { "type": "string" } },
+        "stateful": { "type": "boolean" },
+        "retryCount": { "type": "integer", "default": 2 },
+        "retryDelaySeconds": { "type": "integer", "default": 2 },
+        "retryPolicy": {
+          "type": "string",
+          "enum": ["fixed", "linear_backoff", "exponential_backoff"]
+        },
+        "guardrails": { "type": "array", "items": { "$ref": "#/$defs/guardrail" } },
+        "optional": { "type": "boolean" },
+        "taskName": { "type": "string" },
+        "workerNames": { "type": "array", "items": { "type": "string" } },
+        "className": { "type": "string" },
+        "arguments": { "type": "object" },
+        "cliConfig": {
+          "type": "object",
+          "properties": {
+            "allowedCommands": { "type": "array", "items": { "type": "string" } },
+            "allowShell": { "type": "boolean" },
+            "workingDir": { "type": "string" },
+            "timeout": { "type": "integer" }
+          }
+        },
+        "codeExecution": {
+          "type": "object",
+          "properties": {
+            "allowedLanguages": { "type": "array", "items": { "type": "string" } },
+            "language": { "type": "string" },
+            "code": { "type": "string" }
+          }
+        }
+      }
+    },
+    "guardrail": {
+      "type": "object",
+      "required": ["name", "guardrailType"],
+      "properties": {
+        "name": { "type": "string" },
+        "guardrailType": {
+          "type": "string",
+          "enum": ["custom", "regex", "llm", "external"],
+          "default": "custom"
+        },
+        "position": { "type": "string", "enum": ["input", "output"] },
+        "onFail": {
+          "type": "string",
+          "enum": ["retry", "raise", "fix", "human"],
+          "default": "raise"
+        },
+        "maxRetries": { "type": "integer", "default": 3 },
+        "taskName": {
+          "type": "string",
+          "description": "Present for custom guardrails only: {scope}_output_guardrail, the combined per-scope worker."
+        },
+        "patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "guardrailType=regex. Server-evaluated; no worker."
+        },
+        "mode": { "type": "string", "enum": ["block", "allow"], "default": "block" },
+        "message": { "type": "string" },
+        "model": {
+          "type": "string",
+          "description": "guardrailType=llm. Server calls the model itself."
+        },
+        "policy": { "type": "string" },
+        "maxTokens": { "type": "integer" },
+        "maskedFields": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "termination": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["text_mention", "stop_message", "max_message", "token_usage", "and", "or"]
+        },
+        "text": { "type": "string" },
+        "caseSensitive": { "type": "boolean" },
+        "stopMessage": { "type": "string" },
+        "maxMessages": { "type": "integer" },
+        "maxTotalTokens": { "type": "integer" },
+        "maxPromptTokens": { "type": "integer" },
+        "maxCompletionTokens": { "type": "integer" },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/termination" }
+        }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "required": ["type", "target"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["on_text_mention", "on_tool_result", "on_condition"]
+        },
+        "target": { "type": "string" },
+        "text": { "type": "string" },
+        "toolName": { "type": "string" },
+        "resultContains": { "type": "string" }
+      }
+    }
+  }
+}
