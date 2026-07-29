@@ -80,6 +80,27 @@ jobs:
       - name: Build agent examples
         run: dotnet build Conductor.AI.Examples/Conductor.AI.Examples.sln -c Release
 
+  # The release workflow only static-checks the bundle. Compiling it is the check
+  # that actually proves it is self-contained, and it needs no published package
+  # (--build packs the working tree into a temp feed), so it belongs here — a
+  # bundle that cannot build should fail the PR, not ship attached to a release.
+  e2e_bundle:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate e2e bundle (static + compile)
+        run: ./scripts/test-package-e2e-bundle.sh --build
+
   integration_tests:
     needs: lint
     runs-on: ubuntu-latest

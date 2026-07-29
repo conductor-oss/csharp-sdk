@@ -34,6 +34,15 @@ done
 
 [[ -n "$VERSION" ]] || { echo "ERROR: --version is required" >&2; exit 1; }
 
+# The version is interpolated into a filename and into the sed replacement that
+# stamps @VERSION@, so restrict it to characters that are inert in both. Without
+# this a version carrying '/' or '&' silently corrupts every stamped file.
+[[ "$VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9.+-]*$ ]] || {
+  echo "ERROR: --version '$VERSION' is not a plain version string" >&2
+  echo "       (allowed: alphanumerics, dot, plus, hyphen — e.g. 3.0.0-rc2)" >&2
+  exit 1
+}
+
 NAME="conductor-ai-e2e-csharp-$VERSION"
 STAGE="$OUT_DIR/$NAME"
 PROJ="$STAGE/Conductor.AI.E2eTests"
@@ -45,8 +54,18 @@ mkdir -p "$PROJ"
 # Test sources copy over verbatim — they reference the SDK by namespace
 # (Conductor.AI, Conductor.Client), which resolves identically from the NuGet
 # package. The in-repo csproj is NOT copied; a standalone one is generated below.
-find "$REPO_ROOT/Conductor.AI.E2eTests" -maxdepth 1 -type f -name '*.cs' \
-  -exec cp {} "$PROJ/" \;
+#
+# Recursive, preserving layout: a new subdirectory of test sources must not be
+# silently dropped from the bundle. test-package-e2e-bundle.sh compares the full
+# relative path sets, so it catches an omission here rather than sharing the
+# same blind spot.
+SRC_DIR="$REPO_ROOT/Conductor.AI.E2eTests"
+while IFS= read -r -d '' f; do
+  rel="${f#"$SRC_DIR/"}"
+  mkdir -p "$PROJ/$(dirname "$rel")"
+  cp "$f" "$PROJ/$rel"
+done < <(find "$SRC_DIR" -type f -name '*.cs' \
+           -not -path "$SRC_DIR/obj/*" -not -path "$SRC_DIR/bin/*" -print0)
 
 # Suites `using Conductor.AI.Examples` for Settings (LlmModel / ServerUrl). The
 # in-repo csproj pulls that one file in with a <Compile Include> from the
@@ -94,41 +113,10 @@ EOF
 
 # Guard: every e2e test is a [SkippableFact] that skips when the server is
 # unreachable, so a dead server yields an all-skipped run that reads as green.
-# Same check the SDK's own agent-e2e workflow applies to its TRX output.
-cat > "$STAGE/check-results.py" <<'EOF'
-#!/usr/bin/env python3
-"""Fail a vacuous agent-e2e run: 0 tests executed, or skips from an unreachable server."""
-import glob
-import sys
-import xml.etree.ElementTree as ET
-
-NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
-paths = sorted(glob.glob(sys.argv[1] if len(sys.argv) > 1 else "results/*.trx"))
-if not paths:
-    print("GUARD: no TRX files found — vacuous run")
-    sys.exit(1)
-
-executed = unreachable = 0
-for p in paths:
-    root = ET.parse(p).getroot()
-    counters = root.find(".//t:ResultSummary/t:Counters", NS)
-    if counters is not None:
-        executed += int(counters.get("executed", "0"))
-    for r in root.findall(".//t:UnitTestResult", NS):
-        if r.get("outcome") == "NotExecuted":
-            msg = r.find(".//t:Message", NS)
-            if msg is not None and "server is not reachable" in (msg.text or ""):
-                unreachable += 1
-
-print(f"GUARD: executed={executed}, server-unreachable skips={unreachable}")
-if executed == 0:
-    print("GUARD: 0 tests executed — vacuous run")
-    sys.exit(1)
-if unreachable > 0:
-    print("GUARD: suite skipped due to unreachable server — vacuous run")
-    sys.exit(1)
-print("GUARD: OK")
-EOF
+# Copied verbatim rather than inlined here, so the bundle and the SDK's own
+# agent-e2e workflow run the identical script — including the skip-message
+# marker, which would otherwise be duplicated in two places and drift.
+cp "$HERE/check-results.py" "$STAGE/check-results.py"
 
 cat > "$STAGE/run.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -146,9 +134,20 @@ set -euo pipefail
 #     key must be configured on the SERVER. A few suites additionally gate on
 #     OPENAI_API_KEY being present in this environment and skip without it.
 #
-# Requires the .NET 8 SDK. Usage: ./run.sh [extra dotnet test args]
+# Requires the .NET 8 SDK and python3 (for the vacuous-run guard).
+# Usage: ./run.sh [extra dotnet test args]
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE"
+
+# Checked up front, and fatal: an all-skipped run (dead server) exits 0 from
+# `dotnet test`, so a missing guard would turn that into a silent pass — the
+# exact failure this bundle is supposed to make impossible. Better to refuse to
+# start than to run for 20 minutes and report an unverifiable green.
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 not found, but it is required for the vacuous-run guard." >&2
+  echo "       Install python3 (>= 3.8) and re-run." >&2
+  exit 1
+fi
 
 rc=0
 dotnet test Conductor.AI.E2eTests/Conductor.AI.E2eTests.csproj \
@@ -159,12 +158,7 @@ dotnet test Conductor.AI.E2eTests/Conductor.AI.E2eTests.csproj \
   --results-directory results \
   "$@" || rc=$?
 
-# An all-skipped run (dead server) must not read as a pass.
-if command -v python3 >/dev/null 2>&1; then
-  python3 check-results.py 'results/*.trx' || rc=1
-else
-  echo "WARN: python3 not found — skipping the vacuous-run guard" >&2
-fi
+python3 check-results.py 'results/*.trx' || rc=1
 
 echo "Results: $HERE/results/agent-e2e.trx"
 exit "$rc"
@@ -186,6 +180,7 @@ Cut from
 | Requirement                       | Env var                     | Default                     |
 |-----------------------------------|-----------------------------|-----------------------------|
 | .NET 8 SDK                        | —                           | —                           |
+| python3 >= 3.8 (run guard)        | —                           | —                           |
 | Conductor server w/ agent runtime | `CONDUCTOR_SERVER_URL`      | `http://localhost:8080/api` |
 | LLM model                         | `CONDUCTOR_AGENT_LLM_MODEL` | `openai/gpt-4o-mini`        |
 | mcp-testkit (MCP + HTTP suites)   | — (fixed `localhost:3001`)  | `pip install mcp-testkit`   |
@@ -196,7 +191,9 @@ orkes-conductor booted with the agent runtime embedded. LLM provider API keys
 `OPENAI_API_KEY` in their own environment and skip without it.
 
 Every test skips rather than fails when the server is unreachable, so `run.sh`
-ends with a guard that fails an all-skipped ("vacuous") run.
+ends with a guard (`check-results.py`) that fails an all-skipped ("vacuous")
+run. The guard is not optional — `run.sh` refuses to start without python3,
+because a missing guard would report a dead server as a pass.
 
 ## Run
 
