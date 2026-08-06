@@ -58,14 +58,6 @@ jobs:
         with:
           name: cobertura
           path: coverage/**/coverage.cobertura.xml
-      - name: Codecov upload
-        if: ${{ !env.ACT }}
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage/**/coverage.cobertura.xml
-          flags: unittests
-          name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
 
   build_ai_examples:
     needs: lint
