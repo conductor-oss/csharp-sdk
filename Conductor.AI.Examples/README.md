@@ -1,6 +1,6 @@
 # Conductor AI Agent Examples (.NET)
 
-175 self-contained example projects for the `conductor-ai` agent layer. Each directory is
+176 self-contained example projects for the `conductor-ai` agent layer. Each directory is
 its own `.csproj` with a single `Program.cs`, and a header comment listing the environment
 variables it needs.
 
@@ -28,7 +28,7 @@ buildable. CI does **not** execute them.
 
 | Prefix | Count | Covers |
 |---|---|---|
-| `01`–`115` | 109 | The native agent API |
+| `01`–`115` | 110 | The native agent API |
 | `Adk*` | 36 | Google ADK adapter |
 | `Sk*` | 20 | Semantic Kernel adapter |
 | `OpenAi*` | 10 | OpenAI Agents adapter |
@@ -56,6 +56,7 @@ Numbering is roughly thematic and increases in complexity. Suffixed variants (`0
 | Observability | `26_OpenTelemetryTracing`, `80_LiveDashboard` |
 | Skills | `91_Skills` |
 | Schedules | `92_ScheduledAgent` |
+| Scheduler pause/resume verb fallback | `93_SchedulerVerbFallback` |
 
 ## Examples with extra prerequisites
 

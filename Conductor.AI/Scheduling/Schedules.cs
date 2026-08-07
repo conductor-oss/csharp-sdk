@@ -89,13 +89,13 @@ public sealed class Schedules
     {
         var path = $"/scheduler/schedules/{Uri.EscapeDataString(wireName)}/pause";
         if (reason is not null) path += $"?reason={Uri.EscapeDataString(reason)}";
-        await RequestAsync(HttpMethod.Put, path, null, ct);
+        await ExecuteStateChangeAsync(path, ct);
     }
 
     public async Task ResumeAsync(string wireName, CancellationToken ct = default)
     {
-        await RequestAsync(HttpMethod.Put,
-            $"/scheduler/schedules/{Uri.EscapeDataString(wireName)}/resume", null, ct);
+        await ExecuteStateChangeAsync(
+            $"/scheduler/schedules/{Uri.EscapeDataString(wireName)}/resume", ct);
     }
 
     public async Task DeleteAsync(string wireName, CancellationToken ct = default)
@@ -310,25 +310,37 @@ public sealed class Schedules
 
     private async Task<JsonNode?> RequestAsync(HttpMethod method, string path, JsonNode? body, CancellationToken ct)
     {
-        int statusCode;
-        string? text;
+        var (statusCode, text) = await SendAsync(method, path, body, ct);
+        return Translate(statusCode, text);
+    }
 
+    private async Task ExecuteStateChangeAsync(string path, CancellationToken ct)
+    {
+        var (statusCode, text) = await SendAsync(HttpMethod.Put, path, null, ct);
+        if (statusCode == (int)HttpStatusCode.MethodNotAllowed)
+            (statusCode, text) = await SendAsync(HttpMethod.Get, path, null, ct);
+        Translate(statusCode, text);
+    }
+
+    private async Task<(int StatusCode, string? Text)> SendAsync(
+        HttpMethod method, string path, JsonNode? body, CancellationToken ct)
+    {
         if (_configuration is not null)
-        {
-            (statusCode, text) = await AgentApiCall.InvokeAsync(_configuration, ToRestSharpMethod(method), path, body, ct);
-        }
-        else
-        {
-            var url = $"{_baseUrl}{path}";
-            using var req = new HttpRequestMessage(method, url);
-            if (body is not null)
-                req.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+            return await AgentApiCall.InvokeAsync(_configuration, ToRestSharpMethod(method), path, body, ct);
 
-            using var resp = await _client!.SendAsync(req, ct);
-            statusCode = (int)resp.StatusCode;
-            text = await resp.Content.ReadAsStringAsync(ct);
-        }
+        var url = $"{_baseUrl}{path}";
+        using var req = new HttpRequestMessage(method, url);
+        if (body is not null)
+            req.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
 
+        using var resp = await _client!.SendAsync(req, ct);
+        var statusCode = (int)resp.StatusCode;
+        var text = await resp.Content.ReadAsStringAsync(ct);
+        return (statusCode, text);
+    }
+
+    private static JsonNode? Translate(int statusCode, string? text)
+    {
         if (statusCode < 200 || statusCode >= 300)
         {
             if (statusCode == (int)HttpStatusCode.NotFound)
