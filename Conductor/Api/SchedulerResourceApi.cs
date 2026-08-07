@@ -775,52 +775,8 @@ namespace Conductor.Api
                 ExceptionFactory, "PauseAllSchedules");
         }
 
-        private ApiResponse<Object> ExecuteStateChange(
-            string localVarPath, List<KeyValuePair<String, String>> localVarQueryParams, Object localVarPostBody,
-            Dictionary<String, String> localVarHeaderParams, Dictionary<String, String> localVarFormParams,
-            Dictionary<String, FileParameter> localVarFileParams, Dictionary<String, String> localVarPathParams,
-            String localVarHttpContentType, string operationName)
-        {
-            try
-            {
-                return this.Configuration.ApiClient.Execute<Object>(localVarPath,
-                    Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
-                    localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
-                    ExceptionFactory, operationName);
-            }
-            catch (ApiException e) when (e.ErrorCode == 405)
-            {
-                return this.Configuration.ApiClient.Execute<Object>(localVarPath,
-                    Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
-                    localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
-                    ExceptionFactory, operationName);
-            }
-        }
-
-        private async ThreadTask.Task<ApiResponse<Object>> ExecuteStateChangeAsync(
-            string localVarPath, List<KeyValuePair<String, String>> localVarQueryParams, Object localVarPostBody,
-            Dictionary<String, String> localVarHeaderParams, Dictionary<String, String> localVarFormParams,
-            Dictionary<String, FileParameter> localVarFileParams, Dictionary<String, String> localVarPathParams,
-            String localVarHttpContentType, string operationName)
-        {
-            try
-            {
-                return await this.Configuration.ApiClient.ExecuteAsync<Object>(localVarPath,
-                    Method.Put, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
-                    localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
-                    ExceptionFactory, operationName);
-            }
-            catch (ApiException e) when (e.ErrorCode == 405)
-            {
-                return await this.Configuration.ApiClient.ExecuteAsync<Object>(localVarPath,
-                    Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
-                    localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
-                    ExceptionFactory, operationName);
-            }
-        }
-
         /// <summary>
-        /// Pauses an existing schedule by name
+        /// Pauses an existing schedule by name 
         /// </summary>
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="name"></param>
@@ -866,9 +822,10 @@ namespace Conductor.Api
 
             if (name != null) localVarPathParams.Add("name", this.Configuration.ApiClient.ParameterToString(name)); // path parameter
 
-            return (await ExecuteStateChangeAsync(localVarPath,
-                localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
-                localVarFileParams, localVarPathParams, localVarHttpContentType, "PauseSchedule")).Data;
+            return (await this.Configuration.ApiClient.ExecuteAsync<Object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "PauseSchedule")).Data;
         }
 
         /// <summary>
@@ -906,9 +863,10 @@ namespace Conductor.Api
 
             if (name != null) localVarPathParams.Add("name", this.Configuration.ApiClient.ParameterToString(name)); // path parameter
 
-            return ExecuteStateChange(localVarPath,
-                localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
-                localVarFileParams, localVarPathParams, localVarHttpContentType, "PauseSchedule");
+            return this.Configuration.ApiClient.Execute<Object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "PauseSchedule");
         }
 
         /// <summary>
@@ -1236,9 +1194,10 @@ namespace Conductor.Api
 
             if (name != null) localVarPathParams.Add("name", this.Configuration.ApiClient.ParameterToString(name)); // path parameter
 
-            return (await ExecuteStateChangeAsync(localVarPath,
-                localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
-                localVarFileParams, localVarPathParams, localVarHttpContentType, "ResumeSchedule")).Data;
+            return (await this.Configuration.ApiClient.ExecuteAsync<Object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "ResumeSchedule")).Data;
         }
 
         /// <summary>
@@ -1276,9 +1235,10 @@ namespace Conductor.Api
 
             if (name != null) localVarPathParams.Add("name", this.Configuration.ApiClient.ParameterToString(name)); // path parameter
 
-            return ExecuteStateChange(localVarPath,
-                localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
-                localVarFileParams, localVarPathParams, localVarHttpContentType, "ResumeSchedule");
+            return this.Configuration.ApiClient.Execute<Object>(localVarPath,
+                Method.Get, localVarQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams,
+                localVarFileParams, localVarPathParams, localVarHttpContentType, this.Configuration,
+                ExceptionFactory, "ResumeSchedule");
         }
 
         /// <summary>
