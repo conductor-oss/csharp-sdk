@@ -221,6 +221,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Example91Skills", "91_Skill
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Example92ScheduledAgent", "92_ScheduledAgent\Example92ScheduledAgent.csproj", "{8A2FB1CD-F4E6-450D-8552-971EF743A257}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Example93SchedulerVerbFallback", "93_SchedulerVerbFallback\Example93SchedulerVerbFallback.csproj", "{5DB67614-46E2-49E2-B2F1-9872814942D7}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleAdk00HelloWorld", "Adk00_HelloWorld\ExampleAdk00HelloWorld.csproj", "{F9687D59-56E8-4D53-9039-73BAABE7682F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleAdk01BasicAgent", "Adk01_BasicAgent\ExampleAdk01BasicAgent.csproj", "{BAC26D41-E5F3-45D4-9ED1-7788EFAE6235}"
@@ -806,6 +808,10 @@ Global
 		{8A2FB1CD-F4E6-450D-8552-971EF743A257}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8A2FB1CD-F4E6-450D-8552-971EF743A257}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8A2FB1CD-F4E6-450D-8552-971EF743A257}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5DB67614-46E2-49E2-B2F1-9872814942D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5DB67614-46E2-49E2-B2F1-9872814942D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5DB67614-46E2-49E2-B2F1-9872814942D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5DB67614-46E2-49E2-B2F1-9872814942D7}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F9687D59-56E8-4D53-9039-73BAABE7682F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F9687D59-56E8-4D53-9039-73BAABE7682F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F9687D59-56E8-4D53-9039-73BAABE7682F}.Release|Any CPU.ActiveCfg = Release|Any CPU
