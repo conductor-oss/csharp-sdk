@@ -8,7 +8,7 @@
     <AssemblyName>Conductor.AI.OpenAI</AssemblyName>
     <PackageId>conductor-ai-openai</PackageId>
     <Description>OpenAI-style agent adapter for the Conductor AI SDK</Description>
-    <RepositoryUrl>https://github.com/conductor-sdk/conductor-csharp</RepositoryUrl>
+    <RepositoryUrl>https://github.com/conductor-oss/csharp-sdk</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>

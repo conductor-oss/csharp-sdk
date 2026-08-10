@@ -172,7 +172,7 @@ Self-contained end-to-end tests for the Conductor .NET agent SDK, pinned to
 release **@VERSION@**. Restores the `conductor-ai` NuGet package at that exact
 version — no SDK source is vendored, so a run exercises the published package.
 Cut from
-[conductor-sdk/conductor-csharp](https://github.com/conductor-sdk/conductor-csharp)
+[conductor-oss/csharp-sdk](https://github.com/conductor-oss/csharp-sdk)
 (`Conductor.AI.E2eTests/`).
 
 ## Prerequisites (you provide these)

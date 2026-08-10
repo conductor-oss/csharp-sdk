@@ -8,7 +8,7 @@
     <AssemblyName>Conductor.AI</AssemblyName>
     <PackageId>conductor-ai</PackageId>
     <Description>Durable AI agents SDK for Conductor</Description>
-    <RepositoryUrl>https://github.com/conductor-sdk/conductor-csharp</RepositoryUrl>
+    <RepositoryUrl>https://github.com/conductor-oss/csharp-sdk</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>

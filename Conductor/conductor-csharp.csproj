@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageIconUrl />
-    <RepositoryUrl>https://github.com/conductor-sdk/conductor-csharp</RepositoryUrl>
+    <RepositoryUrl>https://github.com/conductor-oss/csharp-sdk</RepositoryUrl>
     <Description>C# sdk for conductor</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
