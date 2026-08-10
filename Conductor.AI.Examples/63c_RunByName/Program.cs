@@ -1,0 +1,58 @@
+/*
+ * Copyright 2024 Conductor Authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+// Run by Name — execute a pre-deployed agent via runtime.RunByNameAsync(name, prompt).
+//
+// This pattern decouples execution from deployment:
+//   - CI/CD deploys the workflow definition once (using agent config)
+//   - Application code runs it by name (no Agent object needed at runtime)
+//   - Workers register separately as long-running services
+//
+// For agents that use only server-side tools (HTTP, MCP, API) — no worker
+// process is needed. This example uses a server-side HTTP tool so both
+// the initial run and run-by-name work without local workers.
+//
+// Requirements:
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
+
+using Conductor.AI;
+using Conductor.AI.Examples;
+
+// HTTP tool — server-side, no worker process needed
+var getCurrentTime = HttpTools.Create(
+    name: "get_world_clock",
+    description: "Get the current UTC time from a public world clock API.",
+    url: "http://worldtimeapi.org/api/timezone/UTC",
+    headers: new Dictionary<string, string> { ["Accept"] = "application/json" });
+
+var agent = new Agent("world_clock_agent_63c")
+{
+    Model = Settings.LlmModel,
+    Tools = [getCurrentTime],
+    Instructions = "You are a time assistant. Use get_world_clock to check the current UTC time.",
+};
+
+await using var runtime = new AgentRuntime();
+
+// ── First run: deploys the workflow + server registers it ─────────────
+
+Console.WriteLine("--- First run (by Agent object) ---");
+var result1 = await runtime.RunAsync(agent, "What time is it in UTC right now?");
+result1.PrintResult();
+
+// ── Second run: by workflow name — no Agent object needed ─────────────
+// Since this uses only server-side tools (HTTP), no workers are required.
+
+Console.WriteLine("\n--- Second run (by workflow name) ---");
+var result2 = await runtime.RunByNameAsync("world_clock_agent_63c", "Tell me the current UTC datetime.");
+result2.PrintResult();

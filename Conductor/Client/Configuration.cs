@@ -125,6 +125,12 @@ namespace Conductor.Client
 
         public readonly ApiClient ApiClient;
 
+        /// <summary>
+        /// When true, <c>AddConductorWorker()</c> registers the <see cref="Telemetry.MetricsCollector"/>
+        /// and wires it into the <see cref="ApiClient"/> and worker runner. Defaults to false (opt-in).
+        /// </summary>
+        public bool EnableMetrics { get; set; } = false;
+
         public OrkesAuthenticationSettings AuthenticationSettings { get; set; }
 
         /// <summary>
@@ -138,7 +144,7 @@ namespace Conductor.Client
             }
             set
             {
-                ApiClient.RestClient = new RestClient(new RestClientOptions() { BaseUrl = new Uri(value), MaxTimeout = Timeout });
+                ApiClient.RestClient = new RestClient(new RestClientOptions() { BaseUrl = new Uri(value), Timeout = TimeSpan.FromMilliseconds(Timeout) });
             }
         }
 

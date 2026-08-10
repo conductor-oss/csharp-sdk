@@ -1,0 +1,85 @@
+/*
+ * Copyright 2024 Conductor Authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+// Serve — keep tool workers running as a persistent service.
+//
+// Demonstrates:
+//   - runtime.ServeAsync() to register C# workers and block until Ctrl+C
+//   - Serving multiple agents in a single process
+//   - ServeAsync() is self-sufficient: it deploys each agent (idempotently)
+//     before registering workers, so a prior DeployAsync() call is not
+//     required — running 63_Deploy first is fine but no longer necessary.
+//
+// ServeAsync() registers the C# tool methods as Conductor workers and
+// starts polling for tasks.
+//
+// Start this in a long-running process and press Ctrl+C to stop:
+//   dotnet run --project 63b_Serve
+//
+// Requirements:
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
+
+using Conductor.AI;
+using Conductor.AI.Examples;
+
+// ── Agent definitions (same as in 63_Deploy) ───────────────────
+
+var docAssistant = new Agent("doc_assistant_63")
+{
+    Model = Settings.LlmModel,
+    Instructions = "Help users find documentation. Use search_docs to look up answers.",
+    Tools = ToolRegistry.FromInstance(new DocTools()),
+};
+
+var opsBot = new Agent("ops_bot_63")
+{
+    Model = Settings.LlmModel,
+    Instructions = "Monitor service health. Use check_status to inspect services.",
+    Tools = ToolRegistry.FromInstance(new OpsTools()),
+};
+
+// ── Serve workers until Ctrl+C ─────────────────────────────────
+
+Console.WriteLine("Worker service starting. Press Ctrl+C to stop.\n");
+Console.WriteLine("Workers polling for tasks:");
+Console.WriteLine("  - search_docs (doc_assistant_63)");
+Console.WriteLine("  - check_status (ops_bot_63)\n");
+
+using var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    Console.WriteLine("\nShutting down...");
+    cts.Cancel();
+};
+
+await using var runtime = new AgentRuntime();
+await runtime.ServeAsync(cts.Token, docAssistant, opsBot);
+
+Console.WriteLine("Worker service stopped.");
+
+// ── Tool classes ─────────────────────────────────────────────
+
+internal sealed class DocTools
+{
+    [Tool("Search internal documentation.")]
+    public string SearchDocs(string query)
+        => $"Found 3 results for: {query}";
+}
+
+internal sealed class OpsTools
+{
+    [Tool("Check service health status.")]
+    public string CheckStatus(string service)
+        => $"{service}: healthy";
+}

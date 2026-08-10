@@ -247,7 +247,7 @@ namespace conductor_csharp.Api
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="tasktype"></param>
         /// <returns></returns>
-        void UnregisterTaskDefAsync(string tasktype);
+        ThreadTask.Task UnregisterTaskDefAsync(string tasktype);
 
         /// <summary>
         /// Asynchronous Removes workflow definition. It does not remove workflows associated with the definition.
@@ -259,7 +259,7 @@ namespace conductor_csharp.Api
         /// <param name="name"></param>
         /// <param name="version"></param>
         /// <returns></returns>
-        void UnregisterWorkflowDefAsync(string name, int? version);
+        ThreadTask.Task UnregisterWorkflowDefAsync(string name, int? version);
 
         /// <summary>
         /// Asynchronous Create or update workflow definition(s)

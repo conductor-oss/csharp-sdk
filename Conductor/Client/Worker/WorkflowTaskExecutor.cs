@@ -12,9 +12,11 @@
  */
 using Conductor.Client.Interfaces;
 using Conductor.Client.Extensions;
+using Conductor.Client.Telemetry;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using Conductor.Client.Models;
 
@@ -30,18 +32,21 @@ namespace Conductor.Client.Worker
         private readonly IWorkflowTaskClient _taskClient;
         private readonly WorkflowTaskExecutorConfiguration _workerSettings;
         private readonly WorkflowTaskMonitor _workflowTaskMonitor;
+        private readonly MetricsCollector _metrics;
 
         public WorkflowTaskExecutor(
             ILogger<WorkflowTaskExecutor> logger,
             IWorkflowTaskClient client,
             IWorkflowTask worker,
-            WorkflowTaskMonitor workflowTaskMonitor)
+            WorkflowTaskMonitor workflowTaskMonitor,
+            MetricsCollector metrics = null)
         {
             _logger = logger;
             _taskClient = client;
             _worker = worker;
             _workerSettings = worker.WorkerSettings;
             _workflowTaskMonitor = workflowTaskMonitor;
+            _metrics = metrics;
         }
 
         public WorkflowTaskExecutor(
@@ -49,12 +54,14 @@ namespace Conductor.Client.Worker
             IWorkflowTaskClient client,
             IWorkflowTask worker,
             WorkflowTaskExecutorConfiguration workflowTaskConfiguration,
-            WorkflowTaskMonitor workflowTaskMonitor)
+            WorkflowTaskMonitor workflowTaskMonitor,
+            MetricsCollector metrics = null)
         {
             _logger = logger;
             _taskClient = client;
             _worker = worker;
             _workflowTaskMonitor = workflowTaskMonitor;
+            _metrics = metrics;
         }
 
         public System.Threading.Tasks.Task Start(CancellationToken token)
@@ -77,7 +84,7 @@ namespace Conductor.Client.Worker
             return thread;
         }
 
-        private void Work4Ever(CancellationToken token)
+        private async System.Threading.Tasks.Task Work4Ever(CancellationToken token)
         {
             while (true)
             {
@@ -86,42 +93,40 @@ namespace Conductor.Client.Worker
                     if (token != CancellationToken.None)
                         token.ThrowIfCancellationRequested();
 
-                    WorkOnce(token);
+                    await WorkOnce(token);
                 }
-                catch (System.OperationCanceledException canceledException)
+                catch (System.OperationCanceledException)
                 {
-                    //Do nothing the operation was cancelled
-                    _logger.LogTrace(
-                        $"[{_workerSettings.WorkerId}] Operation Cancelled: {canceledException.Message}"
+                    _logger.LogInformation(
+                        $"[{_workerSettings.WorkerId}] Worker shutting down"
                         + $", taskName: {_worker.TaskType}"
                         + $", domain: {_worker.WorkerSettings.Domain}"
-                        + $", batchSize: {_workerSettings.BatchSize}"
                     );
-                    Sleep(SLEEP_FOR_TIME_SPAN_ON_WORKER_ERROR);
+                    break;
                 }
                 catch (Exception e)
                 {
-
+                    _metrics?.RecordUncaughtException(e.GetType().Name);
                     _logger.LogError(
                         $"[{_workerSettings.WorkerId}] worker error: {e.Message}"
                         + $", taskName: {_worker.TaskType}"
                         + $", domain: {_worker.WorkerSettings.Domain}"
                         + $", batchSize: {_workerSettings.BatchSize}"
                     );
-                    Sleep(SLEEP_FOR_TIME_SPAN_ON_WORKER_ERROR);
+                    await System.Threading.Tasks.Task.Delay(SLEEP_FOR_TIME_SPAN_ON_WORKER_ERROR);
                 }
             }
         }
 
-        private async void WorkOnce(CancellationToken token)
+        private async System.Threading.Tasks.Task WorkOnce(CancellationToken token)
         {
             if (token != CancellationToken.None)
                 token.ThrowIfCancellationRequested();
 
-            var tasks = PollTasks();
+            var tasks = await PollTasksAsync();
             if (tasks.Count == 0)
             {
-                Sleep(_workerSettings.PollInterval);
+                await System.Threading.Tasks.Task.Delay(_workerSettings.PollInterval);
                 return;
             }
 
@@ -131,7 +136,7 @@ namespace Conductor.Client.Worker
                 + $", Task batch unique Id: {uniqueBatchId}"
             );
 
-            await System.Threading.Tasks.Task.Run(() => ProcessTasks(tasks, token));
+            await ProcessTasks(tasks, token);
 
             _logger.LogTrace(
                 $"[{_workerSettings.WorkerId}] Completed tasks batch"
@@ -139,7 +144,7 @@ namespace Conductor.Client.Worker
             );
         }
 
-        private List<Models.Task> PollTasks()
+        private async System.Threading.Tasks.Task<List<Models.Task>> PollTasksAsync()
         {
             _logger.LogTrace(
                 $"[{_workerSettings.WorkerId}] Polling for worker"
@@ -147,17 +152,25 @@ namespace Conductor.Client.Worker
                 + $", domain: {_workerSettings.Domain}"
                 + $", batchSize: {_workerSettings.BatchSize}"
             );
-            var availableWorkerCounter = _workerSettings.BatchSize - _workflowTaskMonitor.GetRunningWorkers();
+            var runningWorkers = _workflowTaskMonitor.GetRunningWorkers();
+            _metrics?.RecordActiveWorkers(_worker.TaskType, runningWorkers);
+            var availableWorkerCounter = _workerSettings.BatchSize - runningWorkers;
             if (availableWorkerCounter < 1)
             {
                 _logger.LogDebug("All workers are busy");
+                _metrics?.RecordTaskExecutionQueueFull(_worker.TaskType);
                 return new List<Task>();
             }
 
+            _metrics?.RecordTaskPoll(_worker.TaskType);
+            var pollStopwatch = Stopwatch.StartNew();
             try
             {
-                var tasks = _taskClient.PollTask(_worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain,
+                var tasks = await _taskClient.PollTaskAsync(_worker.TaskType, _workerSettings.WorkerId, _workerSettings.Domain,
                     availableWorkerCounter);
+                pollStopwatch.Stop();
+                _metrics?.RecordTaskPollTime(_worker.TaskType, pollStopwatch.Elapsed.TotalSeconds, "SUCCESS");
+
                 if (tasks == null)
                 {
                     tasks = new List<Models.Task>();
@@ -173,7 +186,10 @@ namespace Conductor.Client.Worker
             }
             catch (Exception e)
             {
-                _logger.LogTrace(
+                pollStopwatch.Stop();
+                _metrics?.RecordTaskPollTime(_worker.TaskType, pollStopwatch.Elapsed.TotalSeconds, "FAILURE");
+                _metrics?.RecordTaskPollError(_worker.TaskType, e.GetType().Name);
+                _logger.LogError(
                     $"[{_workerSettings.WorkerId}] Polling error: {e.Message} "
                     + $", taskType: {_worker.TaskType}"
                     + $", domain: {_workerSettings.Domain}"
@@ -183,7 +199,7 @@ namespace Conductor.Client.Worker
             }
         }
 
-        private async void ProcessTasks(List<Models.Task> tasks, CancellationToken token)
+        private async System.Threading.Tasks.Task ProcessTasks(List<Models.Task> tasks, CancellationToken token)
         {
             List<System.Threading.Tasks.Task> threads = new List<System.Threading.Tasks.Task>();
             if (tasks == null || tasks.Count == 0)
@@ -203,7 +219,7 @@ namespace Conductor.Client.Worker
             await System.Threading.Tasks.Task.WhenAll(threads);
         }
 
-        private async void ProcessTask(Models.Task task, CancellationToken token)
+        private async System.Threading.Tasks.Task ProcessTask(Models.Task task, CancellationToken token)
         {
             if (token != CancellationToken.None)
                 token.ThrowIfCancellationRequested();
@@ -217,15 +233,18 @@ namespace Conductor.Client.Worker
                 + $", CancelToken: {token}"
             );
 
+            _metrics?.RecordTaskExecutionStarted(_worker.TaskType);
+            var executeStopwatch = Stopwatch.StartNew();
             try
             {
                 TaskResult taskResult =
                     new TaskResult(taskId: task.TaskId, workflowInstanceId: task.WorkflowInstanceId);
 
-                if (token == CancellationToken.None)
-                    taskResult = _worker.Execute(task);
-                else
-                    taskResult = await _worker.Execute(task, token);
+                taskResult = await _worker.Execute(task, token);
+
+                executeStopwatch.Stop();
+                _metrics?.RecordTaskExecuteTime(_worker.TaskType, executeStopwatch.Elapsed.TotalSeconds, "SUCCESS");
+
                 _logger.LogTrace(
                     $"[{_workerSettings.WorkerId}] Done processing task for worker"
                     + $", taskType: {_worker.TaskType}"
@@ -234,10 +253,13 @@ namespace Conductor.Client.Worker
                     + $", workflowId: {task.WorkflowInstanceId}"
                     + $", CancelToken: {token}"
                 );
-                UpdateTask(taskResult);
+                await UpdateTaskAsync(taskResult);
             }
             catch (Exception e)
             {
+                executeStopwatch.Stop();
+                _metrics?.RecordTaskExecuteTime(_worker.TaskType, executeStopwatch.Elapsed.TotalSeconds, "FAILURE");
+                _metrics?.RecordTaskExecuteError(_worker.TaskType, e.GetType().Name);
                 _logger.LogError(
                     $"[{_workerSettings.WorkerId}] Failed to process task for worker, reason: {e.Message}"
                     + $", taskType: {_worker.TaskType}"
@@ -247,30 +269,33 @@ namespace Conductor.Client.Worker
                     + $", CancelToken: {token}"
                 );
                 var taskResult = task.Failed(e.Message);
-                UpdateTask(taskResult);
+                await UpdateTaskAsync(taskResult);
             }
             finally
             {
-                if (token == CancellationToken.None)
-                    token.ThrowIfCancellationRequested();
                 _workflowTaskMonitor.RunningWorkerDone();
             }
         }
 
-        private void UpdateTask(Models.TaskResult taskResult)
+        private async System.Threading.Tasks.Task UpdateTaskAsync(Models.TaskResult taskResult)
         {
             taskResult.WorkerId = taskResult.WorkerId ?? _workerSettings.WorkerId;
+            RecordTaskResultSize(taskResult);
+            Exception lastException = null;
+            double lastAttemptSeconds = 0;
             for (var attemptCounter = 0; attemptCounter < UPDATE_TASK_RETRY_COUNT_LIMIT; attemptCounter += 1)
             {
+                if (attemptCounter > 0)
+                {
+                    await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(1 << attemptCounter));
+                }
+
+                var updateStopwatch = Stopwatch.StartNew();
                 try
                 {
-                    // Retries in increasing time intervals (0s, 2s, 4s, 8s...)
-                    if (attemptCounter > 0)
-                    {
-                        Sleep(TimeSpan.FromSeconds(1 << attemptCounter));
-                    }
-
-                    _taskClient.UpdateTask(taskResult);
+                    await _taskClient.UpdateTaskAsync(taskResult);
+                    updateStopwatch.Stop();
+                    _metrics?.RecordTaskUpdateTime(_worker.TaskType, updateStopwatch.Elapsed.TotalSeconds, "SUCCESS");
                     _logger.LogTrace(
                         $"[{_workerSettings.WorkerId}] Done updating task"
                         + $", taskType: {_worker.TaskType}"
@@ -282,6 +307,9 @@ namespace Conductor.Client.Worker
                 }
                 catch (Exception e)
                 {
+                    updateStopwatch.Stop();
+                    lastAttemptSeconds = updateStopwatch.Elapsed.TotalSeconds;
+                    lastException = e;
                     _logger.LogError(
                         $"[{_workerSettings.WorkerId}] Failed to update task, reason: {e.Message}"
                         + $", taskType: {_worker.TaskType}"
@@ -292,13 +320,24 @@ namespace Conductor.Client.Worker
                 }
             }
 
-            throw new Exception("Failed to update task after retries");
+            _metrics?.RecordTaskUpdateTime(_worker.TaskType, lastAttemptSeconds, "FAILURE");
+            _metrics?.RecordTaskUpdateError(_worker.TaskType, lastException?.GetType().Name ?? "UnknownException");
+            throw new Exception("Failed to update task after retries", lastException);
         }
 
-        private void Sleep(TimeSpan timeSpan)
+        private void RecordTaskResultSize(Models.TaskResult taskResult)
         {
-            _logger.LogDebug($"[{_workerSettings.WorkerId}] Sleeping for {timeSpan.Milliseconds}ms");
-            Thread.Sleep(timeSpan);
+            if (_metrics == null || taskResult.OutputData == null)
+                return;
+            try
+            {
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(taskResult.OutputData);
+                _metrics.RecordTaskResultSize(_worker.TaskType, json.Length);
+            }
+            catch
+            {
+                // Don't let metrics serialization failures disrupt task processing.
+            }
         }
 
         private void LogInfo()

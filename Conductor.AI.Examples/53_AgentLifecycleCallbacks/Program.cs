@@ -1,0 +1,75 @@
+/*
+ * Copyright 2024 Conductor Authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+// Agent Lifecycle Callbacks — before/after model hooks with timing and logging.
+//
+// Demonstrates using BeforeModelCallback and AfterModelCallback as
+// composable lifecycle hooks. Multiple concerns (timing, logging) are
+// handled independently in a chainable pattern.
+//
+// Requirements:
+//   - Conductor server with LLM support
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
+
+using System.Text.Json;
+using Conductor.AI;
+using Conductor.AI.Examples;
+
+// ── Shared timing state ───────────────────────────────────────
+var t0 = DateTime.UtcNow;
+
+// ── Agent with chained lifecycle callbacks ────────────────────
+
+var agent = new Agent("lifecycle_agent_53")
+{
+    Model = Settings.LlmModel,
+    Instructions = "You are a helpful assistant. Use lookup_weather for weather queries.",
+    Tools = ToolRegistry.FromInstance(new WeatherTools()),
+
+    // Timing + logging before each LLM call
+    BeforeModelCallback = messages =>
+    {
+        t0 = DateTime.UtcNow;
+        int count = messages?.Count ?? 0;
+        Console.WriteLine($"  [timing] Agent started");
+        Console.WriteLine($"  [log] Sending {count} messages to LLM");
+        return [];  // continue normally
+    },
+
+    // Timing + logging after each LLM call
+    AfterModelCallback = llmResult =>
+    {
+        var elapsed = (DateTime.UtcNow - t0).TotalSeconds;
+        var snippet = llmResult is not null && llmResult.Length > 80
+            ? llmResult[..80]
+            : llmResult ?? "";
+        Console.WriteLine($"  [timing] Agent finished — {elapsed:F2}s");
+        Console.WriteLine($"  [log] LLM responded: \"{snippet}\"");
+        return [];  // keep original response
+    },
+};
+
+// ── Run ───────────────────────────────────────────────────────
+
+await using var runtime = new AgentRuntime();
+var result = await runtime.RunAsync(agent, "What's the weather like in Tokyo?");
+result.PrintResult();
+
+// ── Tool class ────────────────────────────────────────────────
+
+internal sealed class WeatherTools
+{
+    [Tool("Get the current weather for a city.")]
+    public Dictionary<string, object> LookupWeather(string city)
+        => new() { ["city"] = city, ["temperature"] = "22C", ["condition"] = "sunny" };
+}

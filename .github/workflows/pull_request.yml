@@ -25,43 +25,126 @@ jobs:
           --target=linter
           --progress=plain
           .
-  
-  test_and_coverage:
+
+  unit_tests:
     needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Test and collect coverage
-        continue-on-error: true
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run unit tests
         run: >
-          DOCKER_BUILDKIT=1 docker build
-          --target=coverage_export
-          --output type=local,dest=coverage
-          --build-arg KEY=${{ secrets.AUTH_KEY }}
-          --build-arg SECRET=${{ secrets.AUTH_SECRET }}
-          --build-arg CONDUCTOR_SERVER_URL=${{ vars.SERVER_URL }}
-          .
-      
+          dotnet test Tests/conductor-csharp.test.csproj
+          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
+          --filter "Category!=Integration&Category!=CloudIntegration"
+          -l "console;verbosity=normal"
+          --collect:"XPlat Code Coverage"
+          --results-directory coverage
+      - name: Run agent unit tests
+        run: |
+          for p in Conductor.AI.Tests Conductor.AI.OpenAI.Tests Conductor.AI.GoogleADK.Tests Conductor.AI.SemanticKernel.Tests; do
+            dotnet test "$p/$p.csproj" \
+              -l "console;verbosity=normal" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory coverage
+          done
       - name: Upload Cobertura artifact
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: cobertura
-          path: coverage/out/coverage.cobertura.xml
+          path: coverage/**/coverage.cobertura.xml
 
-      - name: Ensure coverage file exists
-        run: |
-          mkdir -p coverage
-          if [ ! -f coverage/out/coverage.cobertura.xml ]; then
-            echo '<coverage></coverage>' > coverage/out/coverage.cobertura.xml
-          fi
-
-      - name: Codecov upload
-        if: ${{ !env.ACT }}
-        uses: codecov/codecov-action@v5
+  build_ai_examples:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}  
-          files: coverage/out/coverage.cobertura.xml
-          flags: unittests
-          name: ${{ github.workflow }}-${{ github.job }}-${{ github.run_number }}
+          dotnet-version: '8.0.x'
+      - name: Build agent examples
+        run: dotnet build Conductor.AI.Examples/Conductor.AI.Examples.sln -c Release
+
+  # The release workflow only static-checks the bundle. Compiling it is the check
+  # that actually proves it is self-contained, and it needs no published package
+  # (--build packs the working tree into a temp feed), so it belongs here — a
+  # bundle that cannot build should fail the PR, not ship attached to a release.
+  e2e_bundle:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate e2e bundle (static + compile)
+        run: ./scripts/test-package-e2e-bundle.sh --build
+
+  integration_tests:
+    # Repository secrets are intentionally unavailable to pull requests from forks.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Show server endpoint and auth key prefix
+        run: |
+          echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
+          echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
+      - name: Run integration tests (v5)
+        run: >
+          dotnet test Tests/conductor-csharp.test.csproj
+          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
+          --filter "Category=Integration"
+          -l "console;verbosity=normal"
+
+  legacy_integration_tests:
+    # Repository secrets are intentionally unavailable to pull requests from forks.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Show server endpoint and auth key prefix
+        run: |
+          echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
+          echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
+      - name: Run legacy integration tests
+        run: >
+          dotnet test Tests/conductor-csharp.test.csproj
+          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
+          --filter "Category=CloudIntegration"
+          -l "console;verbosity=normal"

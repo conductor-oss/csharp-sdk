@@ -139,7 +139,7 @@ namespace conductor_csharp.Api
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="body"></param>
         /// <returns></returns>
-        void AddEventHandlerAsync(EventHandler body);
+        ThreadTask.Task AddEventHandlerAsync(EventHandler body);
 
         /// <summary>
         /// Asynchronous Delete queue config by name
@@ -151,7 +151,7 @@ namespace conductor_csharp.Api
         /// <param name="queueType"></param>
         /// <param name="queueName"></param>
         /// <returns></returns>
-        void DeleteQueueConfigAsync(string queueType, string queueName);
+        ThreadTask.Task DeleteQueueConfigAsync(string queueType, string queueName);
 
         /// <summary>
         /// Asynchronous Get all the event handlers
@@ -208,7 +208,7 @@ namespace conductor_csharp.Api
         /// <param name="queueType"></param>
         /// <param name="queueName"></param>
         /// <returns></returns>
-        void PutQueueConfigAsync(string body, string queueType, string queueName);
+        ThreadTask.Task PutQueueConfigAsync(string body, string queueType, string queueName);
 
         /// <summary>
         /// Asynchronous Remove an event handler
@@ -219,7 +219,7 @@ namespace conductor_csharp.Api
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="name"></param>
         /// <returns></returns>
-        void RemoveEventHandlerStatusAsync(string name);
+        ThreadTask.Task RemoveEventHandlerStatusAsync(string name);
 
         /// <summary>
         /// Asynchronous Update an existing event handler.
@@ -230,7 +230,7 @@ namespace conductor_csharp.Api
         /// <exception cref="Conductor.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="body"></param>
         /// <returns></returns>
-        void UpdateEventHandlerAsync(EventHandler body);
+        ThreadTask.Task UpdateEventHandlerAsync(EventHandler body);
 
         #endregion Asynchronous Operations
     }

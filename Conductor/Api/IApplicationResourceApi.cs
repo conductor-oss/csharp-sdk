@@ -265,7 +265,7 @@ namespace conductor_csharp.Api
         /// <param name="body"></param>
         /// <param name="id"></param>
         /// <returns></returns>
-        void DeleteTagForApplicationAsync(List<TagObject> body, string id);
+        ThreadTask.Task DeleteTagForApplicationAsync(List<TagObject> body, string id);
 
         /// <summary>
         /// Asynchronous Get application&#x27;s access keys
@@ -331,7 +331,7 @@ namespace conductor_csharp.Api
         /// <param name="body"></param>
         /// <param name="id"></param>
         /// <returns></returns>
-        void PutTagForApplicationAsync(List<TagObject> body, string id);
+        ThreadTask.Task PutTagForApplicationAsync(List<TagObject> body, string id);
 
         /// <summary>
         /// 

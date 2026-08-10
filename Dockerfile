@@ -2,38 +2,61 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS csharp-sdk
 RUN mkdir /package
 COPY /Conductor /package/Conductor
 COPY /README.md /package/Conductor/README.md
+COPY /README.md /package/README.md
+COPY /Conductor.AI /package/Conductor.AI
+COPY /Conductor.AI.OpenAI /package/Conductor.AI.OpenAI
+COPY /Conductor.AI.GoogleADK /package/Conductor.AI.GoogleADK
+COPY /Conductor.AI.SemanticKernel /package/Conductor.AI.SemanticKernel
 WORKDIR /package/Conductor
 
 FROM csharp-sdk AS linter
 RUN dotnet format --verify-no-changes *.csproj
+RUN dotnet format --verify-no-changes ../Conductor.AI/Conductor.AI.csproj
+RUN dotnet format --verify-no-changes ../Conductor.AI.OpenAI/Conductor.AI.OpenAI.csproj
+RUN dotnet format --verify-no-changes ../Conductor.AI.GoogleADK/Conductor.AI.GoogleADK.csproj
+RUN dotnet format --verify-no-changes ../Conductor.AI.SemanticKernel/Conductor.AI.SemanticKernel.csproj
 
 FROM csharp-sdk AS build
 RUN dotnet build *.csproj
 
-FROM build AS test
-ARG KEY
-ARG SECRET
-ARG CONDUCTOR_SERVER_URL
-ENV CONDUCTOR_AUTH_KEY=${KEY}
-ENV CONDUCTOR_AUTH_SECRET=${SECRET}
-ENV CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL}
+FROM build AS harness-build
+COPY /Harness /package/Harness
+WORKDIR /package/Harness
+RUN dotnet publish Harness.csproj -c Release -o /app
 
-COPY /csharp-examples /package/csharp-examples
-COPY /Tests           /package/Tests
-WORKDIR /package/Tests
-RUN dotnet test -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS \
-                --collect:"XPlat Code Coverage" \
-                -l "console;verbosity=normal" \
-    || true
-
-FROM test AS coverage_export
-RUN mkdir /out \
- && cp $(find /package/Tests/TestResults -name 'coverage.cobertura.xml' | head -n 1) \
-       /out/coverage.cobertura.xml
+FROM mcr.microsoft.com/dotnet/runtime:8.0 AS harness
+COPY --from=harness-build /app /app
+WORKDIR /app
+EXPOSE 9991
+ENTRYPOINT ["dotnet", "Harness.dll"]
 
 FROM build AS pack_release
 ARG SDK_VERSION
 RUN dotnet pack conductor-csharp.csproj \
+    -o /build \
+    --include-symbols \
+    --include-source \
+    -c Release \
+    "/p:Version=${SDK_VERSION}"
+RUN dotnet pack ../Conductor.AI/Conductor.AI.csproj \
+    -o /build \
+    --include-symbols \
+    --include-source \
+    -c Release \
+    "/p:Version=${SDK_VERSION}"
+RUN dotnet pack ../Conductor.AI.OpenAI/Conductor.AI.OpenAI.csproj \
+    -o /build \
+    --include-symbols \
+    --include-source \
+    -c Release \
+    "/p:Version=${SDK_VERSION}"
+RUN dotnet pack ../Conductor.AI.GoogleADK/Conductor.AI.GoogleADK.csproj \
+    -o /build \
+    --include-symbols \
+    --include-source \
+    -c Release \
+    "/p:Version=${SDK_VERSION}"
+RUN dotnet pack ../Conductor.AI.SemanticKernel/Conductor.AI.SemanticKernel.csproj \
     -o /build \
     --include-symbols \
     --include-source \

@@ -1,0 +1,355 @@
+/*
+ * Copyright 2024 Conductor Authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.Metrics;
+using System.Linq;
+using Conductor.Client.Telemetry;
+using Xunit;
+
+namespace Tests.Telemetry
+{
+    public class MetricsCollectorTests : IDisposable
+    {
+        private readonly string _meterName = $"Conductor.Client.Test.{Guid.NewGuid()}";
+        private readonly MetricsCollector _sut;
+        private readonly MeterListener _listener = new();
+        private readonly List<RecordedMeasurement> _recorded = new();
+
+        public MetricsCollectorTests()
+        {
+            _sut = new MetricsCollector(_meterName);
+            _listener.InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == _meterName)
+                    listener.EnableMeasurementEvents(instrument);
+            };
+
+            _listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
+                _recorded.Add(new RecordedMeasurement(instrument.Name, value, tags.ToArray())));
+
+            _listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) =>
+                _recorded.Add(new RecordedMeasurement(instrument.Name, value, tags.ToArray())));
+
+            _listener.SetMeasurementEventCallback<int>((instrument, value, tags, _) =>
+                _recorded.Add(new RecordedMeasurement(instrument.Name, value, tags.ToArray())));
+
+            _listener.Start();
+        }
+
+        public void Dispose()
+        {
+            _sut.Dispose();
+            _listener.Dispose();
+        }
+
+        // ---------------------------------------------------------------
+        // Counters
+        // ---------------------------------------------------------------
+
+        [Fact]
+        public void RecordTaskPoll_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskPoll("my_task");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_poll_total", m.Name);
+            Assert.Equal(1L, m.Value);
+            AssertTag(m, "taskType", "my_task");
+        }
+
+        [Fact]
+        public void RecordTaskExecutionStarted_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskExecutionStarted("my_task");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_execution_started_total", m.Name);
+            AssertTag(m, "taskType", "my_task");
+        }
+
+        [Fact]
+        public void RecordTaskPollError_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskPollError("my_task", "TimeoutException");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_poll_error_total", m.Name);
+            AssertTag(m, "taskType", "my_task");
+            AssertTag(m, "exception", "TimeoutException");
+        }
+
+        [Fact]
+        public void RecordTaskExecuteError_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskExecuteError("task_a", "NullReferenceException");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_execute_error_total", m.Name);
+            AssertTag(m, "taskType", "task_a");
+            AssertTag(m, "exception", "NullReferenceException");
+        }
+
+        [Fact]
+        public void RecordTaskUpdateError_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskUpdateError("task_b", "HttpRequestException");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_update_error_total", m.Name);
+            AssertTag(m, "taskType", "task_b");
+            AssertTag(m, "exception", "HttpRequestException");
+        }
+
+        [Fact]
+        public void RecordTaskAckError_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskAckError("my_task", "HttpRequestException");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_ack_error_total", m.Name);
+            AssertTag(m, "taskType", "my_task");
+            AssertTag(m, "exception", "HttpRequestException");
+        }
+
+        [Fact]
+        public void RecordTaskAckFailed_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskAckFailed("my_task");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_ack_failed_total", m.Name);
+            AssertTag(m, "taskType", "my_task");
+        }
+
+        [Fact]
+        public void RecordTaskPaused_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskPaused("paused_task");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_paused_total", m.Name);
+            AssertTag(m, "taskType", "paused_task");
+        }
+
+        [Fact]
+        public void RecordTaskExecutionQueueFull_EmitsCanonicalLabels()
+        {
+            _sut.RecordTaskExecutionQueueFull("busy_task");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_execution_queue_full_total", m.Name);
+            AssertTag(m, "taskType", "busy_task");
+        }
+
+        [Fact]
+        public void RecordUncaughtException_EmitsExceptionLabel()
+        {
+            _sut.RecordUncaughtException("InvalidOperationException");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("thread_uncaught_exceptions_total", m.Name);
+            Assert.Equal(1L, m.Value);
+            AssertTag(m, "exception", "InvalidOperationException");
+        }
+
+        [Fact]
+        public void RecordWorkflowStartError_EmitsCanonicalLabels()
+        {
+            _sut.RecordWorkflowStartError("my_workflow", "ApiException");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("workflow_start_error_total", m.Name);
+            AssertTag(m, "workflowType", "my_workflow");
+            AssertTag(m, "exception", "ApiException");
+        }
+
+        [Fact]
+        public void RecordExternalPayloadUsed_EmitsCanonicalLabels()
+        {
+            _sut.RecordExternalPayloadUsed("entity", "READ", "TASK_INPUT");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("external_payload_used_total", m.Name);
+            AssertTag(m, "entityName", "entity");
+            AssertTag(m, "operation", "READ");
+            AssertTag(m, "payloadType", "TASK_INPUT");
+        }
+
+        // ---------------------------------------------------------------
+        // Time histograms -- status label
+        // ---------------------------------------------------------------
+
+        [Fact]
+        public void RecordTaskPollTime_IncludesStatusLabel()
+        {
+            _sut.RecordTaskPollTime("fast_task", 0.123, "SUCCESS");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_poll_time_seconds", m.Name);
+            Assert.Equal(0.123, m.Value);
+            AssertTag(m, "taskType", "fast_task");
+            AssertTag(m, "status", "SUCCESS");
+        }
+
+        [Fact]
+        public void RecordTaskExecuteTime_IncludesStatusLabel()
+        {
+            _sut.RecordTaskExecuteTime("slow_task", 5.5, "FAILURE");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_execute_time_seconds", m.Name);
+            Assert.Equal(5.5, m.Value);
+            AssertTag(m, "taskType", "slow_task");
+            AssertTag(m, "status", "FAILURE");
+        }
+
+        [Fact]
+        public void RecordTaskUpdateTime_IncludesStatusLabel()
+        {
+            _sut.RecordTaskUpdateTime("task_c", 0.05, "SUCCESS");
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_update_time_seconds", m.Name);
+            Assert.Equal(0.05, m.Value);
+            AssertTag(m, "taskType", "task_c");
+            AssertTag(m, "status", "SUCCESS");
+        }
+
+        [Fact]
+        public void RecordHttpApiClientRequest_RecordsDuration()
+        {
+            _sut.RecordHttpApiClientRequest("GET", "/api/tasks/poll/batch/my_task", "200", 0.042);
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("http_api_client_request_seconds", m.Name);
+            Assert.Equal(0.042, m.Value);
+            AssertTag(m, "method", "GET");
+            AssertTag(m, "uri", "/api/tasks/poll/batch/my_task");
+            AssertTag(m, "status", "200");
+        }
+
+        // ---------------------------------------------------------------
+        // Size histograms
+        // ---------------------------------------------------------------
+
+        [Fact]
+        public void RecordTaskResultSize_RecordsBytes()
+        {
+            _sut.RecordTaskResultSize("task_d", 1024.0);
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("task_result_size_bytes", m.Name);
+            Assert.Equal(1024.0, m.Value);
+            AssertTag(m, "taskType", "task_d");
+        }
+
+        [Fact]
+        public void RecordWorkflowInputSize_RecordsBytesWithVersionTag()
+        {
+            _sut.RecordWorkflowInputSize("wf_type", "2", 2048.0);
+
+            var m = Assert.Single(_recorded);
+            Assert.Equal("workflow_input_size_bytes", m.Name);
+            Assert.Equal(2048.0, m.Value);
+            AssertTag(m, "workflowType", "wf_type");
+            AssertTag(m, "version", "2");
+        }
+
+        // ---------------------------------------------------------------
+        // Observable gauge
+        // ---------------------------------------------------------------
+
+        [Fact]
+        public void RecordActiveWorkers_ExposedViaObservableGauge()
+        {
+            _sut.RecordActiveWorkers("task_x", 3);
+            _sut.RecordActiveWorkers("task_y", 7);
+
+            var gaugeValues = new List<RecordedMeasurement>();
+            using var gaugeListener = new MeterListener();
+            gaugeListener.InstrumentPublished = (instrument, l) =>
+            {
+                if (instrument.Meter.Name == _meterName
+                    && instrument.Name == "active_workers")
+                    l.EnableMeasurementEvents(instrument);
+            };
+            gaugeListener.SetMeasurementEventCallback<int>((instrument, value, tags, _) =>
+                gaugeValues.Add(new RecordedMeasurement(instrument.Name, value, tags.ToArray())));
+            gaugeListener.Start();
+            gaugeListener.RecordObservableInstruments();
+
+            Assert.Equal(2, gaugeValues.Count);
+            Assert.Contains(gaugeValues, g =>
+                (int)g.Value == 3 && g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "task_x"));
+            Assert.Contains(gaugeValues, g =>
+                (int)g.Value == 7 && g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "task_y"));
+        }
+
+        [Fact]
+        public void RecordActiveWorkers_OverwritesPreviousValue()
+        {
+            _sut.RecordActiveWorkers("overwrite_test_task", 3);
+            _sut.RecordActiveWorkers("overwrite_test_task", 10);
+
+            var gaugeValues = new List<RecordedMeasurement>();
+            using var gaugeListener = new MeterListener();
+            gaugeListener.InstrumentPublished = (instrument, l) =>
+            {
+                if (instrument.Meter.Name == _meterName
+                    && instrument.Name == "active_workers")
+                    l.EnableMeasurementEvents(instrument);
+            };
+            gaugeListener.SetMeasurementEventCallback<int>((instrument, value, tags, _) =>
+                gaugeValues.Add(new RecordedMeasurement(instrument.Name, value, tags.ToArray())));
+            gaugeListener.Start();
+            gaugeListener.RecordObservableInstruments();
+
+            var match = gaugeValues.Where(g =>
+                g.Tags.Any(t => t.Key == "taskType" && (string)t.Value == "overwrite_test_task")).ToList();
+            var single = Assert.Single(match);
+            Assert.Equal(10, (int)single.Value);
+        }
+
+        // ---------------------------------------------------------------
+        // Multiple increments
+        // ---------------------------------------------------------------
+
+        [Fact]
+        public void Counters_AccumulateAcrossMultipleCalls()
+        {
+            _sut.RecordTaskPoll("task_a");
+            _sut.RecordTaskPoll("task_a");
+            _sut.RecordTaskPoll("task_b");
+
+            Assert.Equal(3, _recorded.Count);
+            Assert.Equal(2, _recorded.Count(r => r.Tags.Any(t => (string)t.Value == "task_a")));
+            Assert.Equal(1, _recorded.Count(r => r.Tags.Any(t => (string)t.Value == "task_b")));
+        }
+
+        // ---------------------------------------------------------------
+        // Helpers
+        // ---------------------------------------------------------------
+
+        private static void AssertTag(RecordedMeasurement measurement, string key, string expectedValue)
+        {
+            var tag = measurement.Tags.FirstOrDefault(t => t.Key == key);
+            Assert.Equal(expectedValue, (string)tag.Value);
+        }
+
+        private record RecordedMeasurement(
+            string Name,
+            object Value,
+            KeyValuePair<string, object>[] Tags);
+    }
+}

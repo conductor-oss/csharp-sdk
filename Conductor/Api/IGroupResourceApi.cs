@@ -164,7 +164,7 @@ namespace conductor_csharp.Api
         /// <param name="body"></param>
         /// <param name="groupId"></param>
         /// <returns></returns>
-        void AddUsersToGroupAsync(List<string> body, string groupId);
+        ThreadTask.Task AddUsersToGroupAsync(List<string> body, string groupId);
 
         /// <summary>
         /// Asynchronous Delete a group
@@ -242,7 +242,7 @@ namespace conductor_csharp.Api
         /// <param name="body"></param>
         /// <param name="groupId"></param>
         /// <returns></returns>
-        void RemoveUsersFromGroupAsync(List<string> body, string groupId);
+        ThreadTask.Task RemoveUsersFromGroupAsync(List<string> body, string groupId);
 
         /// <summary>
         /// Asynchronous Create or update a group

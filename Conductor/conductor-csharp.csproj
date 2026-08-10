@@ -2,22 +2,30 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageIconUrl />
-    <RepositoryUrl>https://github.com/conductor-sdk/conductor-csharp</RepositoryUrl>
+    <RepositoryUrl>https://github.com/conductor-oss/csharp-sdk</RepositoryUrl>
     <Description>C# sdk for conductor</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="conductor-csharp.test" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="JsonSubTypes" Version="2.0.1" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
     <PackageReference Include="System.Net.Http.Json" Version="6.0.0" />
     <PackageReference Include="RestSharp.Serializers.NewtonsoftJson" Version="112.1.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
-    <None Include="/package/Conductor/README.md" Pack="true" PackagePath="/" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="10.0.0" />
+    <PackageReference Include="OpenTelemetry" Version="1.15.1" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.HttpListener" Version="1.15.1-beta.1" />
+    <!-- Relative so `dotnet pack` works outside the Dockerfile too; in the
+         Docker build this resolves to /package/README.md, same file as before. -->
+    <None Include="../README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,104 @@
+/*
+ * Copyright 2024 Conductor Authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+// Hierarchical Agents — nested agent teams.
+//
+// Multi-level hierarchy where a CEO orchestrator delegates to team leads
+// who in turn delegate to individual specialists.
+//
+//   CEO (SWARM)
+//   ├── engineering_lead (HANDOFF)
+//   │   ├── backend_dev
+//   │   └── frontend_dev
+//   └── marketing_lead (HANDOFF)
+//       ├── content_writer
+//       └── seo_specialist
+//
+// Requirements:
+//   - Conductor server with LLM support
+//   - CONDUCTOR_SERVER_URL=http://localhost:8080/api in environment
+//   - CONDUCTOR_AGENT_LLM_MODEL set in environment
+
+using Conductor.AI;
+using Conductor.AI.Examples;
+
+// ── Level 3: Specialists ─────────────────────────────────────────────
+
+var backendDev = new Agent("backend_dev")
+{
+    Model = Settings.LlmModel,
+    Instructions = "You are a backend developer. Design APIs, databases, and server architecture with code examples.",
+};
+
+var frontendDev = new Agent("frontend_dev")
+{
+    Model = Settings.LlmModel,
+    Instructions = "You are a frontend developer. Design UI components and client-side architecture with code examples.",
+};
+
+var contentWriter = new Agent("content_writer")
+{
+    Model = Settings.LlmModel,
+    Instructions = "You are a content writer. Create blog posts, landing page copy, and marketing materials.",
+};
+
+var seoSpecialist = new Agent("seo_specialist")
+{
+    Model = Settings.LlmModel,
+    Instructions = "You are an SEO specialist. Optimize content for search engines and suggest keywords.",
+};
+
+// ── Level 2: Team leads ──────────────────────────────────────────────
+
+var engineeringLead = new Agent("engineering_lead")
+{
+    Model = Settings.LlmModel,
+    Instructions =
+        "You are the engineering lead. Route technical questions: " +
+        "backend_dev for APIs/databases/servers, frontend_dev for UI/UX/client-side.",
+    Agents = [backendDev, frontendDev],
+    Strategy = Strategy.Handoff,
+};
+
+var marketingLead = new Agent("marketing_lead")
+{
+    Model = Settings.LlmModel,
+    Instructions =
+        "You are the marketing lead. Route marketing questions: " +
+        "content_writer for blog posts/copy, seo_specialist for SEO/keywords.",
+    Agents = [contentWriter, seoSpecialist],
+    Strategy = Strategy.Handoff,
+};
+
+// ── Level 1: CEO ─────────────────────────────────────────────────────
+
+var ceo = new Agent("ceo")
+{
+    Model = Settings.LlmModel,
+    Instructions =
+        "You are the CEO. Route requests: " +
+        "engineering_lead for technical/development, " +
+        "marketing_lead for marketing/content/SEO.",
+    Agents = [engineeringLead, marketingLead],
+    Strategy = Strategy.Swarm,
+};
+
+// ── Run ──────────────────────────────────────────────────────────────
+
+await using var runtime = new AgentRuntime();
+Console.WriteLine("--- Technical question (CEO → Engineering → Backend) ---");
+var result = await runtime.RunAsync(
+    ceo,
+    "Design a REST API for a user management system with authentication, " +
+    "then ask the marketing team for a campaign to promote it.");
+
+result.PrintResult();
