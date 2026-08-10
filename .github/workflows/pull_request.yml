@@ -167,8 +167,6 @@ jobs:
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
           --filter "${{ matrix.test-filter }}"
           -l "console;verbosity=normal"
-<<<<<<< HEAD
-=======
 
   integration_tests_oss:
     needs: lint
@@ -177,6 +175,13 @@ jobs:
       CONDUCTOR_SERVER_URL: http://localhost:8080/api
       OSS_CONDUCTOR_VERSION: ${{ inputs.oss_conductor_version || vars.E2E_TEST_OSS_CONDUCTOR_VERSION }}
     steps:
+      - name: Verify OSS Conductor version is set
+        run: |
+          if [ -z "$OSS_CONDUCTOR_VERSION" ]; then
+            echo "::error::No Conductor OSS image tag resolved. Set the E2E_TEST_OSS_CONDUCTOR_VERSION organization variable (and ensure its repository access policy includes this repo), or pass the oss_conductor_version input via workflow_dispatch."
+            exit 1
+          fi
+          echo "Using conductoross/conductor:$OSS_CONDUCTOR_VERSION"
       - name: Checkout
         uses: actions/checkout@v4
       - name: Write docker-compose file
@@ -227,5 +232,3 @@ jobs:
       - name: Dump Conductor logs
         if: failure()
         run: docker compose -f docker-compose-oss.yaml logs conductor-server
-
->>>>>>> d96f347 (integration/e2e testing the supported functions of existing tests against conductor oss)
