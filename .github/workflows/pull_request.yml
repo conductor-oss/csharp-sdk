@@ -12,6 +12,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      oss_conductor_version:
+        description: 'OSS Conductor image tag (falls back to E2E_TEST_OSS_CONDUCTOR_VERSION org var)'
+        required: false
+        type: string
 
 jobs:
   lint:
@@ -98,10 +103,15 @@ jobs:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     needs: lint
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        server-version: [v5, v4]
+    name: integration (${{ matrix.server-version }})
     env:
-      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
-      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
-      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
+      CONDUCTOR_SERVER_URL: ${{ matrix.server-version == 'v4' && vars.SM_V4_SERVER_URL || secrets.CONDUCTOR_SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ matrix.server-version == 'v4' && vars.SM_V4_AUTH_KEY || secrets.CONDUCTOR_AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ matrix.server-version == 'v4' && secrets.SM_V4_AUTH_SECRET || secrets.CONDUCTOR_AUTH_SECRET }}
       GITHUB_RUN_ID: ${{ github.run_id }}
     steps:
       - name: Checkout
@@ -114,7 +124,7 @@ jobs:
         run: |
           echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
           echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
-      - name: Run integration tests (v5)
+      - name: Run integration tests (${{ matrix.server-version }})
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
@@ -126,10 +136,19 @@ jobs:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     needs: lint
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - server-version: v5
+            test-filter: "Category=CloudIntegration"
+          - server-version: v4
+            test-filter: "Category=CloudIntegration&Version!=V5Only"
+    name: legacy integration (${{ matrix.server-version }})
     env:
-      CONDUCTOR_SERVER_URL: ${{ secrets.CONDUCTOR_SERVER_URL }}
-      CONDUCTOR_AUTH_KEY: ${{ secrets.CONDUCTOR_AUTH_KEY }}
-      CONDUCTOR_AUTH_SECRET: ${{ secrets.CONDUCTOR_AUTH_SECRET }}
+      CONDUCTOR_SERVER_URL: ${{ matrix.server-version == 'v4' && vars.SM_V4_SERVER_URL || secrets.CONDUCTOR_SERVER_URL }}
+      CONDUCTOR_AUTH_KEY: ${{ matrix.server-version == 'v4' && vars.SM_V4_AUTH_KEY || secrets.CONDUCTOR_AUTH_KEY }}
+      CONDUCTOR_AUTH_SECRET: ${{ matrix.server-version == 'v4' && secrets.SM_V4_AUTH_SECRET || secrets.CONDUCTOR_AUTH_SECRET }}
       GITHUB_RUN_ID: ${{ github.run_id }}
     steps:
       - name: Checkout
@@ -142,9 +161,74 @@ jobs:
         run: |
           echo "CONDUCTOR_SERVER_URL=${CONDUCTOR_SERVER_URL#*://}"
           echo "CONDUCTOR_AUTH_KEY prefix=${CONDUCTOR_AUTH_KEY:0:8}..."
-      - name: Run legacy integration tests
+      - name: Run legacy integration tests (${{ matrix.server-version }})
         run: >
           dotnet test Tests/conductor-csharp.test.csproj
           -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
-          --filter "Category=CloudIntegration"
+          --filter "${{ matrix.test-filter }}"
           -l "console;verbosity=normal"
+
+  integration_tests_oss:
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      CONDUCTOR_SERVER_URL: http://localhost:8080/api
+      OSS_CONDUCTOR_VERSION: ${{ inputs.oss_conductor_version || vars.E2E_TEST_OSS_CONDUCTOR_VERSION }}
+    steps:
+      - name: Verify OSS Conductor version is set
+        run: |
+          if [ -z "$OSS_CONDUCTOR_VERSION" ]; then
+            echo "::error::No Conductor OSS image tag resolved. Set the E2E_TEST_OSS_CONDUCTOR_VERSION organization variable (and ensure its repository access policy includes this repo), or pass the oss_conductor_version input via workflow_dispatch."
+            exit 1
+          fi
+          echo "Using conductoross/conductor:$OSS_CONDUCTOR_VERSION"
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Write docker-compose file
+        run: |
+          cat <<'EOF' > docker-compose-oss.yaml
+          services:
+            conductor-server:
+              image: conductoross/conductor:${{ env.OSS_CONDUCTOR_VERSION }}
+              environment:
+                - CONFIG_PROP=config-postgres.properties
+              ports:
+                - "8080:8080"
+              healthcheck:
+                test: ["CMD", "curl", "-I", "-XGET", "http://localhost:8080/health"]
+                interval: 10s
+                timeout: 10s
+                retries: 20
+              links:
+                - conductor-postgres:postgresdb
+              depends_on:
+                conductor-postgres:
+                  condition: service_healthy
+            conductor-postgres:
+              image: postgres:16
+              environment:
+                - POSTGRES_USER=conductor
+                - POSTGRES_PASSWORD=conductor
+              healthcheck:
+                test: timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/5432'
+                interval: 5s
+                timeout: 5s
+                retries: 12
+          EOF
+      - name: Start Conductor OSS stack
+        run: docker compose -f docker-compose-oss.yaml up -d
+      - name: Wait for Conductor to be healthy
+        run: timeout 120 bash -c 'until curl -sf http://localhost:8080/health; do sleep 5; done'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run integration tests (OSS)
+        run: >
+          dotnet test Tests/conductor-csharp.test.csproj
+          -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS
+          --filter "Category=Integration&ServerType!=Orkes"
+          -l "console;verbosity=normal"
+      - name: Dump Conductor logs
+        if: failure()
+        run: docker compose -f docker-compose-oss.yaml logs conductor-server

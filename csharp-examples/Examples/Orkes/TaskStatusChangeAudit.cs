@@ -89,11 +89,10 @@ namespace csharp_examples
                 Type = SIMPLETYPE,
                 Name = SIMPLETASK1,
                 TaskReferenceName = SIMPLE_TASK1_REF_NAME,
-                OnStateChange = new Dictionary<string, StateChangeConfig>(){
-{
-"", new StateChangeConfig(eventType: new List<StateChangeEventType> { StateChangeEventType.OnStart }, events: new List<StateChangeEvent>() { stateChangeEvent })
-}
-}
+                OnStateChange = new Dictionary<string, List<StateChangeEvent>>()
+                {
+                    { "onStart", new List<StateChangeEvent>() { stateChangeEvent } }
+                }
             };
 
             var task_def = new TaskDef();
@@ -114,15 +113,12 @@ namespace csharp_examples
                 Name = SIMPLETASK2,
                 TaskReferenceName = SIMPLE_TASK2_REF_NAME,
                 TaskDefinition = task_def,
-                OnStateChange = new Dictionary<string, StateChangeConfig>(){
-{
-"", new StateChangeConfig(eventType: new List<StateChangeEventType>(){
-StateChangeEventType.OnStart,
-StateChangeEventType.OnFailed,
-StateChangeEventType.OnScheduled,
-},events: new List<StateChangeEvent>() { stateChangeEvent2 })
-}
-}
+                OnStateChange = new Dictionary<string, List<StateChangeEvent>>()
+                {
+                    { "onStart", new List<StateChangeEvent>() { stateChangeEvent2 } },
+                    { "onFailed", new List<StateChangeEvent>() { stateChangeEvent2 } },
+                    { "onScheduled", new List<StateChangeEvent>() { stateChangeEvent2 } }
+                }
             };
 
             workflowDef.Tasks.Add(task1);

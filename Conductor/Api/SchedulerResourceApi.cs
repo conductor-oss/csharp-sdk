@@ -775,6 +775,7 @@ namespace Conductor.Api
                 ExceptionFactory, "PauseAllSchedules");
         }
 
+        // Orkes servers predating PUT support for pause/resume accept only GET, hence the 405 retry.
         private ApiResponse<Object> ExecuteStateChange(
             string localVarPath, List<KeyValuePair<String, String>> localVarQueryParams, Object localVarPostBody,
             Dictionary<String, String> localVarHeaderParams, Dictionary<String, String> localVarFormParams,

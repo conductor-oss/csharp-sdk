@@ -182,7 +182,27 @@ namespace Conductor.Client.Models
             /// Enum WAITFORWEBHOOK for value: WAIT_FOR_WEBHOOK
             /// </summary>
             [EnumMember(Value = "WAIT_FOR_WEBHOOK")]
-            WAITFORWEBHOOK = 30
+            WAITFORWEBHOOK = 30,
+            /// <summary>
+            /// Enum PULLWORKFLOWMESSAGES for value: PULL_WORKFLOW_MESSAGES
+            /// </summary>
+            [EnumMember(Value = "PULL_WORKFLOW_MESSAGES")]
+            PULLWORKFLOWMESSAGES = 31,
+            /// <summary>
+            /// Enum AGENT for value: AGENT
+            /// </summary>
+            [EnumMember(Value = "AGENT")]
+            AGENT = 32,
+            /// <summary>
+            /// Enum GETAGENTCARD for value: GET_AGENT_CARD
+            /// </summary>
+            [EnumMember(Value = "GET_AGENT_CARD")]
+            GETAGENTCARD = 33,
+            /// <summary>
+            /// Enum CANCELAGENT for value: CANCEL_AGENT
+            /// </summary>
+            [EnumMember(Value = "CANCEL_AGENT")]
+            CANCELAGENT = 34
         }
         /// <summary>
         /// Gets or Sets WorkflowTaskType
@@ -222,7 +242,7 @@ namespace Conductor.Client.Models
         /// <param name="taskReferenceName">taskReferenceName (required).</param>
         /// <param name="type">type.</param>
         /// <param name="workflowTaskType">workflowTaskType.</param>
-        public WorkflowTask(bool? asyncComplete = default(bool?), string caseExpression = default(string), string caseValueParam = default(string), Dictionary<string, List<WorkflowTask>> decisionCases = default(Dictionary<string, List<WorkflowTask>>), List<WorkflowTask> defaultCase = default(List<WorkflowTask>), List<string> defaultExclusiveJoinTask = default(List<string>), string description = default(string), string dynamicForkJoinTasksParam = default(string), string dynamicForkTasksInputParamName = default(string), string dynamicForkTasksParam = default(string), string dynamicTaskNameParam = default(string), string evaluatorType = default(string), string expression = default(string), List<List<WorkflowTask>> forkTasks = default(List<List<WorkflowTask>>), Dictionary<string, Object> inputParameters = default(Dictionary<string, Object>), List<string> joinOn = default(List<string>), string loopCondition = default(string), List<WorkflowTask> loopOver = default(List<WorkflowTask>), string name = default(string), bool? optional = default(bool?), bool? rateLimited = default(bool?), int? retryCount = default(int?), string scriptExpression = default(string), string sink = default(string), int? startDelay = default(int?), SubWorkflowParams subWorkflowParam = default(SubWorkflowParams), TaskDef taskDefinition = default(TaskDef), string taskReferenceName = default(string), string type = default(string), WorkflowTaskTypeEnum? workflowTaskType = default(WorkflowTaskTypeEnum?), Dictionary<string, StateChangeConfig> onStateChange = default(Dictionary<string, StateChangeConfig>))
+        public WorkflowTask(bool? asyncComplete = default(bool?), string caseExpression = default(string), string caseValueParam = default(string), Dictionary<string, List<WorkflowTask>> decisionCases = default(Dictionary<string, List<WorkflowTask>>), List<WorkflowTask> defaultCase = default(List<WorkflowTask>), List<string> defaultExclusiveJoinTask = default(List<string>), string description = default(string), string dynamicForkJoinTasksParam = default(string), string dynamicForkTasksInputParamName = default(string), string dynamicForkTasksParam = default(string), string dynamicTaskNameParam = default(string), string evaluatorType = default(string), string expression = default(string), List<List<WorkflowTask>> forkTasks = default(List<List<WorkflowTask>>), Dictionary<string, Object> inputParameters = default(Dictionary<string, Object>), List<string> joinOn = default(List<string>), string loopCondition = default(string), List<WorkflowTask> loopOver = default(List<WorkflowTask>), string name = default(string), bool? optional = default(bool?), bool? rateLimited = default(bool?), int? retryCount = default(int?), string scriptExpression = default(string), string sink = default(string), int? startDelay = default(int?), SubWorkflowParams subWorkflowParam = default(SubWorkflowParams), TaskDef taskDefinition = default(TaskDef), string taskReferenceName = default(string), string type = default(string), WorkflowTaskTypeEnum? workflowTaskType = default(WorkflowTaskTypeEnum?), Dictionary<string, List<StateChangeEvent>> onStateChange = default(Dictionary<string, List<StateChangeEvent>>))
         {
             this.TaskReferenceName = taskReferenceName;
             this.Name = name;
@@ -435,7 +455,7 @@ namespace Conductor.Client.Models
         /// Gets or Sets OnStateChange
         /// </summary>
         [DataMember(Name = "onStateChange", EmitDefaultValue = false)]
-        public Dictionary<string, StateChangeConfig> OnStateChange { get; set; }
+        public Dictionary<string, List<StateChangeEvent>> OnStateChange { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
