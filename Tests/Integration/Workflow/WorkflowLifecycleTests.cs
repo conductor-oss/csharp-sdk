@@ -132,10 +132,6 @@ namespace Tests.Integration.Workflow
             Cleanup(id);
         }
 
-        // Confirmed Orkes-only against a freshly-pulled `conductoross/conductor:latest`: OSS has
-        // no `PUT /workflow/{workflowId}/variables` route at all (404 "No static resource"), as
-        // opposed to the `SET_VARIABLE` task type, which OSS does support. This is an external
-        // variable-injection API distinct from that task-authored mechanism.
         [Fact]
         [Trait("ServerType", "Orkes")]
         public void UpdateWorkflowVariables_VariablesAreReflected()
