@@ -184,39 +184,8 @@ jobs:
           echo "Using conductoross/conductor:$OSS_CONDUCTOR_VERSION"
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Write docker-compose file
-        run: |
-          cat <<'EOF' > docker-compose-oss.yaml
-          services:
-            conductor-server:
-              image: conductoross/conductor:${{ env.OSS_CONDUCTOR_VERSION }}
-              environment:
-                - CONFIG_PROP=config-postgres.properties
-              ports:
-                - "8080:8080"
-              healthcheck:
-                test: ["CMD", "curl", "-I", "-XGET", "http://localhost:8080/health"]
-                interval: 10s
-                timeout: 10s
-                retries: 20
-              links:
-                - conductor-postgres:postgresdb
-              depends_on:
-                conductor-postgres:
-                  condition: service_healthy
-            conductor-postgres:
-              image: postgres:16
-              environment:
-                - POSTGRES_USER=conductor
-                - POSTGRES_PASSWORD=conductor
-              healthcheck:
-                test: timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/5432'
-                interval: 5s
-                timeout: 5s
-                retries: 12
-          EOF
       - name: Start Conductor OSS stack
-        run: docker compose -f docker-compose-oss.yaml up -d
+        run: docker compose -f scripts/docker-compose-oss.yaml up -d
       - name: Wait for Conductor to be healthy
         run: timeout 120 bash -c 'until curl -sf http://localhost:8080/health; do sleep 5; done'
       - name: Setup .NET
@@ -231,4 +200,4 @@ jobs:
           -l "console;verbosity=normal"
       - name: Dump Conductor logs
         if: failure()
-        run: docker compose -f docker-compose-oss.yaml logs conductor-server
+        run: docker compose -f scripts/docker-compose-oss.yaml logs conductor-server
