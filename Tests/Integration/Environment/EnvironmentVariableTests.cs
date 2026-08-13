@@ -16,6 +16,10 @@ using Xunit;
 
 namespace Tests.Integration.Environment
 {
+    // Confirmed Orkes-only against a freshly-pulled `conductoross/conductor:latest`: OSS added
+    // `GET /api/environment` (read-only) in 3.32.0-rc.9 but no write support, so
+    // CreateOrUpdateEnvVariable's `PUT /environment/{key}` 405s ("Request method 'PUT' is not
+    // supported"). See conductor-test-harness/server/3.32.0-rc.9/CHANGES.md.
     [Collection("Integration")]
     [Trait("Category", "Integration")]
     [Trait("ServerType", "Orkes")]

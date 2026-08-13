@@ -6,7 +6,9 @@
 # `ServerType!=Orkes` test filter.
 #
 # The stack (Conductor OSS + Postgres) is defined in
-# scripts/docker-compose-oss.yaml and is torn down automatically on exit.
+# scripts/docker-compose-oss.yaml and is torn down automatically on exit. The
+# image is always pulled before starting, since `latest` (the local default)
+# is a mutable tag and a cached copy would otherwise go stale silently.
 #
 # Usage:
 #   scripts/run-integration-oss.sh [--keep-up] [--version <tag>]
@@ -50,7 +52,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "Starting Conductor OSS stack (conductoross/conductor:${OSS_CONDUCTOR_VERSION})..."
+echo "Using conductoross/conductor:${OSS_CONDUCTOR_VERSION}"
+
+# `docker compose up` only pulls an image when it is missing locally, so a
+# previously-cached `latest` (or any other mutable tag) would silently be
+# reused instead of getting the current version. Pull unconditionally so the
+# stack always reflects the tag we just printed.
+echo "Pulling conductoross/conductor:${OSS_CONDUCTOR_VERSION} to ensure it's current..."
+compose pull conductor-server
+
+echo "Starting Conductor OSS stack..."
 compose up -d
 
 echo "Waiting for Conductor to be healthy..."
