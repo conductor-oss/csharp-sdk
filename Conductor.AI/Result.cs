@@ -223,6 +223,38 @@ public record AgentStatus
     [JsonPropertyName("currentTask")] public string? CurrentTask { get; init; }
     [JsonPropertyName("pendingTool")] public Dictionary<string, object>? PendingTool { get; init; }
     [JsonPropertyName("tokenUsage")] public TokenUsage? TokenUsage { get; init; }
+
+    /// <summary>
+    /// Map a raw /agent/{id}/status response. Single mapper on purpose: AgentHandle
+    /// and AgentRuntime both expose GetStatusAsync, and two hand-written copies had
+    /// already drifted — the handle's omitted PendingTool, so every HITL caller that
+    /// reads the pending tool's response_schema off the handle saw null and silently
+    /// stalled instead of prompting.
+    /// </summary>
+    internal static AgentStatus FromNode(JsonNode? node, string executionId)
+    {
+        if (node is null) return new AgentStatus { ExecutionId = executionId };
+
+        var statusValue = node["status"]?.GetValue<string>();
+        return new AgentStatus
+        {
+            ExecutionId = node["executionId"]?.GetValue<string>() ?? executionId,
+            IsComplete = node["isComplete"]?.GetValue<bool>() ?? false,
+            IsRunning = node["isRunning"]?.GetValue<bool>() ?? false,
+            IsWaiting = node["isWaiting"]?.GetValue<bool>() ?? false,
+            Output = node["output"] is JsonObject outObj
+                ? JsonSerializer.Deserialize<Dictionary<string, object>>(
+                    outObj.ToJsonString(), ConductorAgentJson.Options)
+                : null,
+            StatusValue = statusValue,
+            Reason = statusValue != "COMPLETED" ? node["reasonForIncompletion"]?.GetValue<string>() : null,
+            CurrentTask = node["currentTask"]?.GetValue<string>(),
+            PendingTool = node["pendingTool"] is not null
+                ? JsonSerializer.Deserialize<Dictionary<string, object>>(
+                    node["pendingTool"]!.ToJsonString(), ConductorAgentJson.Options)
+                : null,
+        };
+    }
 }
 
 // ── AgentHandle ────────────────────────────────────────────
@@ -359,25 +391,8 @@ public sealed class AgentHandle
 
     /// <summary>Check the current status without blocking.</summary>
     public async Task<AgentStatus> GetStatusAsync(CancellationToken cancellationToken = default)
-    {
-        var node = await _http.GetStatusAsync(_executionId, cancellationToken);
-        if (node is null) return new AgentStatus { ExecutionId = _executionId };
-
-        var statusValue = node["status"]?.GetValue<string>();
-        return new AgentStatus
-        {
-            ExecutionId = node["executionId"]?.GetValue<string>() ?? _executionId,
-            IsComplete = node["isComplete"]?.GetValue<bool>() ?? false,
-            IsRunning = node["isRunning"]?.GetValue<bool>() ?? false,
-            IsWaiting = node["isWaiting"]?.GetValue<bool>() ?? false,
-            Output = node["output"] is JsonObject outObj
-                ? JsonSerializer.Deserialize<Dictionary<string, object>>(outObj.ToJsonString(), ConductorAgentJson.Options)
-                : null,
-            StatusValue = statusValue,
-            Reason = statusValue != "COMPLETED" ? node["reasonForIncompletion"]?.GetValue<string>() : null,
-            CurrentTask = node["currentTask"]?.GetValue<string>(),
-        };
-    }
+        => AgentStatus.FromNode(
+            await _http.GetStatusAsync(_executionId, cancellationToken), _executionId);
 
     public async Task RespondAsync(object response, CancellationToken cancellationToken = default)
         => await _http.RespondAsync(_executionId, response, cancellationToken);

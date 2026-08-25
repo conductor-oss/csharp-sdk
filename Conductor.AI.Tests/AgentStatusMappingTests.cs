@@ -64,6 +64,49 @@ public sealed class AgentStatusMappingTests
         return (HttpStatusCode.OK, workflowBody);
     }
 
+    // ── pendingTool: HITL callers read response_schema off it ────────────
+    //
+    // AgentHandle and AgentRuntime each had a hand-written status mapper, and the
+    // handle's omitted pendingTool entirely. Every HITL example that reads the
+    // pending tool's response_schema off the handle (09b, 09c) therefore saw null
+    // and silently stalled instead of prompting — the server was sending the field
+    // all along. Both paths now share AgentStatus.FromNode; assert BOTH so a
+    // future re-split cannot regress one of them unnoticed.
+
+    private const string WaitingStatusBody = """
+        {"executionId":"e1","status":"RUNNING","isComplete":false,"isRunning":true,
+         "isWaiting":true,
+         "pendingTool":{"taskRefName":"writer_09b_approval_human__1",
+           "response_schema":{"type":"object",
+             "properties":{"approved":{"type":"boolean","description":"Approve or reject"}},
+             "required":["approved"]}}}
+        """;
+
+    [Fact]
+    public async Task RuntimeGetStatusAsync_PopulatesPendingTool()
+    {
+        var config = BuildConfig(req => RouteStatusAndExecution(req, WaitingStatusBody));
+
+        using var runtime = new AgentRuntime(config);
+        var status = await runtime.GetStatusAsync("e1");
+
+        Assert.NotNull(status.PendingTool);
+        Assert.True(status.PendingTool!.ContainsKey("response_schema"));
+    }
+
+    [Fact]
+    public async Task HandleGetStatusAsync_PopulatesPendingTool()
+    {
+        var config = BuildConfig(req => RouteStatusAndExecution(req, WaitingStatusBody));
+
+        var handle = new AgentHandle("e1", new OrkesAgentClient(config));
+        var status = await handle.GetStatusAsync();
+
+        Assert.NotNull(status.PendingTool);
+        Assert.True(status.PendingTool!.ContainsKey("response_schema"));
+        Assert.True(status.IsWaiting);
+    }
+
     // ── AgentRuntime.GetStatusAsync ──────────────────────────────────────
 
     [Fact]

@@ -387,27 +387,7 @@ public sealed class AgentRuntime : IAsyncDisposable, IDisposable
     /// <summary>Check the current status of an existing execution.</summary>
     public async Task<AgentStatus> GetStatusAsync(string executionId, CancellationToken ct = default)
     {
-        var node = await _http.GetStatusAsync(executionId, ct);
-        if (node is null) return new AgentStatus { ExecutionId = executionId };
-        var statusValue = node["status"]?.GetValue<string>();
-        return new AgentStatus
-        {
-            ExecutionId = node["executionId"]?.GetValue<string>() ?? executionId,
-            IsComplete = node["isComplete"]?.GetValue<bool>() ?? false,
-            IsRunning = node["isRunning"]?.GetValue<bool>() ?? false,
-            IsWaiting = node["isWaiting"]?.GetValue<bool>() ?? false,
-            Output = node["output"] is JsonObject outObj
-                ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
-                    outObj.ToJsonString(), ConductorAgentJson.Options)
-                : null,
-            StatusValue = statusValue,
-            Reason = statusValue != "COMPLETED" ? node["reasonForIncompletion"]?.GetValue<string>() : null,
-            CurrentTask = node["currentTask"]?.GetValue<string>(),
-            PendingTool = node["pendingTool"] is not null
-                ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
-                    node["pendingTool"]!.ToJsonString(), ConductorAgentJson.Options)
-                : null,
-        };
+        return AgentStatus.FromNode(await _http.GetStatusAsync(executionId, ct), executionId);
     }
 
     /// <summary>Check the current status of an existing execution (synchronous).</summary>
