@@ -54,34 +54,48 @@ namespace Tests.Integration.Task
         public void CompleteTask_WorkflowCompletes()
         {
             var id = StartWorkflow();
-            var task = PollTask(id);
-
-            _taskClient.UpdateTask(new TaskResult
+            try
             {
-                TaskId = task.TaskId,
-                WorkflowInstanceId = id,
-                Status = TaskResult.StatusEnum.COMPLETED,
-                OutputData = new Dictionary<string, object> { { "result", "ok" } }
-            });
+                var task = PollTask(id);
 
-            Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.COMPLETED, GetWorkflowStatus(id));
+                _taskClient.UpdateTask(new TaskResult
+                {
+                    TaskId = task.TaskId,
+                    WorkflowInstanceId = id,
+                    Status = TaskResult.StatusEnum.COMPLETED,
+                    OutputData = new Dictionary<string, object> { { "result", "ok" } }
+                });
+
+                Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.COMPLETED, GetWorkflowStatus(id));
+            }
+            finally
+            {
+                Cleanup(id);
+            }
         }
 
         [Fact]
         public void FailTask_WorkflowFails()
         {
             var id = StartWorkflow();
-            var task = PollTask(id);
-
-            _taskClient.UpdateTask(new TaskResult
+            try
             {
-                TaskId = task.TaskId,
-                WorkflowInstanceId = id,
-                Status = TaskResult.StatusEnum.FAILED,
-                ReasonForIncompletion = "deliberate test failure"
-            });
+                var task = PollTask(id);
 
-            Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.FAILED, GetWorkflowStatus(id));
+                _taskClient.UpdateTask(new TaskResult
+                {
+                    TaskId = task.TaskId,
+                    WorkflowInstanceId = id,
+                    Status = TaskResult.StatusEnum.FAILED,
+                    ReasonForIncompletion = "deliberate test failure"
+                });
+
+                Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.FAILED, GetWorkflowStatus(id));
+            }
+            finally
+            {
+                Cleanup(id);
+            }
         }
 
         [Fact]
@@ -118,16 +132,26 @@ namespace Tests.Integration.Task
         private string StartWorkflow() =>
             _workflowClient.StartWorkflow(new StartWorkflowRequest(name: _workflowName));
 
+        // Polling is by task type, so the queue can hand back a task from another execution of
+        // the same definition. Writing our result to it would leave our workflow stuck and
+        // stamp this test's outcome on an unrelated one, so skip foreign tasks — leaving them
+        // claimed keeps them out of the queue — and keep polling for our own.
         private Conductor.Client.Models.Task PollTask(string workflowId)
         {
-            Conductor.Client.Models.Task task = null;
-            for (var i = 0; i < 10 && task == null; i++)
+            for (var i = 0; i < 20; i++)
             {
-                task = _taskClient.Poll(_taskName, WorkerId);
-                if (task == null) System.Threading.Thread.Sleep(500);
+                var task = _taskClient.Poll(_taskName, WorkerId);
+                if (task == null)
+                {
+                    System.Threading.Thread.Sleep(500);
+                    continue;
+                }
+                if (task.WorkflowInstanceId == workflowId)
+                    return task;
             }
-            Assert.NotNull(task);
-            return task;
+
+            Assert.True(false, $"No task for workflow {workflowId} appeared in queue {_taskName}");
+            return null;
         }
 
         private Conductor.Client.Models.Workflow.StatusEnum? GetWorkflowStatus(string id)
@@ -145,6 +169,11 @@ namespace Tests.Integration.Task
         private void Cleanup(string workflowId, string taskId)
         {
             try { _taskClient.UpdateTask(new TaskResult { TaskId = taskId, WorkflowInstanceId = workflowId, Status = TaskResult.StatusEnum.COMPLETED }); } catch { }
+            Cleanup(workflowId);
+        }
+
+        private void Cleanup(string workflowId)
+        {
             try { _workflowClient.Terminate(workflowId); } catch { }
             try { _workflowClient.Delete(workflowId); } catch { }
         }

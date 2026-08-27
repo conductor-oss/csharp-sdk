@@ -23,12 +23,16 @@ using Xunit.Abstractions;
 namespace Tests.Integration.V5
 {
     /// <summary>
-    /// Tests for task-update-v2 (PUT /tasks/{taskId}).
-    /// Runs only against v5 — excluded from v4 CI job via Version!=V5Only filter.
+    /// Task update via POST /tasks: polls a task, reports a terminal TaskResult, and checks that
+    /// both the task and its workflow reach the expected state. Runs against every server the
+    /// integration job targets — that endpoint is not version-specific.
+    /// <para>
+    /// Despite the class name, this does not exercise task-update-v2 (POST /tasks/update-v2,
+    /// which returns the next available task); the SDK has no binding for that endpoint.
+    /// </para>
     /// </summary>
     [Collection("Integration")]
     [Trait("Category", "Integration")]
-    [Trait("Version", "V5Only")]
     public class TaskUpdateV2Tests : IClassFixture<ConductorFixture>
     {
         private readonly WorkflowResourceApi _workflowClient;
@@ -64,25 +68,30 @@ namespace Tests.Integration.V5
         {
             var workflowId = StartWorkflow();
             _output.WriteLine($"WorkflowId: {workflowId}");
-
-            var task = PollTask();
-            _output.WriteLine($"TaskId: {task.TaskId}, TaskType: {task.TaskDefName}, Status: {task.Status}");
-
-            var taskResult = new TaskResult
+            try
             {
-                TaskId = task.TaskId,
-                WorkflowInstanceId = workflowId,
-                Status = TaskResult.StatusEnum.COMPLETED,
-                OutputData = new Dictionary<string, object> { { "result", "ok" } }
-            };
+                var task = PollTask(workflowId);
+                _output.WriteLine($"TaskId: {task.TaskId}, TaskType: {task.TaskDefName}, Status: {task.Status}");
 
-            var updateResponse = _taskClient.UpdateTask(taskResult);
-            _output.WriteLine($"UpdateTask response: {updateResponse}");
+                var taskResult = new TaskResult
+                {
+                    TaskId = task.TaskId,
+                    WorkflowInstanceId = workflowId,
+                    Status = TaskResult.StatusEnum.COMPLETED,
+                    OutputData = new Dictionary<string, object> { { "result", "ok" } }
+                };
 
-            VerifyTaskUpdated(task.TaskId, taskResult);
+                var updateResponse = _taskClient.UpdateTask(taskResult);
+                _output.WriteLine($"UpdateTask response: {updateResponse}");
 
-            Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.COMPLETED, GetWorkflowStatus(workflowId));
-            Cleanup(workflowId);
+                VerifyTaskUpdated(task.TaskId, taskResult);
+
+                Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.COMPLETED, GetWorkflowStatus(workflowId));
+            }
+            finally
+            {
+                Cleanup(workflowId);
+            }
         }
 
         [Fact]
@@ -90,25 +99,30 @@ namespace Tests.Integration.V5
         {
             var workflowId = StartWorkflow();
             _output.WriteLine($"WorkflowId: {workflowId}");
-
-            var task = PollTask();
-            _output.WriteLine($"TaskId: {task.TaskId}, TaskType: {task.TaskDefName}, Status: {task.Status}");
-
-            var taskResult = new TaskResult
+            try
             {
-                TaskId = task.TaskId,
-                WorkflowInstanceId = workflowId,
-                Status = TaskResult.StatusEnum.FAILED,
-                ReasonForIncompletion = "v5 test failure"
-            };
+                var task = PollTask(workflowId);
+                _output.WriteLine($"TaskId: {task.TaskId}, TaskType: {task.TaskDefName}, Status: {task.Status}");
 
-            var updateResponse = _taskClient.UpdateTask(taskResult);
-            _output.WriteLine($"UpdateTask response: {updateResponse}");
+                var taskResult = new TaskResult
+                {
+                    TaskId = task.TaskId,
+                    WorkflowInstanceId = workflowId,
+                    Status = TaskResult.StatusEnum.FAILED,
+                    ReasonForIncompletion = "v5 test failure"
+                };
 
-            VerifyTaskUpdated(task.TaskId, taskResult);
+                var updateResponse = _taskClient.UpdateTask(taskResult);
+                _output.WriteLine($"UpdateTask response: {updateResponse}");
 
-            Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.FAILED, GetWorkflowStatus(workflowId));
-            Cleanup(workflowId);
+                VerifyTaskUpdated(task.TaskId, taskResult);
+
+                Assert.Equal(Conductor.Client.Models.Workflow.StatusEnum.FAILED, GetWorkflowStatus(workflowId));
+            }
+            finally
+            {
+                Cleanup(workflowId);
+            }
         }
 
         private void VerifyTaskUpdated(string taskId, TaskResult sentResult)
@@ -133,16 +147,30 @@ namespace Tests.Integration.V5
         private string StartWorkflow() =>
             _workflowClient.StartWorkflow(new StartWorkflowRequest(name: _workflowName));
 
-        private Conductor.Client.Models.Task PollTask()
+        // Polls until a task belonging to `workflowId` is claimed. Polling is by task type, so
+        // the queue can hand back a task from another execution of the same definition — one
+        // orphaned by an earlier attempt, say. Reporting our result against that task would
+        // both leave our own workflow stuck and stamp this test's outcome onto an unrelated
+        // one, so foreign tasks are left claimed (which keeps them out of the queue) and
+        // never written to.
+        private Conductor.Client.Models.Task PollTask(string workflowId)
         {
-            Conductor.Client.Models.Task task = null;
-            for (var i = 0; i < 10 && task == null; i++)
+            for (var i = 0; i < 20; i++)
             {
-                task = _taskClient.Poll(_taskName, WorkerId);
-                if (task == null) System.Threading.Thread.Sleep(500);
+                var task = _taskClient.Poll(_taskName, WorkerId);
+                if (task == null)
+                {
+                    System.Threading.Thread.Sleep(500);
+                    continue;
+                }
+                if (task.WorkflowInstanceId == workflowId)
+                    return task;
+
+                _output.WriteLine($"  Skipping task {task.TaskId} from workflow {task.WorkflowInstanceId}");
             }
-            Assert.NotNull(task);
-            return task;
+
+            Assert.True(false, $"No task for workflow {workflowId} appeared in queue {_taskName}");
+            return null;
         }
 
         private Conductor.Client.Models.Workflow.StatusEnum? GetWorkflowStatus(string id)

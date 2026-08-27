@@ -95,9 +95,12 @@ namespace Tests.Integration.Task
         {
             try
             {
+                // Report each task against the workflow it actually belongs to — a batch poll by
+                // task type can return tasks from other executions, and passing `id` for those
+                // would complete them against the wrong workflow.
                 var tasks = _taskClient.BatchPoll(_taskName, WorkerId, domain: null, count: 10);
                 foreach (var t in tasks ?? new List<Conductor.Client.Models.Task>())
-                    _taskClient.UpdateTask(new TaskResult { TaskId = t.TaskId, WorkflowInstanceId = id, Status = TaskResult.StatusEnum.COMPLETED });
+                    _taskClient.UpdateTask(new TaskResult { TaskId = t.TaskId, WorkflowInstanceId = t.WorkflowInstanceId, Status = TaskResult.StatusEnum.COMPLETED });
             }
             catch { }
             try { _workflowClient.Terminate(id); } catch { }

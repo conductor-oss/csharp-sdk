@@ -17,15 +17,28 @@ namespace Tests.Integration.Helpers
     /// <summary>
     /// Generates unique resource names per test run to avoid conflicts
     /// between concurrent runs or leftover data from previous runs.
-    /// Format: csharp_sdk_{shortRunId}_{name}
+    /// Format: csharp_sdk_{shortRunId}[_{attempt}]_{name}
     /// </summary>
     public static class TestPrefix
     {
-        private static readonly string RunId = SysEnv.GetEnvironmentVariable("GITHUB_RUN_ID")
-            ?? System.Guid.NewGuid().ToString("N")[..8];
+        private static readonly string RunId = ResolveRunId();
 
         public static string Prefix => $"csharp_sdk_{RunId}";
 
         public static string Name(string name) => $"{Prefix}_{name}";
+
+        // GITHUB_RUN_ID is stable across attempts of the same run, so on a re-run the task
+        // queues would still be named after the failed attempt — and a task it orphaned (e.g.
+        // a StartWorkflow whose response was lost) is still sitting in one, ready to be polled
+        // by a test that did not create it. Including the attempt gives each try its own names.
+        private static string ResolveRunId()
+        {
+            var runId = SysEnv.GetEnvironmentVariable("GITHUB_RUN_ID");
+            if (string.IsNullOrEmpty(runId))
+                return System.Guid.NewGuid().ToString("N")[..8];
+
+            var attempt = SysEnv.GetEnvironmentVariable("GITHUB_RUN_ATTEMPT");
+            return string.IsNullOrEmpty(attempt) ? runId : $"{runId}_{attempt}";
+        }
     }
 }
