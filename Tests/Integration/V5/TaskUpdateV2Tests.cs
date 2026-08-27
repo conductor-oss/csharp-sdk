@@ -23,12 +23,16 @@ using Xunit.Abstractions;
 namespace Tests.Integration.V5
 {
     /// <summary>
-    /// Tests for task-update-v2 (PUT /tasks/{taskId}).
-    /// Runs only against v5 — excluded from v4 CI job via Version!=V5Only filter.
+    /// Task update via POST /tasks: polls a task, reports a terminal TaskResult, and checks that
+    /// both the task and its workflow reach the expected state. Runs against every server the
+    /// integration job targets — that endpoint is not version-specific.
+    /// <para>
+    /// Despite the class name, this does not exercise task-update-v2 (POST /tasks/update-v2,
+    /// which returns the next available task); the SDK has no binding for that endpoint.
+    /// </para>
     /// </summary>
     [Collection("Integration")]
     [Trait("Category", "Integration")]
-    [Trait("Version", "V5Only")]
     public class TaskUpdateV2Tests : IClassFixture<ConductorFixture>
     {
         private readonly WorkflowResourceApi _workflowClient;
