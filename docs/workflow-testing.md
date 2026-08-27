@@ -90,18 +90,13 @@ explicit pull, `docker compose up` would silently reuse a stale cached image ins
 fetching the current one.
 
 Tests tagged `[Trait("ServerType", "Orkes")]` are excluded from this run because they
-exercise Orkes-managed-only features (see `Tests/Integration/Orkes/`, plus
-`EnvironmentVariableTests` and `WorkflowLifecycleTests.UpdateWorkflowVariables_VariablesAreReflected`).
-If you add or remove that trait, confirm the change against a freshly-pulled image — a test
-that fails against a stale local image may pass against current OSS.
-
-That said, both currently-gated tests outside `Tests/Integration/Orkes/` were re-verified
-against a freshly-pulled `latest` and confirmed genuinely unsupported, not stale-image
-artifacts: `CreateOrUpdateEnvVariable` 405s (`PUT /environment/{key}` — OSS only added a
-read-only `GET /api/environment` in 3.32.0-rc.9), and `UpdateWorkflowVariables` 404s
-(`PUT /workflow/{workflowId}/variables` isn't a registered OSS route at all, as opposed to
-the `SET_VARIABLE` task type, which OSS does support). See
-`conductor-test-harness/server/3.32.0-rc.9/CHANGES.md` for the server-side source of truth.
+exercise features OSS does not implement — everything in `Tests/Integration/Orkes/`, plus
+`EnvironmentVariableTests` and
+`WorkflowLifecycleTests.UpdateWorkflowVariables_VariablesAreReflected`. Why each one is
+gated, and the OSS endpoint it needs, is recorded in a comment next to the trait in the test
+file itself. Read that before adding or removing the trait, and confirm the change against a
+freshly-pulled image — a test that fails against a stale local image may pass against
+current OSS.
 
 ## Agent E2E suites
 

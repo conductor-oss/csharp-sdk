@@ -18,6 +18,10 @@ namespace Tests.Integration.Environment
 {
     [Collection("Integration")]
     [Trait("Category", "Integration")]
+    // Orkes-only: OSS exposes the environment API read-only. Its EnvironmentResource declares
+    // only GET /api/environment and GET /api/environment/{key} (added by
+    // conductor-oss/conductor#1251, first released in 3.32.0-rc.5 and 3.31.2), so the
+    // CreateOrUpdateEnvVariable calls below (PUT /environment/{key}) return 405 against OSS.
     [Trait("ServerType", "Orkes")]
     public class EnvironmentVariableTests : IClassFixture<ConductorFixture>
     {
