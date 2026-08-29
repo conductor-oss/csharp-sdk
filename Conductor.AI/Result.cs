@@ -305,9 +305,7 @@ public sealed class AgentHandle
                 {
                     // Fetch full execution record for token usage and finish reason
                     var execution = await _http.GetExecutionAsync(_executionId, cancellationToken);
-                    // Walk the workflow's tasks to recover the tool calls and the
-                    // events the run produced (enrichment read — null is fine,
-                    // and yields a result carrying neither).
+                    // Tool calls and events come from the task list (enrichment read; null is fine).
                     var workflowWithTasks = await _http.GetWorkflowWithTasksAsync(_executionId, cancellationToken);
                     return BuildResult(status!, s, execution, workflowWithTasks);
                 }
@@ -561,27 +559,10 @@ public sealed class AgentHandle
     }
 
     // ── Tool-call extraction ─────────────────────────────────────────
-    //
-    // A tool task is identified by its Conductor task type, allowlisted off the
-    // server's ToolCompiler.TYPE_MAP — for the types the agent layer also uses
-    // for its own structure, and for the worker kind, corroborated by a dispatch
-    // marker. It is never identified by its reference task name: the server
-    // seeds that from the provider's tool-call id (OpenAI's `call_...`,
-    // Anthropic's `toolu_...`, else a UUID) and appends the fork index and loop
-    // iteration, so a prefix test only ever matches one provider.
-    //
-    // The tool's real name is likewise never the task type. Conductor sets an
-    // executed SIMPLE task's type to the task's own name, which is the tool
-    // name for a worker tool and is why that one kind used to read correctly;
-    // every other kind carries its system task type there instead.
 
     /// <summary>
-    /// Task types only a tool compiles to, from the server's
-    /// <c>ToolCompiler.TYPE_MAP</c> — plus <c>GENERATE_PDF</c>, which that map
-    /// omits although the server compiles a <c>generate_pdf</c> tool to it.
-    /// <c>SIMPLE</c> is absent deliberately: a worker tool's executed task type
-    /// is the tool's own name, so that kind is recognised by the dispatch
-    /// markers below rather than by type.
+    /// Task types only a tool compiles to: the server's <c>ToolCompiler.TYPE_MAP</c>.
+    /// <c>GENERATE_PDF</c> is absent from that map, but media tools compile to it.
     /// </summary>
     private static readonly HashSet<string> ToolTaskTypes = new(StringComparer.Ordinal)
     {
@@ -590,52 +571,22 @@ public sealed class AgentHandle
         "LLM_INDEX_TEXT", "LLM_SEARCH_INDEX", "PULL_WORKFLOW_MESSAGES",
     };
 
-    /// <summary>
-    /// Task types a tool compiles to that the agent layer also uses for its own
-    /// structure — <c>SUB_WORKFLOW</c> for a sub-agent, a strategy workflow, a
-    /// router and a plan execution; <c>HUMAN</c> for a plan's approval step.
-    /// The type alone therefore proves nothing, and a dispatch marker is
-    /// required as well.
-    /// </summary>
+    /// <summary>Tool task types the agent layer also emits for sub-agents, routers and plan approval.</summary>
     private static readonly HashSet<string> AmbiguousToolTaskTypes = new(StringComparer.Ordinal)
     {
         "SUB_WORKFLOW", "HUMAN",
     };
 
-    /// <summary>
-    /// Input keys the server's tool-dispatch script injects.
-    /// <c>_agent_tool_name</c> is set for every tool kind on the static
-    /// dispatch path; <c>_agent_state</c> is set for worker tools on both the
-    /// static and the dynamic-tools path.
-    /// </summary>
+    /// <summary>Markers the server's dispatch script injects on a tool task it dispatched.</summary>
     private const string AgentToolNameKey = "_agent_tool_name";
     private const string AgentStateKey = "_agent_state";
 
-    /// <summary>The dispatch method name — the tool name on the dynamic-tools path.</summary>
+    /// <summary>The tool name on the dynamic-tools path, which injects no <c>_agent_tool_name</c>.</summary>
     private const string MethodKey = "method";
 
     /// <summary>
-    /// Whether a task is an LLM-dispatched tool call: an unambiguous tool task
-    /// type, or a type that needs corroborating evidence that the LLM dispatched
-    /// it.
-    ///
-    /// Two cases need that evidence. The worker case, because a worker tool's
-    /// task type is the tool's own name and so cannot be allowlisted; what marks
-    /// it is Conductor setting an executed SIMPLE task's type to the task's own
-    /// name, which is also its <c>taskDefName</c> — a signature no system task
-    /// shares. And the ambiguous types above, which the agent layer emits for
-    /// its own structure far more often than for a tool.
-    ///
-    /// Neither half of the test suffices alone: a multi-agent
-    /// <c>SET_VARIABLE</c> task carries <c>_agent_state</c> without being a tool
-    /// call, and a multi-agent handoff is a <c>SUB_WORKFLOW</c> without being
-    /// one either.
-    ///
-    /// Accepted cost: the dynamic-tools dispatch path sets no marker on a
-    /// non-worker tool, so an agent-as-tool or human tool dispatched that way is
-    /// missed. That is the right way to be wrong — the alternative reports a
-    /// fabricated tool call for every handoff in every multi-agent run, and a
-    /// tool call that did not happen is worse than one that is absent.
+    /// Whether a task is a tool call the LLM dispatched. Never judged by reference
+    /// name, which carries the provider's tool-call id.
     /// </summary>
     private static bool IsToolTask(JsonNode task)
     {
@@ -643,6 +594,11 @@ public sealed class AgentHandle
         if (taskType is null) return false;
         if (ToolTaskTypes.Contains(taskType)) return true;
 
+        // A worker tool's task type is the tool's own name, so only the marker can
+        // identify it. The marker also keeps the agent's own structure out: on type
+        // alone every handoff would read as a tool call that never happened. Cost is
+        // that the dynamic-tools path marks no non-worker tool, so an agent-as-tool
+        // dispatched there is missed.
         var needsMarker = AmbiguousToolTaskTypes.Contains(taskType)
             || taskType == task["taskDefName"]?.GetValue<string>();
         return needsMarker
@@ -651,9 +607,8 @@ public sealed class AgentHandle
     }
 
     /// <summary>
-    /// Resolve a tool task's tool name: <c>inputData._agent_tool_name</c>, then
-    /// <c>inputData.method</c> (the dynamic-tools dispatch path sets no
-    /// <c>_agent_tool_name</c>), then <c>taskDefName</c>.
+    /// The tool's name from the payload, never the task type, which holds the tool
+    /// name only for a worker tool.
     /// </summary>
     private static string ResolveToolName(JsonNode task)
     {
@@ -671,7 +626,7 @@ public sealed class AgentHandle
             ? s
             : null;
 
-    /// <summary>The tool's arguments — the task's input with the runtime's own keys stripped.</summary>
+    /// <summary>The tool's arguments: the task's input with the runtime's own keys stripped.</summary>
     private static Dictionary<string, object> ToolArgs(JsonObject inputData)
     {
         var cleaned = new Dictionary<string, object>();
@@ -687,10 +642,8 @@ public sealed class AgentHandle
     }
 
     /// <summary>
-    /// The tool's result: the task's <c>result</c> output, or its whole output
-    /// when there is no such key — an HTTP tool answers under <c>response</c>,
-    /// so keying only on <c>result</c> would report no result at all for it.
-    /// Matches the fallback the server's <c>AgentEventListener</c> applies.
+    /// The task's <c>result</c>, or its whole output when there is none: an HTTP tool
+    /// answers under <c>response</c>. Matches the server's <c>AgentEventListener</c>.
     /// </summary>
     private static object? ToolResult(JsonObject outputData)
     {
@@ -701,22 +654,8 @@ public sealed class AgentHandle
     }
 
     /// <summary>
-    /// Walk the workflow's tasks once and recover, per LLM-dispatched tool call,
-    /// both the <see cref="AgentResult.ToolCalls"/> entry (name, arguments,
-    /// result) and the <see cref="EventType.ToolCall"/> /
-    /// <see cref="EventType.ToolResult"/> event pair — two views of the same
-    /// call, so they are built together and cannot drift apart.
-    ///
-    /// The returned event list carries the tool events only; the caller appends
-    /// the terminal event. It is never null, so enumerating
-    /// <see cref="AgentResult.Events"/> never throws. Tool calls stay null when
-    /// there were none, as they always have.
-    ///
-    /// This is a reconstruction from completed tasks, not the stream
-    /// <see cref="StreamAsync"/> delivers live: the server emits events for
-    /// thinking steps, failed tasks, handoffs and guardrails, none of which
-    /// survives into the terminal record. Use <see cref="StreamAsync"/> when the
-    /// events themselves are the point.
+    /// Both views of each tool call in one pass. Reconstructed from finished tasks,
+    /// so narrower than the live <see cref="StreamAsync"/> stream.
     /// </summary>
     private static (List<Dictionary<string, object>>? ToolCalls, List<AgentEvent> Events) ExtractToolActivity(
         JsonNode? workflowWithTasks, string executionId)

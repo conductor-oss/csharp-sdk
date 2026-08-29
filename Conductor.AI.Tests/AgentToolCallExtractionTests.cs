@@ -10,16 +10,10 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-// AgentResult.ToolCalls used to name every tool after its Conductor task type —
-// correct only for a worker tool, whose executed SIMPLE task carries the tool's
-// own name there, and wrong for every other kind ("HTTP", "CALL_MCP_TOOL",
-// "SUB_WORKFLOW", "HUMAN", "GENERATE_IMAGE"). Detection also keyed on a
-// `call_` reference-name prefix, which is the OpenAI tool-call ID format, so an
-// Anthropic-backed agent recorded no tool calls at all.
-//
-// Fixtures here carry the shape real payloads have: the fork index and loop
-// suffix on the reference name, and the `_agent_tool_name` / `_agent_state`
-// keys the server's dispatch script injects.
+// AgentResult.ToolCalls named every tool after its Conductor task type, which is
+// the tool's own name only for a worker tool, and detection keyed on a `call_`
+// reference-name prefix, which is OpenAI's tool-call ID format. Fixtures carry the
+// shape real payloads have: fork index, loop suffix and the dispatch markers.
 
 using System.Linq;
 using System.Net;
@@ -58,9 +52,7 @@ public sealed class AgentToolCallExtractionTests
     [Fact]
     public async Task WorkerTool_NameFromAgentToolName()
     {
-        // A worker tool's executed SIMPLE task carries the tool name in taskType
-        // too, so this is the one kind the old taskType read got right. It is
-        // here to pin that the marker-based resolution agrees with it.
+        // The one kind the old taskType read got right; pinned so it stays right.
         var result = await WaitWithTasksAsync("""
             {"tasks":[
                 {"taskType":"get_weather","taskDefName":"get_weather",
@@ -78,8 +70,7 @@ public sealed class AgentToolCallExtractionTests
     }
 
     [Theory]
-    // Every non-worker kind the server's ToolCompiler.TYPE_MAP can produce: the
-    // task type is the system type, and the tool's real name is in inputData.
+    // Every non-worker kind in ToolCompiler.TYPE_MAP: task type is the system type.
     [InlineData("HTTP", "lookup_order")]
     [InlineData("CALL_MCP_TOOL", "search_docs")]
     [InlineData("SUB_WORKFLOW", "billing_agent")]
@@ -109,8 +100,7 @@ public sealed class AgentToolCallExtractionTests
     [Fact]
     public async Task NameFallsBackToMethod_WhenAgentToolNameAbsent()
     {
-        // The dynamic-tools dispatch script sets no `_agent_tool_name`, but an
-        // MCP task carries `method` — the tool name the LLM called.
+        // The dynamic-tools script sets no `_agent_tool_name`; MCP carries `method`.
         var result = await WaitWithTasksAsync("""
             {"tasks":[
                 {"taskType":"CALL_MCP_TOOL","taskDefName":"call_mcp_tool",
@@ -143,8 +133,7 @@ public sealed class AgentToolCallExtractionTests
     [Fact]
     public async Task AnthropicReferenceName_StillDetected()
     {
-        // Anthropic tool-call IDs start `toolu_`; the reference name is seeded
-        // from the provider's ID, so a `call_` prefix test found nothing here.
+        // Anthropic IDs start `toolu_`, so the old `call_` prefix test found nothing.
         var result = await WaitWithTasksAsync("""
             {"tasks":[
                 {"taskType":"get_weather","taskDefName":"get_weather",
@@ -160,9 +149,8 @@ public sealed class AgentToolCallExtractionTests
     [Fact]
     public async Task WorkerToolWithoutToolNameMarker_DetectedByAgentState()
     {
-        // The dynamic-tools script injects `_agent_state` but not
-        // `_agent_tool_name`, and a worker tool's task type is the tool's own
-        // name, so it cannot be recognised from an allowlist of system types.
+        // Dynamic dispatch injects `_agent_state` only, and a worker's task type is
+        // its own name, so no allowlist of system types can catch it.
         var result = await WaitWithTasksAsync("""
             {"tasks":[
                 {"taskType":"echo","taskDefName":"echo","referenceTaskName":"toolu_xyz_0",
@@ -177,8 +165,7 @@ public sealed class AgentToolCallExtractionTests
     [Fact]
     public async Task NonToolTasks_Excluded()
     {
-        // The agent's own scaffolding, plus the INLINE task the dispatch script
-        // substitutes for a hallucinated tool name — none of these is a tool call.
+        // Agent scaffolding, plus the INLINE task substituted for a hallucinated name.
         var result = await WaitWithTasksAsync("""
             {"tasks":[
                 {"taskType":"LLM_CHAT_COMPLETE","taskDefName":"llm_chat_complete",
@@ -205,10 +192,8 @@ public sealed class AgentToolCallExtractionTests
     [Fact]
     public async Task MultiAgentSetVariable_NotAToolCall()
     {
-        // A multi-agent coordinator's SET_VARIABLE task carries `_agent_state`
-        // in its inputs, so the dispatch marker alone does not make a task a
-        // tool call — the worker case also needs the executed-SIMPLE signature
-        // of a task type equal to its own taskDefName.
+        // A coordinator's SET_VARIABLE carries `_agent_state`, so the marker alone is
+        // not enough: the worker case also needs taskType to equal taskDefName.
         var result = await WaitWithTasksAsync("""
             {"tasks":[
                 {"taskType":"SET_VARIABLE","taskDefName":"triage_init",
@@ -224,8 +209,7 @@ public sealed class AgentToolCallExtractionTests
     [Fact]
     public async Task WorkerTaskWithoutDispatchMarker_NotAToolCall()
     {
-        // The framework-passthrough wrapper is a SIMPLE task named after a
-        // worker, but the LLM never dispatched it, so it carries no marker.
+        // A framework passthrough is a SIMPLE task the LLM never dispatched.
         var result = await WaitWithTasksAsync("""
             {"tasks":[
                 {"taskType":"claude_code","taskDefName":"claude_code",
@@ -239,10 +223,8 @@ public sealed class AgentToolCallExtractionTests
     }
 
     [Theory]
-    // The agent layer emits these types for its own structure: a sub-agent, a
-    // strategy workflow, a router and a plan execution are all SUB_WORKFLOW, and
-    // a plan's approval step is HUMAN. None is dispatched by the LLM, so none
-    // carries a dispatch marker, and none may be reported as a tool call.
+    // The agent layer emits these for its own structure (sub-agent, strategy, router,
+    // plan approval). None is LLM-dispatched, so none carries a marker.
     [InlineData("SUB_WORKFLOW", "billing_strategy")]
     [InlineData("SUB_WORKFLOW", "triage_router")]
     [InlineData("HUMAN", "plan_approval")]
@@ -264,8 +246,7 @@ public sealed class AgentToolCallExtractionTests
     [Fact]
     public async Task AgentAsTool_DetectedByDispatchMarker()
     {
-        // The same SUB_WORKFLOW type is a genuine tool call when the dispatch
-        // script marked it as one.
+        // Same type, but the dispatch script marked it, so it is a real tool call.
         var result = await WaitWithTasksAsync("""
             {"tasks":[
                 {"taskType":"SUB_WORKFLOW","taskDefName":"billing_agent_wf",
@@ -354,8 +335,7 @@ public sealed class AgentToolCallExtractionTests
     [Fact]
     public async Task HttpToolResult_FallsBackToWholeOutput()
     {
-        // An HTTP tool answers under `response`, not `result`, so keying only on
-        // `result` would report a tool call with no result at all.
+        // An HTTP tool answers under `response`, so keying only on `result` loses it.
         var result = await WaitWithTasksAsync("""
             {"tasks":[
                 {"taskType":"HTTP","taskDefName":"lookup_order","referenceTaskName":"lookup_order_0",
