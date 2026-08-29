@@ -29,6 +29,15 @@ await foreach (var ev in runtime.StreamAsync(agent, "Write a haiku about C#."))
 Event types: `Thinking`, `ToolCall`, `ToolResult`, `GuardrailPass`,
 `GuardrailFail`, `Waiting`, `Handoff`, `Message`, `Error`, `Done`.
 
+### Events on a waited result
+
+`AgentResult.Events` carries the run's tool activity — a `ToolCall`/`ToolResult` pair
+per tool call, closed by a terminal `Done`, or `Error` for a run that did not
+complete. It is reconstructed from the finished execution's tasks, so it is never
+null but is narrower than the live stream: the server also emits `Thinking`,
+`Handoff`, guardrail and per-failed-task events, and none of those survives into the
+terminal record. Stream the run when the events themselves are the point.
+
 Streaming attempts SSE first and falls back to status-polling. Disable SSE entirely
 with `CONDUCTOR_AGENT_STREAMING_ENABLED=false` — see
 [deploy-serve-run.md](deploy-serve-run.md#worker-tuning-and-agentconfig). If the

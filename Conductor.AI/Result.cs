@@ -305,8 +305,9 @@ public sealed class AgentHandle
                 {
                     // Fetch full execution record for token usage and finish reason
                     var execution = await _http.GetExecutionAsync(_executionId, cancellationToken);
-                    // Java parity: walk the workflow's tasks once to aggregate tool calls
-                    // from call_* tasks (enrichment read — null is fine, yields no tool calls).
+                    // Walk the workflow's tasks to recover the tool calls and the
+                    // events the run produced (enrichment read — null is fine,
+                    // and yields a result carrying neither).
                     var workflowWithTasks = await _http.GetWorkflowWithTasksAsync(_executionId, cancellationToken);
                     return BuildResult(status!, s, execution, workflowWithTasks);
                 }
@@ -536,55 +537,226 @@ public sealed class AgentHandle
             _ => null,
         };
 
+        var executionId = status["executionId"]?.GetValue<string>() ?? "";
+        var error = parsedStatus != Status.Completed
+            ? status["reasonForIncompletion"]?.GetValue<string>()
+            : null;
+
+        var (toolCalls, events) = ExtractToolActivity(workflowWithTasks, executionId);
+        events.Add(parsedStatus == Status.Completed
+            ? new AgentEvent { Type = EventType.Done, ExecutionId = executionId, Output = outputDict }
+            : new AgentEvent { Type = EventType.Error, ExecutionId = executionId, Content = error });
+
         return new AgentResult
         {
-            ExecutionId = status["executionId"]?.GetValue<string>() ?? "",
+            ExecutionId = executionId,
             Status = parsedStatus,
             Output = outputDict,
-            Error = parsedStatus != Status.Completed ? status["reasonForIncompletion"]?.GetValue<string>() : null,
-            ToolCalls = ExtractToolCalls(workflowWithTasks),
+            Error = error,
+            ToolCalls = toolCalls,
             TokenUsage = tokenUsage,
             FinishReason = finishReason,
+            Events = events,
         };
     }
 
-    /// <summary>
-    /// Java parity (<c>AgentHandle.extractFromTasks</c>): walk the workflow's tasks
-    /// and collect one entry per LLM-dispatched tool call — tasks whose
-    /// <c>referenceTaskName</c> starts with <c>call_</c> — capturing the tool name,
-    /// its input args (internal runtime fields stripped), and its result.
-    /// </summary>
-    private static List<Dictionary<string, object>>? ExtractToolCalls(JsonNode? workflowWithTasks)
-    {
-        if (workflowWithTasks?["tasks"] is not JsonArray tasks) return null;
+    // ── Tool-call extraction ─────────────────────────────────────────
+    //
+    // A tool task is identified by its Conductor task type, allowlisted off the
+    // server's ToolCompiler.TYPE_MAP — for the types the agent layer also uses
+    // for its own structure, and for the worker kind, corroborated by a dispatch
+    // marker. It is never identified by its reference task name: the server
+    // seeds that from the provider's tool-call id (OpenAI's `call_...`,
+    // Anthropic's `toolu_...`, else a UUID) and appends the fork index and loop
+    // iteration, so a prefix test only ever matches one provider.
+    //
+    // The tool's real name is likewise never the task type. Conductor sets an
+    // executed SIMPLE task's type to the task's own name, which is the tool
+    // name for a worker tool and is why that one kind used to read correctly;
+    // every other kind carries its system task type there instead.
 
+    /// <summary>
+    /// Task types only a tool compiles to, from the server's
+    /// <c>ToolCompiler.TYPE_MAP</c> — plus <c>GENERATE_PDF</c>, which that map
+    /// omits although the server compiles a <c>generate_pdf</c> tool to it.
+    /// <c>SIMPLE</c> is absent deliberately: a worker tool's executed task type
+    /// is the tool's own name, so that kind is recognised by the dispatch
+    /// markers below rather than by type.
+    /// </summary>
+    private static readonly HashSet<string> ToolTaskTypes = new(StringComparer.Ordinal)
+    {
+        "HTTP", "CALL_MCP_TOOL",
+        "GENERATE_IMAGE", "GENERATE_AUDIO", "GENERATE_VIDEO", "GENERATE_PDF",
+        "LLM_INDEX_TEXT", "LLM_SEARCH_INDEX", "PULL_WORKFLOW_MESSAGES",
+    };
+
+    /// <summary>
+    /// Task types a tool compiles to that the agent layer also uses for its own
+    /// structure — <c>SUB_WORKFLOW</c> for a sub-agent, a strategy workflow, a
+    /// router and a plan execution; <c>HUMAN</c> for a plan's approval step.
+    /// The type alone therefore proves nothing, and a dispatch marker is
+    /// required as well.
+    /// </summary>
+    private static readonly HashSet<string> AmbiguousToolTaskTypes = new(StringComparer.Ordinal)
+    {
+        "SUB_WORKFLOW", "HUMAN",
+    };
+
+    /// <summary>
+    /// Input keys the server's tool-dispatch script injects.
+    /// <c>_agent_tool_name</c> is set for every tool kind on the static
+    /// dispatch path; <c>_agent_state</c> is set for worker tools on both the
+    /// static and the dynamic-tools path.
+    /// </summary>
+    private const string AgentToolNameKey = "_agent_tool_name";
+    private const string AgentStateKey = "_agent_state";
+
+    /// <summary>The dispatch method name — the tool name on the dynamic-tools path.</summary>
+    private const string MethodKey = "method";
+
+    /// <summary>
+    /// Whether a task is an LLM-dispatched tool call: an unambiguous tool task
+    /// type, or a type that needs corroborating evidence that the LLM dispatched
+    /// it.
+    ///
+    /// Two cases need that evidence. The worker case, because a worker tool's
+    /// task type is the tool's own name and so cannot be allowlisted; what marks
+    /// it is Conductor setting an executed SIMPLE task's type to the task's own
+    /// name, which is also its <c>taskDefName</c> — a signature no system task
+    /// shares. And the ambiguous types above, which the agent layer emits for
+    /// its own structure far more often than for a tool.
+    ///
+    /// Neither half of the test suffices alone: a multi-agent
+    /// <c>SET_VARIABLE</c> task carries <c>_agent_state</c> without being a tool
+    /// call, and a multi-agent handoff is a <c>SUB_WORKFLOW</c> without being
+    /// one either.
+    ///
+    /// Accepted cost: the dynamic-tools dispatch path sets no marker on a
+    /// non-worker tool, so an agent-as-tool or human tool dispatched that way is
+    /// missed. That is the right way to be wrong — the alternative reports a
+    /// fabricated tool call for every handoff in every multi-agent run, and a
+    /// tool call that did not happen is worse than one that is absent.
+    /// </summary>
+    private static bool IsToolTask(JsonNode task)
+    {
+        var taskType = task["taskType"]?.GetValue<string>();
+        if (taskType is null) return false;
+        if (ToolTaskTypes.Contains(taskType)) return true;
+
+        var needsMarker = AmbiguousToolTaskTypes.Contains(taskType)
+            || taskType == task["taskDefName"]?.GetValue<string>();
+        return needsMarker
+            && task["inputData"] is JsonObject inputData
+            && (inputData.ContainsKey(AgentToolNameKey) || inputData.ContainsKey(AgentStateKey));
+    }
+
+    /// <summary>
+    /// Resolve a tool task's tool name: <c>inputData._agent_tool_name</c>, then
+    /// <c>inputData.method</c> (the dynamic-tools dispatch path sets no
+    /// <c>_agent_tool_name</c>), then <c>taskDefName</c>.
+    /// </summary>
+    private static string ResolveToolName(JsonNode task)
+    {
+        if (task["inputData"] is JsonObject inputData)
+        {
+            if (StringValue(inputData, AgentToolNameKey) is { } toolName) return toolName;
+            if (StringValue(inputData, MethodKey) is { } method) return method;
+        }
+        return task["taskDefName"]?.GetValue<string>() ?? "";
+    }
+
+    private static string? StringValue(JsonObject obj, string key)
+        => obj.TryGetPropertyValue(key, out var node) && node is JsonValue value
+            && value.TryGetValue<string>(out var s) && !string.IsNullOrEmpty(s)
+            ? s
+            : null;
+
+    /// <summary>The tool's arguments — the task's input with the runtime's own keys stripped.</summary>
+    private static Dictionary<string, object> ToolArgs(JsonObject inputData)
+    {
+        var cleaned = new Dictionary<string, object>();
+        foreach (var kv in inputData)
+        {
+            var k = kv.Key;
+            if (k.StartsWith('_') || k == MethodKey || k is "evaluatorType" or "expression" or "ctx"
+                or "workerTag" or "agentConfig")
+                continue;
+            cleaned[k] = JsonSerializer.Deserialize<object>(kv.Value?.ToJsonString() ?? "null", ConductorAgentJson.Options)!;
+        }
+        return cleaned;
+    }
+
+    /// <summary>
+    /// The tool's result: the task's <c>result</c> output, or its whole output
+    /// when there is no such key — an HTTP tool answers under <c>response</c>,
+    /// so keying only on <c>result</c> would report no result at all for it.
+    /// Matches the fallback the server's <c>AgentEventListener</c> applies.
+    /// </summary>
+    private static object? ToolResult(JsonObject outputData)
+    {
+        var node = outputData.TryGetPropertyValue("result", out var resultNode) && resultNode is not null
+            ? resultNode
+            : outputData;
+        return JsonSerializer.Deserialize<object>(node.ToJsonString(), ConductorAgentJson.Options);
+    }
+
+    /// <summary>
+    /// Walk the workflow's tasks once and recover, per LLM-dispatched tool call,
+    /// both the <see cref="AgentResult.ToolCalls"/> entry (name, arguments,
+    /// result) and the <see cref="EventType.ToolCall"/> /
+    /// <see cref="EventType.ToolResult"/> event pair — two views of the same
+    /// call, so they are built together and cannot drift apart.
+    ///
+    /// The returned event list carries the tool events only; the caller appends
+    /// the terminal event. It is never null, so enumerating
+    /// <see cref="AgentResult.Events"/> never throws. Tool calls stay null when
+    /// there were none, as they always have.
+    ///
+    /// This is a reconstruction from completed tasks, not the stream
+    /// <see cref="StreamAsync"/> delivers live: the server emits events for
+    /// thinking steps, failed tasks, handoffs and guardrails, none of which
+    /// survives into the terminal record. Use <see cref="StreamAsync"/> when the
+    /// events themselves are the point.
+    /// </summary>
+    private static (List<Dictionary<string, object>>? ToolCalls, List<AgentEvent> Events) ExtractToolActivity(
+        JsonNode? workflowWithTasks, string executionId)
+    {
         List<Dictionary<string, object>>? toolCalls = null;
+        var events = new List<AgentEvent>();
+
+        if (workflowWithTasks?["tasks"] is not JsonArray tasks) return (toolCalls, events);
+
         foreach (var task in tasks)
         {
-            var refName = task?["referenceTaskName"]?.GetValue<string>();
-            var outputData = task?["outputData"] as JsonObject;
-            if (refName is null || !refName.StartsWith("call_", StringComparison.Ordinal) || outputData is null)
+            if (task is null || task["outputData"] is not JsonObject outputData || !IsToolTask(task))
                 continue;
 
-            var tc = new Dictionary<string, object> { ["name"] = task!["taskType"]?.GetValue<string>() ?? "" };
-            if (task["inputData"] is JsonObject inputData)
-            {
-                var cleaned = new Dictionary<string, object>();
-                foreach (var kv in inputData)
-                {
-                    var k = kv.Key;
-                    if (k.StartsWith('_') || k is "method" or "evaluatorType" or "expression" or "ctx"
-                        or "workerTag" or "agentConfig")
-                        continue;
-                    cleaned[k] = JsonSerializer.Deserialize<object>(kv.Value?.ToJsonString() ?? "null", ConductorAgentJson.Options)!;
-                }
-                tc["args"] = cleaned;
-            }
-            if (outputData.TryGetPropertyValue("result", out var resultNode) && resultNode is not null)
-                tc["result"] = JsonSerializer.Deserialize<object>(resultNode.ToJsonString(), ConductorAgentJson.Options)!;
+            var name = ResolveToolName(task);
+            var args = task["inputData"] is JsonObject inputData ? ToolArgs(inputData) : null;
+            var result = ToolResult(outputData);
 
+            var tc = new Dictionary<string, object> { ["name"] = name };
+            if (args is not null) tc["args"] = args;
+            if (result is not null) tc["result"] = result;
             (toolCalls ??= new List<Dictionary<string, object>>()).Add(tc);
+
+            events.Add(new AgentEvent
+            {
+                Type = EventType.ToolCall,
+                ExecutionId = executionId,
+                ToolName = name,
+                Args = args,
+                Timestamp = task["startTime"]?.GetValue<long>(),
+            });
+            events.Add(new AgentEvent
+            {
+                Type = EventType.ToolResult,
+                ExecutionId = executionId,
+                ToolName = name,
+                Result = result,
+                Timestamp = task["endTime"]?.GetValue<long>(),
+            });
         }
-        return toolCalls;
+        return (toolCalls, events);
     }
 }
