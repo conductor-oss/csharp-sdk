@@ -26,30 +26,8 @@ namespace Conductor.AI.Tests;
 
 public sealed class AgentStatusMappingTests
 {
-    private sealed class StubHandler : HttpMessageHandler
-    {
-        private readonly Func<HttpRequestMessage, (HttpStatusCode Status, string Body)> _respond;
-        public StubHandler(Func<HttpRequestMessage, (HttpStatusCode, string)> respond) => _respond = respond;
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            var (status, body) = _respond(request);
-            return Task.FromResult(new HttpResponseMessage(status)
-            {
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            });
-        }
-    }
-
     private static Configuration BuildConfig(Func<HttpRequestMessage, (HttpStatusCode, string)> respond)
-    {
-        var configuration = new Configuration { BasePath = "http://server/api" };
-        configuration.ApiClient.RestClient = new RestClient(new RestClientOptions("http://server/api")
-        {
-            ConfigureMessageHandler = _ => new StubHandler(respond),
-        });
-        return configuration;
-    }
+        => StubAgentServer.Configure(respond);
 
     private static (HttpStatusCode, string) RouteStatusAndExecution(
         HttpRequestMessage request, string statusBody, string executionBody = "{}")
@@ -57,12 +35,7 @@ public sealed class AgentStatusMappingTests
 
     private static (HttpStatusCode, string) Route(
         HttpRequestMessage request, string statusBody, string executionBody, string workflowBody)
-    {
-        var path = request.RequestUri!.AbsolutePath;
-        if (path.EndsWith("/status")) return (HttpStatusCode.OK, statusBody);
-        if (path.Contains("/execution/")) return (HttpStatusCode.OK, executionBody);
-        return (HttpStatusCode.OK, workflowBody);
-    }
+        => StubAgentServer.Route(request, statusBody, executionBody, workflowBody);
 
     // ── AgentRuntime.GetStatusAsync ──────────────────────────────────────
 
@@ -171,11 +144,12 @@ public sealed class AgentStatusMappingTests
             executionBody: "{}",
             workflowBody: """
                 {"tasks":[
-                    {"taskType":"echo","referenceTaskName":"call_echo_1",
-                     "inputData":{"query":"hello","_internal":"drop me","ctx":"drop me too"},
+                    {"taskType":"echo","taskDefName":"echo","referenceTaskName":"call_ceOwlp7lQ_0__1",
+                     "inputData":{"query":"hello","method":"echo","_agent_tool_name":"echo",
+                                  "_agent_state":{},"_internal":"drop me","ctx":"drop me too"},
                      "outputData":{"result":"echoed: hello"}},
-                    {"taskType":"LLM_CHAT_COMPLETE","referenceTaskName":"llm_1",
-                     "inputData":{},"outputData":{"promptTokens":10}}
+                    {"taskType":"LLM_CHAT_COMPLETE","taskDefName":"llm_chat_complete",
+                     "referenceTaskName":"llm_1","inputData":{},"outputData":{"promptTokens":10}}
                 ]}
                 """));
 
