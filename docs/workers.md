@@ -94,6 +94,33 @@ settings. See [deployment-scaling.md](deployment-scaling.md) for sizing guidance
 `IServiceCollection`, so workers can take constructor dependencies and participate in
 the host's lifetime. This is the preferred shape for anything beyond a sample.
 
+### Choose one registration path per worker
+
+The SDK supports two worker registration paths:
+
+- Register an `IWorkflowTask` explicitly in the service collection, for example with
+  `AddConductorWorkflowTask` or `ServiceDescriptor.Singleton<IWorkflowTask, TWorker>()`.
+- Discover methods annotated with `[WorkerTask]` when the worker host starts.
+
+Choose one path for each worker. Do not explicitly register a worker that is also
+discovered through `[WorkerTask]`, or the host creates two polling workers for it.
+
+By default, attribute discovery scans all assemblies loaded in the process. To limit
+the scan to the assembly containing your annotated workers, configure discovery while
+building the service collection:
+
+```csharp
+services.AddConductorWorker(configuration);
+services.ConfigureConductorWorkerDiscovery(options =>
+{
+    options.Assemblies = new[] { typeof(MyAnnotatedWorker).Assembly };
+});
+services.WithHostedService();
+```
+
+This setting affects only `[WorkerTask]` discovery. It does not affect any
+`IWorkflowTask` registered in the service collection.
+
 ## Metrics
 
 The worker framework records polling, execution, update, and error metrics via
