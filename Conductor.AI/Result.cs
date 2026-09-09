@@ -572,7 +572,7 @@ public sealed class AgentHandle
     };
 
     /// <summary>Tool task types the agent layer also emits for sub-agents, routers and plan approval.</summary>
-    private static readonly HashSet<string> AmbiguousToolTaskTypes = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> MarkerRequiredToolTaskTypes = new(StringComparer.Ordinal)
     {
         "SUB_WORKFLOW", "HUMAN",
     };
@@ -583,6 +583,12 @@ public sealed class AgentHandle
 
     /// <summary>The tool name on the dynamic-tools path, which injects no <c>_agent_tool_name</c>.</summary>
     private const string MethodKey = "method";
+
+    /// <summary>Runtime keys carried on a tool task's input that are not the tool's arguments.</summary>
+    private static readonly HashSet<string> InternalInputKeys = new(StringComparer.Ordinal)
+    {
+        MethodKey, "evaluatorType", "expression", "ctx", "workerTag", "agentConfig",
+    };
 
     /// <summary>
     /// Whether a task is a tool call the LLM dispatched. Never judged by reference
@@ -599,7 +605,7 @@ public sealed class AgentHandle
         // alone every handoff would read as a tool call that never happened. Cost is
         // that the dynamic-tools path marks no non-worker tool, so an agent-as-tool
         // dispatched there is missed.
-        var needsMarker = AmbiguousToolTaskTypes.Contains(taskType)
+        var needsMarker = MarkerRequiredToolTaskTypes.Contains(taskType)
             || taskType == task["taskDefName"]?.GetValue<string>();
         return needsMarker
             && task["inputData"] is JsonObject inputData
@@ -633,9 +639,7 @@ public sealed class AgentHandle
         foreach (var kv in inputData)
         {
             var k = kv.Key;
-            if (k.StartsWith('_') || k == MethodKey || k is "evaluatorType" or "expression" or "ctx"
-                or "workerTag" or "agentConfig")
-                continue;
+            if (k.StartsWith('_') || InternalInputKeys.Contains(k)) continue;
             cleaned[k] = JsonSerializer.Deserialize<object>(kv.Value?.ToJsonString() ?? "null", ConductorAgentJson.Options)!;
         }
         return cleaned;
@@ -667,12 +671,15 @@ public sealed class AgentHandle
 
         foreach (var task in tasks)
         {
-            if (task is null || task["outputData"] is not JsonObject outputData || !IsToolTask(task))
-                continue;
+            if (task is null || !IsToolTask(task)) continue;
 
             var name = ResolveToolName(task);
             var args = task["inputData"] is JsonObject inputData ? ToolArgs(inputData) : null;
-            var result = ToolResult(outputData);
+            // A task that recorded no output still ran: report the call without a result
+            // rather than dropping it, which would hide a tool call that failed.
+            var result = task["outputData"] is JsonObject { Count: > 0 } outputData
+                ? ToolResult(outputData)
+                : null;
 
             var tc = new Dictionary<string, object> { ["name"] = name };
             if (args is not null) tc["args"] = args;

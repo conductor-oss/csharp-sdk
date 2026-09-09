@@ -31,6 +31,11 @@ Event types: `Thinking`, `ToolCall`, `ToolResult`, `GuardrailPass`,
 
 ### Events on a waited result
 
+```csharp
+var result = await handle.WaitAsync();
+foreach (var ev in result.Events!) Console.WriteLine($"{ev.Type} {ev.ToolName}");
+```
+
 `AgentResult.Events` carries the run's tool activity — a `ToolCall`/`ToolResult` pair
 per tool call, closed by a terminal `Done`, or `Error` for a run that did not
 complete. It is reconstructed from the finished execution's tasks, so it is never

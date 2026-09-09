@@ -84,13 +84,15 @@ public sealed class AgentToolCallExtractionTests
     [InlineData("PULL_WORKFLOW_MESSAGES", "read_queue")]
     public async Task SystemTaskTool_NameFromAgentToolName_NotTaskType(string taskType, string toolName)
     {
-        var result = await WaitWithTasksAsync("""
+        var result = await WaitWithTasksAsync($$"""
             {"tasks":[
-                {"taskType":"TYPE","taskDefName":"NAME","referenceTaskName":"NAME_0__1",
-                 "inputData":{"_agent_tool_name":"NAME","query":"x"},
-                 "outputData":{"result":"ok"}}
+                {"taskType":"{{taskType}}","taskDefName":"{{toolName}}",
+                 "referenceTaskName":"{{toolName}}_0__1",
+                 "inputData":{"_agent_tool_name":"{{toolName}}","query":"x"},
+                 "outputData":{"result":"ok"}
+                }
             ]}
-            """.Replace("TYPE", taskType).Replace("NAME", toolName));
+            """);
 
         var toolCall = Assert.Single(result.ToolCalls!);
         Assert.Equal(toolName, toolCall["name"]);
@@ -230,14 +232,17 @@ public sealed class AgentToolCallExtractionTests
     [InlineData("HUMAN", "plan_approval")]
     public async Task AgentStructureReusingAToolTaskType_NotAToolCall(string taskType, string taskDefName)
     {
-        var result = await WaitWithTasksAsync("""
+        var result = await WaitWithTasksAsync($$"""
             {"tasks":[
-                {"taskType":"TYPE","taskDefName":"NAME","referenceTaskName":"0_NAME__1",
+                {"taskType":"{{taskType}}","taskDefName":"{{taskDefName}}",
+                 "referenceTaskName":"0_{{taskDefName}}__1",
                  "inputData":{"prompt":"hello","media":[],"session_id":"s1",
-                              "context":{"turn":1}},
-                 "outputData":{"result":"handled"}}
+                              "context":{"turn":1}
+                 },
+                 "outputData":{"result":"handled"}
+                }
             ]}
-            """.Replace("TYPE", taskType).Replace("NAME", taskDefName));
+            """);
 
         Assert.Null(result.ToolCalls);
         Assert.Single(result.Events!);
@@ -330,6 +335,27 @@ public sealed class AgentToolCallExtractionTests
         var terminal = Assert.Single(result.Events!);
         Assert.Equal(EventType.Error, terminal.Type);
         Assert.Equal("tool worker never polled", terminal.Content);
+    }
+
+    [Fact]
+    public async Task ToolTaskWithNoOutput_StillReported_WithoutAResult()
+    {
+        // A tool the LLM dispatched that failed or never finished records no output.
+        // Dropping it would hide a call that demonstrably happened.
+        var result = await WaitWithTasksAsync("""
+            {"tasks":[
+                {"taskType":"HTTP","taskDefName":"lookup_order","referenceTaskName":"lookup_order_0",
+                 "inputData":{"_agent_tool_name":"lookup_order","order":"A-1"},
+                 "outputData":{}}
+            ]}
+            """);
+
+        var toolCall = Assert.Single(result.ToolCalls!);
+        Assert.Equal("lookup_order", toolCall["name"]);
+        Assert.False(toolCall.ContainsKey("result"));
+        Assert.Equal(
+            [EventType.ToolCall, EventType.ToolResult, EventType.Done],
+            result.Events!.Select(e => e.Type));
     }
 
     [Fact]
