@@ -20,6 +20,10 @@ env:
 
 jobs:
   agent-e2e:
+    # Fork PRs get no secrets, so every suite here would run against a server
+    # with no LLM key and burn the full 45-minute timeout before the guard
+    # below failed it. Skip outright instead.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
