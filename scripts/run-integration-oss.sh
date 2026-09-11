@@ -68,7 +68,9 @@ trap cleanup EXIT
 
 # Ask compose what it resolved rather than reconstructing the tag here, so this
 # stays correct whether the tag came from --version or from the compose default.
-SERVER_IMAGE="$(compose config --images conductor-server | head -1)"
+# `--images` lists every service's image and does not reliably honour a service
+# filter, so select the server's by name rather than by position.
+SERVER_IMAGE="$(compose config --images | grep -m1 '^conductoross/conductor:')"
 echo "Using ${SERVER_IMAGE}"
 
 # `docker compose up` only pulls an image when it is missing locally, so a

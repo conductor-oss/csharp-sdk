@@ -215,7 +215,7 @@ jobs:
       # use, which for a fork PR comes from the compose file's default.
       - name: Pull Conductor OSS image
         run: |
-          echo "Using $(docker compose -f scripts/docker-compose-oss.yaml config --images conductor-server)"
+          echo "Using $(docker compose -f scripts/docker-compose-oss.yaml config --images | grep -m1 '^conductoross/conductor:')"
           docker compose -f scripts/docker-compose-oss.yaml pull conductor-server
       - name: Start Conductor OSS stack
         run: docker compose -f scripts/docker-compose-oss.yaml up -d
