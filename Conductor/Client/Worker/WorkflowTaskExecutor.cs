@@ -60,6 +60,7 @@ namespace Conductor.Client.Worker
             _logger = logger;
             _taskClient = client;
             _worker = worker;
+            _workerSettings = workflowTaskConfiguration ?? worker.WorkerSettings;
             _workflowTaskMonitor = workflowTaskMonitor;
             _metrics = metrics;
         }
