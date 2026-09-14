@@ -305,8 +305,7 @@ public sealed class AgentHandle
                 {
                     // Fetch full execution record for token usage and finish reason
                     var execution = await _http.GetExecutionAsync(_executionId, cancellationToken);
-                    // Java parity: walk the workflow's tasks once to aggregate tool calls
-                    // from call_* tasks (enrichment read — null is fine, yields no tool calls).
+                    // Tool calls and events come from the task list (enrichment read; null is fine).
                     var workflowWithTasks = await _http.GetWorkflowWithTasksAsync(_executionId, cancellationToken);
                     return BuildResult(status!, s, execution, workflowWithTasks);
                 }
@@ -536,55 +535,174 @@ public sealed class AgentHandle
             _ => null,
         };
 
+        var executionId = status["executionId"]?.GetValue<string>() ?? "";
+        var error = parsedStatus != Status.Completed
+            ? status["reasonForIncompletion"]?.GetValue<string>()
+            : null;
+
+        var (toolCalls, events) = ExtractToolActivity(workflowWithTasks, executionId);
+        events.Add(parsedStatus == Status.Completed
+            ? new AgentEvent { Type = EventType.Done, ExecutionId = executionId, Output = outputDict }
+            : new AgentEvent { Type = EventType.Error, ExecutionId = executionId, Content = error });
+
         return new AgentResult
         {
-            ExecutionId = status["executionId"]?.GetValue<string>() ?? "",
+            ExecutionId = executionId,
             Status = parsedStatus,
             Output = outputDict,
-            Error = parsedStatus != Status.Completed ? status["reasonForIncompletion"]?.GetValue<string>() : null,
-            ToolCalls = ExtractToolCalls(workflowWithTasks),
+            Error = error,
+            ToolCalls = toolCalls,
             TokenUsage = tokenUsage,
             FinishReason = finishReason,
+            Events = events,
         };
     }
 
-    /// <summary>
-    /// Java parity (<c>AgentHandle.extractFromTasks</c>): walk the workflow's tasks
-    /// and collect one entry per LLM-dispatched tool call — tasks whose
-    /// <c>referenceTaskName</c> starts with <c>call_</c> — capturing the tool name,
-    /// its input args (internal runtime fields stripped), and its result.
-    /// </summary>
-    private static List<Dictionary<string, object>>? ExtractToolCalls(JsonNode? workflowWithTasks)
-    {
-        if (workflowWithTasks?["tasks"] is not JsonArray tasks) return null;
+    // ── Tool-call extraction ─────────────────────────────────────────
 
+    /// <summary>
+    /// Task types only a tool compiles to: the server's <c>ToolCompiler.TYPE_MAP</c>.
+    /// <c>GENERATE_PDF</c> is absent from that map, but media tools compile to it.
+    /// </summary>
+    private static readonly HashSet<string> ToolTaskTypes = new(StringComparer.Ordinal)
+    {
+        "HTTP", "CALL_MCP_TOOL",
+        "GENERATE_IMAGE", "GENERATE_AUDIO", "GENERATE_VIDEO", "GENERATE_PDF",
+        "LLM_INDEX_TEXT", "LLM_SEARCH_INDEX", "PULL_WORKFLOW_MESSAGES",
+    };
+
+    /// <summary>Tool task types the agent layer also emits for sub-agents, routers and plan approval.</summary>
+    private static readonly HashSet<string> MarkerRequiredToolTaskTypes = new(StringComparer.Ordinal)
+    {
+        "SUB_WORKFLOW", "HUMAN",
+    };
+
+    /// <summary>Markers the server's dispatch script injects on a tool task it dispatched.</summary>
+    private const string AgentToolNameKey = "_agent_tool_name";
+    private const string AgentStateKey = "_agent_state";
+
+    /// <summary>The tool name on the dynamic-tools path, which injects no <c>_agent_tool_name</c>.</summary>
+    private const string MethodKey = "method";
+
+    /// <summary>Runtime keys carried on a tool task's input that are not the tool's arguments.</summary>
+    private static readonly HashSet<string> InternalInputKeys = new(StringComparer.Ordinal)
+    {
+        MethodKey, "evaluatorType", "expression", "ctx", "workerTag", "agentConfig",
+    };
+
+    /// <summary>
+    /// Whether a task is a tool call the LLM dispatched. Never judged by reference
+    /// name, which carries the provider's tool-call id.
+    /// </summary>
+    private static bool IsToolTask(JsonNode task)
+    {
+        var taskType = task["taskType"]?.GetValue<string>();
+        if (taskType is null) return false;
+        if (ToolTaskTypes.Contains(taskType)) return true;
+
+        // A worker tool's task type is the tool's own name, so only the marker can
+        // identify it. The marker also keeps the agent's own structure out: on type
+        // alone every handoff would read as a tool call that never happened. Cost is
+        // that the dynamic-tools path marks no non-worker tool, so an agent-as-tool
+        // dispatched there is missed.
+        var needsMarker = MarkerRequiredToolTaskTypes.Contains(taskType)
+            || taskType == task["taskDefName"]?.GetValue<string>();
+        return needsMarker
+            && task["inputData"] is JsonObject inputData
+            && (inputData.ContainsKey(AgentToolNameKey) || inputData.ContainsKey(AgentStateKey));
+    }
+
+    /// <summary>
+    /// The tool's name from the payload, never the task type, which holds the tool
+    /// name only for a worker tool.
+    /// </summary>
+    private static string ResolveToolName(JsonNode task)
+    {
+        if (task["inputData"] is JsonObject inputData)
+        {
+            if (StringValue(inputData, AgentToolNameKey) is { } toolName) return toolName;
+            if (StringValue(inputData, MethodKey) is { } method) return method;
+        }
+        return task["taskDefName"]?.GetValue<string>() ?? "";
+    }
+
+    private static string? StringValue(JsonObject obj, string key)
+        => obj.TryGetPropertyValue(key, out var node) && node is JsonValue value
+            && value.TryGetValue<string>(out var s) && !string.IsNullOrEmpty(s)
+            ? s
+            : null;
+
+    /// <summary>The tool's arguments: the task's input with the runtime's own keys stripped.</summary>
+    private static Dictionary<string, object> ToolArgs(JsonObject inputData)
+    {
+        var cleaned = new Dictionary<string, object>();
+        foreach (var kv in inputData)
+        {
+            var k = kv.Key;
+            if (k.StartsWith('_') || InternalInputKeys.Contains(k)) continue;
+            cleaned[k] = JsonSerializer.Deserialize<object>(kv.Value?.ToJsonString() ?? "null", ConductorAgentJson.Options)!;
+        }
+        return cleaned;
+    }
+
+    /// <summary>
+    /// The task's <c>result</c>, or its whole output when there is none: an HTTP tool
+    /// answers under <c>response</c>. Matches the server's <c>AgentEventListener</c>.
+    /// </summary>
+    private static object? ToolResult(JsonObject outputData)
+    {
+        var node = outputData.TryGetPropertyValue("result", out var resultNode) && resultNode is not null
+            ? resultNode
+            : outputData;
+        return JsonSerializer.Deserialize<object>(node.ToJsonString(), ConductorAgentJson.Options);
+    }
+
+    /// <summary>
+    /// Both views of each tool call in one pass. Reconstructed from finished tasks,
+    /// so narrower than the live <see cref="StreamAsync"/> stream.
+    /// </summary>
+    private static (List<Dictionary<string, object>>? ToolCalls, List<AgentEvent> Events) ExtractToolActivity(
+        JsonNode? workflowWithTasks, string executionId)
+    {
         List<Dictionary<string, object>>? toolCalls = null;
+        var events = new List<AgentEvent>();
+
+        if (workflowWithTasks?["tasks"] is not JsonArray tasks) return (toolCalls, events);
+
         foreach (var task in tasks)
         {
-            var refName = task?["referenceTaskName"]?.GetValue<string>();
-            var outputData = task?["outputData"] as JsonObject;
-            if (refName is null || !refName.StartsWith("call_", StringComparison.Ordinal) || outputData is null)
-                continue;
+            if (task is null || !IsToolTask(task)) continue;
 
-            var tc = new Dictionary<string, object> { ["name"] = task!["taskType"]?.GetValue<string>() ?? "" };
-            if (task["inputData"] is JsonObject inputData)
-            {
-                var cleaned = new Dictionary<string, object>();
-                foreach (var kv in inputData)
-                {
-                    var k = kv.Key;
-                    if (k.StartsWith('_') || k is "method" or "evaluatorType" or "expression" or "ctx"
-                        or "workerTag" or "agentConfig")
-                        continue;
-                    cleaned[k] = JsonSerializer.Deserialize<object>(kv.Value?.ToJsonString() ?? "null", ConductorAgentJson.Options)!;
-                }
-                tc["args"] = cleaned;
-            }
-            if (outputData.TryGetPropertyValue("result", out var resultNode) && resultNode is not null)
-                tc["result"] = JsonSerializer.Deserialize<object>(resultNode.ToJsonString(), ConductorAgentJson.Options)!;
+            var name = ResolveToolName(task);
+            var args = task["inputData"] is JsonObject inputData ? ToolArgs(inputData) : null;
+            // A task that recorded no output still ran: report the call without a result
+            // rather than dropping it, which would hide a tool call that failed.
+            var result = task["outputData"] is JsonObject { Count: > 0 } outputData
+                ? ToolResult(outputData)
+                : null;
 
+            var tc = new Dictionary<string, object> { ["name"] = name };
+            if (args is not null) tc["args"] = args;
+            if (result is not null) tc["result"] = result;
             (toolCalls ??= new List<Dictionary<string, object>>()).Add(tc);
+
+            events.Add(new AgentEvent
+            {
+                Type = EventType.ToolCall,
+                ExecutionId = executionId,
+                ToolName = name,
+                Args = args,
+                Timestamp = task["startTime"]?.GetValue<long>(),
+            });
+            events.Add(new AgentEvent
+            {
+                Type = EventType.ToolResult,
+                ExecutionId = executionId,
+                ToolName = name,
+                Result = result,
+                Timestamp = task["endTime"]?.GetValue<long>(),
+            });
         }
-        return toolCalls;
+        return (toolCalls, events);
     }
 }
