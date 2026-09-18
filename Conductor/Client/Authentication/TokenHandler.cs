@@ -22,6 +22,7 @@ namespace Conductor.Client.Authentication
     {
         private static int REFRESH_TOKEN_RETRY_COUNTER_LIMIT = 5;
         private static readonly object _lockObject = new object();
+        private static readonly object _getTokenlockObject = new object();
         private readonly MemoryCache _memoryCache;
         private static ILogger _logger;
 
@@ -30,7 +31,6 @@ namespace Conductor.Client.Authentication
             _memoryCache = new MemoryCache(new MemoryCacheOptions());
             _logger = ApplicationLogging.CreateLogger<TokenHandler>();
         }
-
         public string GetToken(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient)
         {
             string token = (string)_memoryCache.Get(authenticationSettings);
@@ -38,7 +38,12 @@ namespace Conductor.Client.Authentication
             {
                 return token;
             }
-            return RefreshToken(authenticationSettings, tokenClient);
+
+            lock (_getTokenlockObject)
+            {
+                token = (string)_memoryCache.Get(authenticationSettings);
+                return token != null ? token : RefreshToken(authenticationSettings, tokenClient);
+            }
         }
 
         public string RefreshToken(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient)
