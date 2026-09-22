@@ -71,6 +71,39 @@ export CONDUCTOR_SERVER_URL=http://localhost:8080/api
 dotnet test Tests/conductor-csharp.test.csproj
 ```
 
+### Running the OSS integration suite locally
+
+`scripts/run-integration-oss.sh` mirrors the `integration_tests_oss` job in
+`pull_request.yml`: it starts a local Conductor OSS + Postgres stack (defined in
+`scripts/docker-compose-oss.yaml`), waits for `/health`, runs the integration suite with
+Orkes-only tests filtered out (`ServerType!=Orkes`), and tears the stack down on exit.
+
+```shell
+scripts/run-integration-oss.sh                    # default tag from scripts/docker-compose-oss.yaml
+scripts/run-integration-oss.sh --version 3.33.0-rc1
+scripts/run-integration-oss.sh --keep-up           # leave the stack running afterwards
+```
+
+The default tag is written in exactly one place — the `image:` line of
+`scripts/docker-compose-oss.yaml` — and that is what both a plain local run and a fork-PR CI
+run land on. A non-fork CI run overrides it with the `E2E_TEST_OSS_CONDUCTOR_VERSION` org
+variable (currently `latest`), so CI and a local run are not necessarily on the same image;
+pass `--version` to reproduce a specific CI run.
+
+The script always prints the resolved `conductoross/conductor` tag and pulls it before
+starting the stack, because none of the tags in play are immutable — `latest` plainly, and
+rc tags get re-pushed. Without an explicit pull, `docker compose up` would silently reuse a
+stale cached image instead of fetching the current one.
+
+Tests tagged `[Trait("ServerType", "Orkes")]` are excluded from this run because they
+exercise features OSS does not implement — everything in `Tests/Integration/Orkes/`, plus
+`EnvironmentVariableTests` and
+`WorkflowLifecycleTests.UpdateWorkflowVariables_VariablesAreReflected`. Why each one is
+gated, and the OSS endpoint it needs, is recorded in a comment next to the trait in the test
+file itself. Read that before adding or removing the trait, and confirm the change against a
+freshly-pulled image — a test that fails against a stale local image may pass against
+current OSS.
+
 ## Agent E2E suites
 
 `Conductor.AI.E2eTests/` is organised by feature, one numbered suite per area — basic
