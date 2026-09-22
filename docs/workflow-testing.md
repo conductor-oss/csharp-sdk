@@ -79,15 +79,21 @@ dotnet test Tests/conductor-csharp.test.csproj
 Orkes-only tests filtered out (`ServerType!=Orkes`), and tears the stack down on exit.
 
 ```shell
-scripts/run-integration-oss.sh                    # against `latest`
-scripts/run-integration-oss.sh --version 3.32.0-rc18
+scripts/run-integration-oss.sh                    # default tag from scripts/docker-compose-oss.yaml
+scripts/run-integration-oss.sh --version 3.33.0-rc1
 scripts/run-integration-oss.sh --keep-up           # leave the stack running afterwards
 ```
 
+The default tag is written in exactly one place — the `image:` line of
+`scripts/docker-compose-oss.yaml` — and that is what both a plain local run and a fork-PR CI
+run land on. A non-fork CI run overrides it with the `E2E_TEST_OSS_CONDUCTOR_VERSION` org
+variable (currently `latest`), so CI and a local run are not necessarily on the same image;
+pass `--version` to reproduce a specific CI run.
+
 The script always prints the resolved `conductoross/conductor` tag and pulls it before
-starting the stack, since `latest` (the local default) is a mutable tag — without an
-explicit pull, `docker compose up` would silently reuse a stale cached image instead of
-fetching the current one.
+starting the stack, because none of the tags in play are immutable — `latest` plainly, and
+rc tags get re-pushed. Without an explicit pull, `docker compose up` would silently reuse a
+stale cached image instead of fetching the current one.
 
 Tests tagged `[Trait("ServerType", "Orkes")]` are excluded from this run because they
 exercise features OSS does not implement — everything in `Tests/Integration/Orkes/`, plus
