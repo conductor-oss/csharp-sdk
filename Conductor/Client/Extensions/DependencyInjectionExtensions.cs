@@ -16,7 +16,9 @@ using Conductor.Client.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
+using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 
 namespace Conductor.Client.Extensions
 {
@@ -62,6 +64,33 @@ namespace Conductor.Client.Extensions
         {
             services.AddHostedService<WorkflowTaskService>();
             return services;
+        }
+
+        public static IServiceCollection ConfigureConductorWorkerDiscovery(this IServiceCollection services, Action<WorkerDiscoveryOptions> configure)
+        {
+            if (configure == null)
+            {
+                throw new ArgumentNullException(nameof(configure));
+            }
+
+            services.AddOptions<WorkerDiscoveryOptions>().Configure(configure);
+
+            return services;
+        }
+
+        public static IServiceCollection ConfigureConductorWorkerDiscovery(this IServiceCollection services, WorkerDiscoveryOptions discoveryOptions)
+        {
+            if (discoveryOptions == null)
+            {
+                throw new ArgumentNullException(nameof(discoveryOptions));
+            }
+
+            var assemblies = discoveryOptions.Assemblies?.ToArray() ?? Array.Empty<Assembly>();
+
+            return services.ConfigureConductorWorkerDiscovery(options =>
+            {
+                options.Assemblies = assemblies;
+            });
         }
     }
 }
