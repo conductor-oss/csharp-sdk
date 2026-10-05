@@ -211,7 +211,8 @@ Positions map to server task names: `before_agent`, `after_agent`, `before_model
 
 **`AgentResult`** (record): `ExecutionId`, `CorrelationId`, `Output`
 (`Dictionary<string, object>?`; final text usually `Output["result"]`), `Messages`,
-`ToolCalls`, `Status`, `FinishReason`, `Error`, `TokenUsage`, `Metadata`, `Events`,
+`ToolCalls`, `Status`, `FinishReason`, `Error`, `TokenUsage`, `Metadata`,
+`Events` (see [streaming-hitl.md](../concepts/streaming-hitl.md#events-on-a-waited-result)),
 `SubResults`. Convenience: `IsSuccess`, `IsFailed`, `IsRejected`, `PrintResult()`.
 
 **`AgentHandle`** — `ExecutionId`, `RunId`, `WaitAsync(ct)`, `StreamAsync(ct)`,

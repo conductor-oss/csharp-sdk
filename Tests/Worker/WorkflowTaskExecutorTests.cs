@@ -126,6 +126,72 @@ namespace Tests.Worker
             Assert.Equal(runTask, completed);
         }
 
+        [Fact]
+        public async Task CreateExecutor_WithExecutorConfig()
+        {
+            // Arrange
+            string taskType = "test_task";
+            int batchSize = 10;
+            
+            var taskClient = new FakeTaskClient(returnTasks: new List<Conductor.Client.Models.Task>());
+            
+            var worker = new FakeWorker(taskType, batchSize);
+            var config = new WorkflowTaskExecutorConfiguration
+            {
+                WorkerId = "configured-worker",
+                Domain = "configured-domain",
+                BatchSize = 3,
+                PollInterval = TimeSpan.FromMilliseconds(10)
+            };
+            var monitor = new WorkflowTaskMonitor(NullLogger<WorkflowTaskMonitor>.Instance);
+
+            var executor = new WorkflowTaskExecutor(NullLogger<WorkflowTaskExecutor>.Instance,
+                                            taskClient,
+                                            worker,
+                                            config,
+                                            monitor,
+                                            _metrics);
+
+            // Act
+            await RunOnceAndWait(executor);
+
+            // Assert
+
+            Assert.Equal("configured-worker", taskClient.LastWorkerId);
+            Assert.Equal("configured-domain", taskClient.LastDomain);
+            Assert.Equal(3, taskClient.LastRequestedTaskCount);
+        }
+
+        [Fact]
+        public async Task CreateExecutor_WithWorkerConfig()
+        {
+            // Arrange
+            string taskType = "test_task";
+            int batchSize = 10;
+
+            var taskClient = new FakeTaskClient(returnTasks: new List<Conductor.Client.Models.Task>());
+
+            var worker = new FakeWorker(taskType, batchSize);
+            WorkflowTaskExecutorConfiguration config = null;
+            var monitor = new WorkflowTaskMonitor(NullLogger<WorkflowTaskMonitor>.Instance);
+
+            var executor = new WorkflowTaskExecutor(NullLogger<WorkflowTaskExecutor>.Instance,
+                                            taskClient,
+                                            worker,
+                                            config,
+                                            monitor,
+                                            _metrics);
+
+            // Act
+            await RunOnceAndWait(executor);
+
+            // Assert
+
+            Assert.Equal("test-worker-1", taskClient.LastWorkerId);
+            Assert.Equal("test", taskClient.LastDomain);
+            Assert.Equal(10, taskClient.LastRequestedTaskCount);
+        }
+
         private WorkflowTaskExecutor CreateExecutor(
             IWorkflowTaskClient taskClient,
             string taskType = "test_task",
@@ -133,9 +199,11 @@ namespace Tests.Worker
         {
             var worker = new FakeWorker(taskType, batchSize);
             var monitor = new WorkflowTaskMonitor(NullLogger<WorkflowTaskMonitor>.Instance);
-            return new WorkflowTaskExecutor(
-                NullLogger<WorkflowTaskExecutor>.Instance,
-                taskClient, worker, monitor, _metrics);
+            return new WorkflowTaskExecutor(NullLogger<WorkflowTaskExecutor>.Instance,
+                                            taskClient,
+                                            worker,
+                                            monitor,
+                                            _metrics);
         }
 
         private static async Task RunOnceAndWait(WorkflowTaskExecutor executor)
@@ -168,6 +236,10 @@ namespace Tests.Worker
             public int PollCount { get; private set; }
             public int UpdateCount { get; private set; }
 
+            public string LastWorkerId { get; private set; }
+            public string LastDomain { get; private set; }
+            public int LastRequestedTaskCount { get; private set; }
+
             public FakeTaskClient(
                 List<Conductor.Client.Models.Task> returnTasks = null,
                 Exception pollException = null,
@@ -194,6 +266,10 @@ namespace Tests.Worker
 
             public Task<List<Conductor.Client.Models.Task>> PollTaskAsync(string taskType, string workerId, string domain, int count)
             {
+                LastWorkerId = workerId;
+                LastDomain = domain;
+                LastRequestedTaskCount = count;
+
                 return Task.FromResult(PollTask(taskType, workerId, domain, count));
             }
 

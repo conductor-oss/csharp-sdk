@@ -133,6 +133,9 @@ namespace Tests.Integration.Workflow
         }
 
         [Fact]
+        // Orkes-only: PUT /workflow/{workflowId}/variables is not a registered OSS route — no
+        // REST controller declares it — so this returns 404 there. Unrelated to the
+        // SET_VARIABLE task type, which OSS does support.
         [Trait("ServerType", "Orkes")]
         public void UpdateWorkflowVariables_VariablesAreReflected()
         {
