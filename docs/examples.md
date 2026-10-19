@@ -4,7 +4,7 @@ Where the runnable code lives in this repository.
 
 ## Agent examples
 
-`Conductor.AI.Examples/` — 176 self-contained example projects, numbered roughly by
+`Conductor.AI.Examples/` — 179 self-contained example projects, numbered roughly by
 topic and increasing in complexity:
 
 | Range | Topic |
@@ -13,6 +13,9 @@ topic and increasing in complexity:
 | `02_*` | Tools — simple, multi-step, registries |
 | `03_*` | Structured output |
 | `04_*` | HTTP and MCP tools |
+| [116_DecisionRouting](../Conductor.AI.Examples/116_DecisionRouting/Program.cs) | Decision SWITCH with billing/technical INLINE branches |
+| [117_DecisionRouter](../Conductor.AI.Examples/117_DecisionRouter/Program.cs) | Decision selector routing to chat agents |
+| [118_DecisionTool](../Conductor.AI.Examples/118_DecisionTool/Program.cs) | Chat agent using a decision tool |
 | `Sk*_*` | Semantic Kernel adapter |
 
 Each directory is its own `Program.cs` with a header comment listing the environment
