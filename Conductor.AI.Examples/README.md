@@ -1,6 +1,6 @@
 # Conductor AI Agent Examples (.NET)
 
-176 self-contained example projects for the `conductor-ai` agent layer. Each directory is
+179 self-contained example projects for the `conductor-ai` agent layer. Each directory is
 its own `.csproj` with a single `Program.cs`, and a header comment listing the environment
 variables it needs.
 
@@ -28,7 +28,7 @@ buildable. CI does **not** execute them.
 
 | Prefix | Count | Covers |
 |---|---|---|
-| `01`–`115` | 110 | The native agent API |
+| `01`–`118` | 113 | The native agent API |
 | `Adk*` | 36 | Google ADK adapter |
 | `Sk*` | 20 | Semantic Kernel adapter |
 | `OpenAi*` | 10 | OpenAI Agents adapter |
@@ -57,6 +57,31 @@ Numbering is roughly thematic and increases in complexity. Suffixed variants (`0
 | Skills | `91_Skills` |
 | Schedules | `92_ScheduledAgent` |
 | Scheduler pause/resume verb fallback | `93_SchedulerVerbFallback` |
+| Decision SWITCH with INLINE branches | [116_DecisionRouting](116_DecisionRouting/Program.cs) |
+| Decision selector routing to chat agents | [117_DecisionRouter](117_DecisionRouter/Program.cs) |
+| Chat agent using a decision tool | [118_DecisionTool](118_DecisionTool/Program.cs) |
+
+## Decision examples
+
+These mirror Python SDK PR #511. They require a server with decision inference enabled;
+provider credentials belong on the server. No local decision worker is needed.
+
+```shell
+export CONDUCTOR_SERVER_URL=http://localhost:8080/api
+export CONDUCTOR_DECISION_PROVIDER=openrouter  # optional when the server has a default
+dotnet run --project Conductor.AI.Examples/116_DecisionRouting
+dotnet run --project Conductor.AI.Examples/116_DecisionRouting -- "The product crashes on startup with error 500. Help troubleshoot it."
+dotnet run --project Conductor.AI.Examples/117_DecisionRouter -- --run
+dotnet run --project Conductor.AI.Examples/118_DecisionTool
+```
+
+The router prints its compiled plan without `--run`. Use `Agent.DecisionRouter` or
+`AgentBuilder.WithRouter(ToolDef)` with `ToolType = "decision"` and a config containing
+`model`, `questions`, and optional `provider`. The existing `Agent.Router` property
+continues to accept an Agent; assigning both router properties is rejected. A decision
+selector is emitted as `{name, kind: "decision", model, questions, provider?}` and runs
+as one synchronous SWITCH on the server. The standalone tool also executes as a
+SWITCH, with no branches.
 
 ## Examples with extra prerequisites
 
