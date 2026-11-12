@@ -158,7 +158,8 @@ public sealed class Suite15_MediaTools
     // Mirrors Python's test_image_openai. Gated on OPENAI_API_KEY because
     // the GENERATE_IMAGE task calls the real OpenAI image API.
 
-    [SkippableFact]
+    [SkippableFact(Skip = "gpt-image-1 is not enabled in the Orkes-Developers OpenAI project "
+        + "(gpt-image-* models are not on its allowlist)")]
     public async Task ImageGeneration_OpenAI_TaskCompletes()
     {
         _fixture.RequireServer();
