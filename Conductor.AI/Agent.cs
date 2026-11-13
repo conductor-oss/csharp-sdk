@@ -56,6 +56,8 @@ public sealed partial class Agent
     public List<Agent> Agents { get; set; } = [];
     public Strategy? Strategy { get; set; }
     public Agent? Router { get; set; }
+    /// <summary>Server-side decision selector for Strategy.Router. Use instead of Router.</summary>
+    public ToolDef? DecisionRouter { get; set; }
     /// <summary>Maximum agent loop iterations. Defaults to 25, matching
     /// Python/TS/Java; always emitted on the wire so the server does not apply
     /// its own (larger) default.</summary>
@@ -317,7 +319,8 @@ public sealed class AgentBuilder
     public AgentBuilder WithTools(params ToolDef[] tools) { _agent.Tools.AddRange(tools); return this; }
     public AgentBuilder WithAgents(params Agent[] agents) { _agent.Agents.AddRange(agents); return this; }
     public AgentBuilder WithStrategy(Strategy strategy) { _agent.Strategy = strategy; return this; }
-    public AgentBuilder WithRouter(Agent router) { _agent.Router = router; return this; }
+    public AgentBuilder WithRouter(Agent router) { _agent.Router = router; _agent.DecisionRouter = null; return this; }
+    public AgentBuilder WithRouter(ToolDef router) { _agent.DecisionRouter = router; _agent.Router = null; return this; }
     public AgentBuilder WithOutputType<T>() { _agent.OutputType = typeof(T); return this; }
     public AgentBuilder WithMaxTurns(int turns) { _agent.MaxTurns = turns; return this; }
     public AgentBuilder WithMaxTokens(int tokens) { _agent.MaxTokens = tokens; return this; }

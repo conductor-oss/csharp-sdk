@@ -122,15 +122,15 @@ public sealed class ToolDef
     public int? RetryDelaySeconds { get; init; }
     /// <summary>Retry strategy: "fixed", "linear_backoff", or "exponential_backoff".</summary>
     public string? RetryPolicy { get; init; }
-    /// <summary>Tool type: "worker" (default), "agent_tool", "external", or media types.</summary>
-    internal string? ToolType { get; init; }
+    /// <summary>Tool type: "worker" (default), "decision", "agent_tool", "external", or media types.</summary>
+    public string? ToolType { get; init; }
     /// <summary>For agent_tool: the wrapped agent and its runtime config.</summary>
     internal Agent? WrappedAgent { get; init; }
     internal int? AgentToolRetryCount { get; init; }
     internal int? AgentToolRetryDelaySeconds { get; init; }
     internal bool? AgentToolOptional { get; init; }
-    /// <summary>For server-side tools (media, pdf): static config passed to Conductor.</summary>
-    internal Dictionary<string, object>? Config { get; init; }
+    /// <summary>For server-side tools (decision, media, pdf): static config passed to Conductor.</summary>
+    public Dictionary<string, object>? Config { get; init; }
     // The backing delegate — null for remote/server-registered tools.
     internal Func<Dictionary<string, JsonElement>, ToolContext?, Task<object?>>? Handler { get; init; }
 

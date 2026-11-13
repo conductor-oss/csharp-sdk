@@ -22,7 +22,7 @@ var workflowDef = await runtime.PlanAsync(agent);   // JsonNode?
 | `tools` | array | `Agent.Tools` |
 | `agents` | array | Sub-agents, recursively `agentConfig`-shaped |
 | `strategy` | string | `handoff`, `sequential`, `parallel`, `router`, `round_robin`, `random`, `swarm`, `manual`, `plan_execute` |
-| `router` | object | `Strategy.Router` classifier |
+| `router` | object | `Strategy.Router` selector: a nested agent config (`Agent.Router`), or a decision selector `{name, kind: "decision", model, questions, provider?}` (`Agent.DecisionRouter`) |
 | `maxTurns` / `maxTokens` / `temperature` / `timeoutSeconds` | number | |
 | `guardrails` | array | |
 | `termination` | object | |
