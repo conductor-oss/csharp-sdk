@@ -24,7 +24,12 @@
     "tools": { "type": "array", "items": { "$ref": "#/$defs/tool" } },
     "agents": { "type": "array", "items": { "$ref": "#" } },
     "strategy": { "$ref": "#/$defs/strategy" },
-    "router": { "$ref": "#" },
+    "router": {
+      "description": "An agent selector, or a server-side decision selector (Agent.DecisionRouter).",
+      "if": { "type": "object", "required": ["kind"] },
+      "then": { "$ref": "#/$defs/decisionRouter" },
+      "else": { "$ref": "#" }
+    },
     "maxTurns": { "type": "integer", "minimum": 1 },
     "maxTokens": { "type": "integer", "minimum": 1 },
     "temperature": { "type": "number" },
@@ -85,6 +90,23 @@
     "rawConfig": { "type": "object" }
   },
   "$defs": {
+    "decisionRouter": {
+      "type": "object",
+      "required": ["name", "kind", "model", "questions"],
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "const": "decision" },
+        "model": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string" },
+        "questions": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "object" },
+          "description": "Exactly one choice question must have choice keys equal to the child agent names."
+        }
+      },
+      "additionalProperties": false
+    },
     "strategy": {
       "type": "string",
       "enum": [

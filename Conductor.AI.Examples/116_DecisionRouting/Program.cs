@@ -14,13 +14,8 @@ var config = new Configuration { BasePath = Settings.ServerUrl };
 var workflow = new ConductorWorkflow { OutputParameters = new Dictionary<string, object>() }
     .WithName("ai_decision_routing_csharp").WithVersion(1)
     .WithOwner("examples@conductor-oss.org").WithInputParameter("request");
-// useJavascript=true preserves the expression; the evaluator is replaced below.
-// The legacy value-param constructor otherwise creates a switchCaseValue binding.
-var decision = new SwitchTask("route_request", "route", useJavascript: true)
-{
-    Type = "SWITCH",
-    EvaluatorType = "decision",
-};
+// "route" names the choice question below; its choice keys match the decision cases.
+var decision = SwitchTask.Decision("route_request", "route");
 decision.WithInput("model", "jev-1.13")
     .WithInput("state", workflow.Input("request"))
     .WithInput("questions", new Dictionary<string, object>
@@ -40,14 +35,14 @@ var provider = Environment.GetEnvironmentVariable("CONDUCTOR_DECISION_PROVIDER")
 if (provider is not null) decision.WithInput("provider", provider);
 var billing = new JavascriptTask("handle_billing",
     "({team: 'billing', nextAction: 'review_invoice', " +
-    "message: 'Check invoice line items and payment records.', request: $.request})") { Type = "INLINE" };
+    "message: 'Check invoice line items and payment records.', request: $.request})");
 billing.WithInput("request", workflow.Input("request"));
 var technical = new JavascriptTask("handle_technical",
     "({team: 'technical', nextAction: 'collect_diagnostics', " +
-    "message: 'Collect error logs and steps to reproduce.', request: $.request})") { Type = "INLINE" };
+    "message: 'Collect error logs and steps to reproduce.', request: $.request})");
 technical.WithInput("request", workflow.Input("request"));
 decision.WithDecisionCase("billing", billing).WithDecisionCase("technical", technical);
-var result = new JavascriptTask("selected_result", "$.billing || $.technical") { Type = "INLINE" };
+var result = new JavascriptTask("selected_result", "$.billing || $.technical");
 result.WithInput("billing", billing.Output("result"))
     .WithInput("technical", technical.Output("result"));
 workflow.WithTask(decision, result)

@@ -47,7 +47,7 @@ var task = new SimpleTask("greet", "greet_ref")
 |---|---|
 | `SimpleTask` | A task executed by your worker. |
 | `HttpTask` | Server makes an HTTP call. |
-| `SwitchTask` | Branch on a value. |
+| `SwitchTask` | Branch on a value. `SwitchTask.Decision(ref, questionKey)` lets the server pick the branch with Decision inference (Conductor OSS 3.33.0+). |
 | `ForkJoinTask` / `JoinTask` | Static parallel branches and their join. |
 | `DynamicFork` (with `DynamicForkInput`) | Fan out over a runtime-computed list. |
 | `DoWhileTask` | Loop while a condition holds. |

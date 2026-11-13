@@ -51,6 +51,10 @@ internal static class AgentConfigSerializer
         };
     }
 
+    // Shared options without the camelCase policy, for user data whose names are significant.
+    private static readonly JsonSerializerOptions VerbatimJson =
+        new(ConductorAgentJson.Options) { PropertyNamingPolicy = null };
+
     internal static JsonObject SerializeAgent(Agent agent)
     {
         // Framework shape-adapter path: server normalizers (OpenAINormalizer,
@@ -280,7 +284,8 @@ internal static class AgentConfigSerializer
             var router = agent.DecisionRouter;
             if (router.ToolType != "decision")
                 throw new InvalidOperationException("Only a decision ToolDef can be used as a router.");
-            var config = JsonSerializer.SerializeToNode(router.Config, ConductorAgentJson.Options)?.AsObject();
+            // Keep user-supplied names verbatim: choice keys must equal agent names exactly.
+            var config = JsonSerializer.SerializeToNode(router.Config, VerbatimJson)?.AsObject();
             if (config?["model"] is not JsonValue model ||
                 !model.TryGetValue<string>(out var modelName) || string.IsNullOrWhiteSpace(modelName))
                 throw new InvalidOperationException("Decision router tool config requires 'model'.");
@@ -293,7 +298,8 @@ internal static class AgentConfigSerializer
                 ["model"] = modelName,
                 ["questions"] = questions.DeepClone(),
             };
-            if (config["provider"] is not null) selector["provider"] = config["provider"]!.DeepClone();
+            if (config["provider"] is JsonValue p && p.TryGetValue<string>(out var provider) && !string.IsNullOrWhiteSpace(provider))
+                selector["provider"] = provider;
             cfg["router"] = selector;
         }
         else if (agent.Router is not null)

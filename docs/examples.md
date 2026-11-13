@@ -13,9 +13,7 @@ topic and increasing in complexity:
 | `02_*` | Tools — simple, multi-step, registries |
 | `03_*` | Structured output |
 | `04_*` | HTTP and MCP tools |
-| [116_DecisionRouting](../Conductor.AI.Examples/116_DecisionRouting/Program.cs) | Decision SWITCH with billing/technical INLINE branches |
-| [117_DecisionRouter](../Conductor.AI.Examples/117_DecisionRouter/Program.cs) | Decision selector routing to chat agents |
-| [118_DecisionTool](../Conductor.AI.Examples/118_DecisionTool/Program.cs) | Chat agent using a decision tool |
+| `116_*`–`118_*` | Decision (Jev) routing: [SWITCH](../Conductor.AI.Examples/116_DecisionRouting/Program.cs), [router](../Conductor.AI.Examples/117_DecisionRouter/Program.cs), [tool](../Conductor.AI.Examples/118_DecisionTool/Program.cs) |
 | `Sk*_*` | Semantic Kernel adapter |
 
 Each directory is its own `Program.cs` with a header comment listing the environment

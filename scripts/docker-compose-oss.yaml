@@ -17,6 +17,10 @@ services:
     image: conductoross/conductor:${OSS_CONDUCTOR_VERSION:-3.32.3}
     environment:
       - CONFIG_PROP=config-postgres.properties
+      # Decision-backed SWITCH tasks (server 3.33.0+) call the deterministic stub
+      # below instead of a real provider; the key is a placeholder it ignores.
+      - CONDUCTOR_AI_DECISION_APIKEY=stub-key
+      - CONDUCTOR_AI_DECISION_ENDPOINT=http://decision-stub:8090/v1/systemone
     ports:
       - "8080:8080"
     healthcheck:
@@ -29,6 +33,13 @@ services:
     depends_on:
       conductor-postgres:
         condition: service_healthy
+      decision-stub:
+        condition: service_started
+  decision-stub:
+    image: python:3.12-alpine
+    command: ["python", "/stub/decision-stub.py", "8090"]
+    volumes:
+      - ./decision-stub.py:/stub/decision-stub.py:ro
   conductor-postgres:
     image: postgres:16
     environment:

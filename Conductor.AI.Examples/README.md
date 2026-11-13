@@ -75,6 +75,16 @@ dotnet run --project Conductor.AI.Examples/117_DecisionRouter -- --run
 dotnet run --project Conductor.AI.Examples/118_DecisionTool
 ```
 
+Without Decision credentials, run against the stack in `scripts/docker-compose-oss.yaml`
+(`OSS_CONDUCTOR_VERSION=3.33.0` or later). It points the server at `scripts/decision-stub.py`, a
+deterministic provider that picks the choice whose words appear in the request. `116_DecisionRouting`
+then runs end to end with no keys; `117`/`118` still need a chat model for the agents.
+
+In a plain workflow, build the SWITCH with `SwitchTask.Decision(taskRef, questionKey)` and put
+`model`, `state`, `questions`, and optional `provider` in its inputs. The question's choice keys
+must match the decision case keys. The server writes `selectedCase`, `answers`, `usage`, and
+`latencyMs` to the SWITCH output. Provider failures fail the workflow without task retries.
+
 The router prints its compiled plan without `--run`. Use `Agent.DecisionRouter` or
 `AgentBuilder.WithRouter(ToolDef)` with `ToolType = "decision"` and a config containing
 `model`, `questions`, and optional `provider`. The existing `Agent.Router` property

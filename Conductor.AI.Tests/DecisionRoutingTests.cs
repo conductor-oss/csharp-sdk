@@ -43,6 +43,39 @@ public class DecisionRoutingTests
         Assert.False(config["synthesize"]!.GetValue<bool>());
     }
 
+    [Fact]
+    public void DecisionRouterKeepsChoiceKeysFromAnonymousObjects()
+    {
+        var agent = new Agent("support")
+        {
+            Strategy = Strategy.Router,
+            DecisionRouter = new ToolDef
+            {
+                Name = "selector",
+                ToolType = "decision",
+                Config = new Dictionary<string, object>
+                {
+                    ["model"] = "jev-1.13",
+                    ["questions"] = new { Agent = new { type = "choice", choices = new { BillingAgent = "Invoices" } } },
+                },
+            },
+            Agents = [new Agent("BillingAgent") { Model = "openai/gpt-4o-mini" }],
+        };
+        var router = AgentConfigSerializer.SerializeAgent(agent)["router"]!;
+        // Choice keys must equal agent names exactly; the server matches them verbatim.
+        Assert.NotNull(router["questions"]!["Agent"]!["choices"]!["BillingAgent"]);
+    }
+
+    [Theory]
+    [InlineData("provider-not-string", 42)]
+    [InlineData("provider-blank", " ")]
+    public void DecisionRouterOmitsNonStringOrBlankProvider(string _, object provider)
+    {
+        var config = new Dictionary<string, object>(Selector().Config!) { ["provider"] = provider };
+        var agent = new Agent("support") { DecisionRouter = new ToolDef { Name = "s", ToolType = "decision", Config = config } };
+        Assert.False(AgentConfigSerializer.SerializeAgent(agent)["router"]!.AsObject().ContainsKey("provider"));
+    }
+
     [Theory]
     [InlineData("worker", "jev-1.13", true)]
     [InlineData("decision", null, true)]
@@ -88,21 +121,30 @@ public class DecisionRoutingTests
     }
 
     [Fact]
-    public void DecisionSwitchPreservesExpressionAndLegacyValueParamBehavior()
+    public void DecisionSwitchSendsExpressionVerbatimWithoutSwitchCaseValue()
     {
-        var decision = new SwitchTask("route_request", "route", useJavascript: true)
-        {
-            Type = "SWITCH",
-            EvaluatorType = "decision",
-        };
-        decision.WithInput("model", "jev-1.13");
+        var decision = SwitchTask.Decision("route_request", "route");
+        decision.WithDecisionCase("billing").WithDecisionCase("technical");
+        decision.WithInput("model", "jev-1.13")
+            .WithInput("questions", new { route = new { type = "choice", choices = new { billing = "B", technical = "T" } } });
         var json = JObject.Parse(decision.ToJson());
-        Assert.Equal("SWITCH", (string?)json["type"]);
+        Assert.Equal("SWITCH", (string?)json["workflowTaskType"]);
         Assert.Equal("decision", (string?)json["evaluatorType"]);
         Assert.Equal("route", (string?)json["expression"]);
         Assert.Null(json["inputParameters"]!["switchCaseValue"]);
-        var legacy = new SwitchTask("legacy", "${workflow.input.route}");
-        Assert.Equal("switchCaseValue", legacy.Expression);
-        Assert.Equal("${workflow.input.route}", legacy.InputParameters["switchCaseValue"]);
+        Assert.Equal(
+            ((JObject)json["inputParameters"]!["questions"]!["route"]!["choices"]!).Properties().Select(p => p.Name),
+            ((JObject)json["decisionCases"]!).Properties().Select(p => p.Name));
+    }
+
+    [Theory]
+    [InlineData(false, "${workflow.input.route}", "value-param", "switchCaseValue")]
+    [InlineData(true, "return $.route;", "javascript", "return $.route;")]
+    public void ExistingSwitchConstructorsAreUnchanged(bool useJavascript, string expression, string evaluator, string sentExpression)
+    {
+        var task = new SwitchTask("route", expression, useJavascript);
+        Assert.Equal(evaluator, task.EvaluatorType);
+        Assert.Equal(sentExpression, task.Expression);
+        Assert.Equal(useJavascript ? null : expression, task.InputParameters.GetValueOrDefault("switchCaseValue"));
     }
 }
