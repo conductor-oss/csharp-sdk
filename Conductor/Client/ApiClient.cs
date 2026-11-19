@@ -241,7 +241,9 @@ namespace Conductor.Client
                 {
                     var JsonContent = JsonConvert.DeserializeObject<JObject>(response.Content);
 
-                    if (JsonContent["error"].ToString() == "EXPIRED_TOKEN")
+                    var error = JsonContent?["error"]?.ToString();
+                    // INVALID_TOKEN: e.g. a token issued by another server after a failover; a fresh one works.
+                    if (error == "EXPIRED_TOKEN" || error == "INVALID_TOKEN")
                     {
                         string refreshToken = configuration.GetRefreshToken();
                         headerParams["X-Authorization"] = refreshToken;
@@ -350,7 +352,9 @@ namespace Conductor.Client
                 {
                     var jsonContent = JsonConvert.DeserializeObject<JObject>(response.Content);
 
-                    if (jsonContent["error"].ToString() == "EXPIRED_TOKEN")
+                    var error = jsonContent?["error"]?.ToString();
+                    // INVALID_TOKEN: e.g. a token issued by another server after a failover; a fresh one works.
+                    if (error == "EXPIRED_TOKEN" || error == "INVALID_TOKEN")
                     {
                         string refreshToken = configuration.GetRefreshToken();
                         headerParams["X-Authorization"] = refreshToken;
