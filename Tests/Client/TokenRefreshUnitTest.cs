@@ -11,6 +11,7 @@
  * specific language governing permissions and limitations under the License.
  */
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -91,6 +92,50 @@ namespace Tests.Client
                 Task.Factory.StartNew(() => api.GetSecret("key"), TaskCreationOptions.LongRunning)));
 
             Assert.Equal(1, issued);
+        }
+
+        [Fact]
+        public void PersistentRejection_RetriesWithEveryRefreshedToken()
+        {
+            var (api, sentTokens, issued) = AlwaysRejectingApi();
+
+            var e = Assert.Throws<ApiException>(() => api.GetSecret("key"));
+
+            AssertEveryRefreshWasUsed(e, sentTokens, issued());
+        }
+
+        [Fact]
+        public async Task PersistentRejection_RetriesWithEveryRefreshedToken_Async()
+        {
+            var (api, sentTokens, issued) = AlwaysRejectingApi();
+
+            var e = await Assert.ThrowsAsync<ApiException>(() => api.GetSecretAsync("key"));
+
+            AssertEveryRefreshWasUsed(e, sentTokens, issued());
+        }
+
+        private static (SecretResourceApi Api, ConcurrentQueue<string> SentTokens, Func<int> Issued) AlwaysRejectingApi()
+        {
+            int issued = 0;
+            var sentTokens = new ConcurrentQueue<string>();
+            var api = ApiFor(request =>
+            {
+                if (IsTokenRequest(request))
+                {
+                    return Task.FromResult((HttpStatusCode.OK, $"{{\"token\":\"t{Interlocked.Increment(ref issued)}\"}}"));
+                }
+                sentTokens.Enqueue(TokenOf(request));
+                return Task.FromResult((HttpStatusCode.Unauthorized, InvalidToken));
+            });
+            return (api, sentTokens, () => Volatile.Read(ref issued));
+        }
+
+        private static void AssertEveryRefreshWasUsed(ApiException e, ConcurrentQueue<string> sentTokens, int issued)
+        {
+            Assert.Equal(401, e.ErrorCode);
+            Assert.Equal(Constants.MAX_TOKEN_REFRESH_RETRY_COUNT + 1, sentTokens.Count);
+            Assert.Equal(sentTokens.Count, issued);
+            Assert.Equal($"t{issued}", sentTokens.Last());
         }
 
         private static SecretResourceApi ApiFor(Func<HttpRequestMessage, Task<(HttpStatusCode Status, string Body)>> respond)

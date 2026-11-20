@@ -203,7 +203,7 @@ namespace Conductor.Client
             var metricsUri = path;
 
             RestResponse response = null;
-            while (retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
+            while (true)
             {
                 var sw = Stopwatch.StartNew();
                 string statusCode = "0";
@@ -237,7 +237,9 @@ namespace Conductor.Client
                     }
                 }
 
-                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                // Refresh only when a retry follows; a token fetched after the last attempt is never used.
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                    && retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
                 {
                     var JsonContent = JsonConvert.DeserializeObject<JObject>(response.Content);
 
@@ -339,7 +341,7 @@ namespace Conductor.Client
         {
             RestResponse response = null;
             int retryCount = 0;
-            while (retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
+            while (true)
             {
                 var request = PrepareRequest(
                     path, method, queryParams, postBody, headerParams, formParams, fileParams,
@@ -350,7 +352,9 @@ namespace Conductor.Client
                 InterceptResponse(request, response);
                 FormatHeaders(response);
 
-                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                // Refresh only when a retry follows; a token fetched after the last attempt is never used.
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                    && retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
                 {
                     var jsonContent = JsonConvert.DeserializeObject<JObject>(response.Content);
 
