@@ -11,7 +11,6 @@ on:
   pull_request:
     branches:
       - main
-      - fix/refresh-on-invalid-token
   workflow_dispatch:
     inputs:
       oss_conductor_version:
