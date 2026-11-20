@@ -97,6 +97,14 @@ echo "Conductor is up."
 
 export CONDUCTOR_SERVER_URL="http://localhost:8080/api"
 
+# Decision SWITCH tests use the decision stub in the compose file and need 3.33.0+.
+SERVER_VERSION="$(curl -sf http://localhost:8080/api/version || true)"
+if [[ -n "${SERVER_VERSION}" && "$(printf '%s\n' 3.33.0 "${SERVER_VERSION}" | sort -V | head -1)" == "3.33.0" ]]; then
+  export CONDUCTOR_DECISION_STUB=true
+else
+  echo "Conductor ${SERVER_VERSION:-unknown} predates decision SWITCH support; DecisionSwitchTests will be skipped."
+fi
+
 dotnet test Tests/conductor-csharp.test.csproj \
   -p:DefineConstants=EXCLUDE_EXAMPLE_WORKERS \
   --filter "Category=Integration&ServerType!=Orkes" \

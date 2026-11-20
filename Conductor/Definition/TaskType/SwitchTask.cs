@@ -22,6 +22,32 @@ namespace Conductor.Definition.TaskType
 
         private const string JAVASCRIPT_PARAM_NAME = "javascript";
 
+        /// <summary>
+        /// Evaluator type for a server-side decision SWITCH. The task's input parameters
+        /// carry <c>model</c>, optional <c>provider</c>, <c>state</c>, and <c>questions</c>;
+        /// the expression names the choice question whose keys match the decision cases.
+        /// </summary>
+        public const string DecisionEvaluator = "decision";
+
+        /// <summary>
+        /// Creates a SWITCH with an explicit evaluator type. The expression is sent as-is
+        /// and no <c>switchCaseValue</c> input is added.
+        /// </summary>
+        public SwitchTask(string taskReferenceName, string expression, string evaluatorType) : base(taskReferenceName, WorkflowTask.WorkflowTaskTypeEnum.SWITCH)
+        {
+            DecisionCases = new Dictionary<string, List<WorkflowTask>>();
+            DefaultCase = new List<WorkflowTask>();
+            Expression = expression;
+            EvaluatorType = evaluatorType;
+        }
+
+        /// <summary>
+        /// Creates a decision-backed SWITCH. <paramref name="questionKey"/> names the choice
+        /// question in the <c>questions</c> input whose choice keys match the decision cases.
+        /// </summary>
+        public static SwitchTask Decision(string taskReferenceName, string questionKey) =>
+            new SwitchTask(taskReferenceName, questionKey, DecisionEvaluator);
+
         public SwitchTask(string taskReferenceName, string caseExpression, bool useJavascript = false) : base(taskReferenceName, WorkflowTask.WorkflowTaskTypeEnum.SWITCH)
         {
             DecisionCases = new Dictionary<string, List<WorkflowTask>>();

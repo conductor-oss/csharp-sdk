@@ -51,6 +51,10 @@ internal static class AgentConfigSerializer
         };
     }
 
+    // Shared options without the camelCase policy, for user data whose names are significant.
+    private static readonly JsonSerializerOptions VerbatimJson =
+        new(ConductorAgentJson.Options) { PropertyNamingPolicy = null };
+
     internal static JsonObject SerializeAgent(Agent agent)
     {
         // Framework shape-adapter path: server normalizers (OpenAINormalizer,
@@ -273,7 +277,32 @@ internal static class AgentConfigSerializer
         if (agent.Strategy.HasValue)
             cfg["strategy"] = StrategyToWire(agent.Strategy.Value);
 
-        if (agent.Router is not null)
+        if (agent.DecisionRouter is not null)
+        {
+            if (agent.Router is not null)
+                throw new InvalidOperationException("Set either Router or DecisionRouter, not both.");
+            var router = agent.DecisionRouter;
+            if (router.ToolType != "decision")
+                throw new InvalidOperationException("Only a decision ToolDef can be used as a router.");
+            // Keep user-supplied names verbatim: choice keys must equal agent names exactly.
+            var config = JsonSerializer.SerializeToNode(router.Config, VerbatimJson)?.AsObject();
+            if (config?["model"] is not JsonValue model ||
+                !model.TryGetValue<string>(out var modelName) || string.IsNullOrWhiteSpace(modelName))
+                throw new InvalidOperationException("Decision router tool config requires 'model'.");
+            if (config["questions"] is not JsonObject questions || questions.Count == 0)
+                throw new InvalidOperationException("Decision router tool config requires 'questions'.");
+            var selector = new JsonObject
+            {
+                ["name"] = router.Name,
+                ["kind"] = "decision",
+                ["model"] = modelName,
+                ["questions"] = questions.DeepClone(),
+            };
+            if (config["provider"] is JsonValue p && p.TryGetValue<string>(out var provider) && !string.IsNullOrWhiteSpace(provider))
+                selector["provider"] = provider;
+            cfg["router"] = selector;
+        }
+        else if (agent.Router is not null)
             cfg["router"] = SerializeAgent(agent.Router);
 
         if (agent.Termination is not null)

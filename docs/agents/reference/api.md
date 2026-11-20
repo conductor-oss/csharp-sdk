@@ -36,6 +36,7 @@ The public surface of the `conductor-ai` package, one section per type. The
 | `Agents` | `List<Agent>` | Sub-agents. |
 | `Strategy` | `Strategy?` | Required when `Agents` is non-empty. |
 | `Router` | `Agent?` | For `Strategy.Router`. |
+| `DecisionRouter` | `ToolDef?` | For `Strategy.Router`: a server-side decision selector (`ToolType = "decision"`, `Config` with `model`, `questions`, optional `provider`). One choice question's keys must equal the child agent names. Mutually exclusive with `Router`. |
 | `MaxTurns` / `MaxTokens` / `Temperature` / `TimeoutSeconds` | nullable | |
 | `Guardrails` | `List<GuardrailDef>` | |
 | `Termination` | `TerminationCondition?` | |
@@ -65,7 +66,7 @@ have no strategy.
 
 `WithModel`, `WithInstructions(string)`, `WithInstructions(Func<string>)`,
 `WithInstructions(PromptTemplate)`, `WithTools(params ToolDef[])`,
-`WithAgents(params Agent[])`, `WithStrategy`, `WithRouter`, `WithOutputType<T>()`,
+`WithAgents(params Agent[])`, `WithStrategy`, `WithRouter(Agent)` / `WithRouter(ToolDef)` (the last call wins), `WithOutputType<T>()`,
 `WithMaxTurns`, `WithMaxTokens`, `WithTemperature`, `WithTimeout`, `WithExternal`,
 `WithEnablePlanning`, `WithPlanner`, `WithFallback`, `WithFallbackMaxTurns`,
 `WithPlannerContext(params Context[])` / `(params string[])`, `WithIncludeContents`,
@@ -88,7 +89,9 @@ have no strategy.
 
 **`ToolDef`** — `Name`, `Description`, `InputSchema` (`JsonObject`),
 `ApprovalRequired`, `External`, `TimeoutSeconds`, `Credentials`, `Stateful`,
-`RetryCount`, `RetryDelaySeconds`, `RetryPolicy`, `Guardrails`. Method
+`RetryCount`, `RetryDelaySeconds`, `RetryPolicy`, `Guardrails`, `ToolType`, `Config`.
+Set `ToolType = "decision"` and `Config` (`model`, `questions`, optional `provider`) for a
+server-side Decision tool; the server runs it as a branchless decision SWITCH. Method
 `WithGuardrails(params GuardrailDef[])` returns a copy with guardrails appended.
 
 **`ToolContext`** (record) — injected into tool methods: `SessionId`, `ExecutionId`,
