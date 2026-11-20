@@ -238,26 +238,39 @@ namespace Conductor.Client
                 }
 
                 // Refresh only when a retry follows; a token fetched after the last attempt is never used.
-                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
-                    && retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
+                // A request sent without a token, such as /token itself, has nothing to refresh.
+                if (retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT
+                    && IsRejectedToken(response)
+                    && headerParams.TryGetValue("X-Authorization", out var staleToken))
                 {
-                    var JsonContent = JsonConvert.DeserializeObject<JObject>(response.Content);
-
-                    var error = JsonContent?["error"]?.ToString();
-                    // INVALID_TOKEN: e.g. a token issued by another server after a failover; a fresh one works.
-                    // A request sent without a token, such as /token itself, has nothing to refresh.
-                    if ((error == "EXPIRED_TOKEN" || error == "INVALID_TOKEN")
-                        && headerParams.TryGetValue("X-Authorization", out var staleToken))
-                    {
-                        string refreshToken = configuration.GetRefreshToken(staleToken);
-                        headerParams["X-Authorization"] = refreshToken;
-                        retryCount++;
-                        continue;
-                    }
+                    headerParams["X-Authorization"] = configuration.GetRefreshToken(staleToken);
+                    retryCount++;
+                    continue;
                 }
                 break;
             }
             return response;
+        }
+
+        // INVALID_TOKEN covers a token issued by another server, e.g. the peer region after a failover.
+        private static bool IsRejectedToken(RestResponse response)
+        {
+            if (response.StatusCode != System.Net.HttpStatusCode.Unauthorized || string.IsNullOrEmpty(response.Content))
+            {
+                return false;
+            }
+            JObject body;
+            try
+            {
+                body = JsonConvert.DeserializeObject<JObject>(response.Content);
+            }
+            catch (JsonException)
+            {
+                // Not a Conductor error body, e.g. an HTML 401 page from a proxy; a new token would not help.
+                return false;
+            }
+            var error = body?["error"]?.ToString();
+            return error == "EXPIRED_TOKEN" || error == "INVALID_TOKEN";
         }
 
         public async Task<object> CallApiAsync(
@@ -353,22 +366,14 @@ namespace Conductor.Client
                 FormatHeaders(response);
 
                 // Refresh only when a retry follows; a token fetched after the last attempt is never used.
-                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
-                    && retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT)
+                // A request sent without a token, such as /token itself, has nothing to refresh.
+                if (retryCount < Constants.MAX_TOKEN_REFRESH_RETRY_COUNT
+                    && IsRejectedToken(response)
+                    && headerParams.TryGetValue("X-Authorization", out var staleToken))
                 {
-                    var jsonContent = JsonConvert.DeserializeObject<JObject>(response.Content);
-
-                    var error = jsonContent?["error"]?.ToString();
-                    // INVALID_TOKEN: e.g. a token issued by another server after a failover; a fresh one works.
-                    // A request sent without a token, such as /token itself, has nothing to refresh.
-                    if ((error == "EXPIRED_TOKEN" || error == "INVALID_TOKEN")
-                        && headerParams.TryGetValue("X-Authorization", out var staleToken))
-                    {
-                        string refreshToken = configuration.GetRefreshToken(staleToken);
-                        headerParams["X-Authorization"] = refreshToken;
-                        retryCount++;
-                        continue;
-                    }
+                    headerParams["X-Authorization"] = configuration.GetRefreshToken(staleToken);
+                    retryCount++;
+                    continue;
                 }
                 break;
             }

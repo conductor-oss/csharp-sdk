@@ -114,6 +114,38 @@ namespace Tests.Client
             AssertEveryRefreshWasUsed(e, sentTokens, issued());
         }
 
+        // A proxy or load balancer can answer 401 with an HTML page; that is not a token the client can fix by refreshing.
+        [Fact]
+        public void NonJson401_FailsWithApiExceptionAndNoRefresh()
+        {
+            var (api, issued) = HtmlRejectingApi();
+
+            var e = Assert.Throws<ApiException>(() => api.GetSecret("key"));
+
+            Assert.Equal(401, e.ErrorCode);
+            Assert.Equal(1, issued());
+        }
+
+        [Fact]
+        public async Task NonJson401_FailsWithApiExceptionAndNoRefresh_Async()
+        {
+            var (api, issued) = HtmlRejectingApi();
+
+            var e = await Assert.ThrowsAsync<ApiException>(() => api.GetSecretAsync("key"));
+
+            Assert.Equal(401, e.ErrorCode);
+            Assert.Equal(1, issued());
+        }
+
+        private static (SecretResourceApi Api, Func<int> Issued) HtmlRejectingApi()
+        {
+            int issued = 0;
+            var api = ApiFor(request => Task.FromResult(IsTokenRequest(request)
+                ? (HttpStatusCode.OK, $"{{\"token\":\"t{Interlocked.Increment(ref issued)}\"}}")
+                : (HttpStatusCode.Unauthorized, "<html><body><h1>401 Unauthorized</h1></body></html>")));
+            return (api, () => Volatile.Read(ref issued));
+        }
+
         private static (SecretResourceApi Api, ConcurrentQueue<string> SentTokens, Func<int> Issued) AlwaysRejectingApi()
         {
             int issued = 0;
