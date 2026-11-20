@@ -243,9 +243,11 @@ namespace Conductor.Client
 
                     var error = JsonContent?["error"]?.ToString();
                     // INVALID_TOKEN: e.g. a token issued by another server after a failover; a fresh one works.
-                    if (error == "EXPIRED_TOKEN" || error == "INVALID_TOKEN")
+                    // A request sent without a token, such as /token itself, has nothing to refresh.
+                    if ((error == "EXPIRED_TOKEN" || error == "INVALID_TOKEN")
+                        && headerParams.TryGetValue("X-Authorization", out var staleToken))
                     {
-                        string refreshToken = configuration.GetRefreshToken();
+                        string refreshToken = configuration.GetRefreshToken(staleToken);
                         headerParams["X-Authorization"] = refreshToken;
                         retryCount++;
                         continue;
@@ -354,9 +356,11 @@ namespace Conductor.Client
 
                     var error = jsonContent?["error"]?.ToString();
                     // INVALID_TOKEN: e.g. a token issued by another server after a failover; a fresh one works.
-                    if (error == "EXPIRED_TOKEN" || error == "INVALID_TOKEN")
+                    // A request sent without a token, such as /token itself, has nothing to refresh.
+                    if ((error == "EXPIRED_TOKEN" || error == "INVALID_TOKEN")
+                        && headerParams.TryGetValue("X-Authorization", out var staleToken))
                     {
-                        string refreshToken = configuration.GetRefreshToken();
+                        string refreshToken = configuration.GetRefreshToken(staleToken);
                         headerParams["X-Authorization"] = refreshToken;
                         retryCount++;
                         continue;

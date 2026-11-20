@@ -38,18 +38,41 @@ namespace Conductor.Client.Authentication
             {
                 return token;
             }
-            return RefreshToken(authenticationSettings, tokenClient);
+            // Callers that miss the cache together queue on the lock; only the first should fetch.
+            return RefreshToken(authenticationSettings, tokenClient, staleToken: null);
         }
 
         public string RefreshToken(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient)
         {
             lock (_lockObject)
             {
-                string token = GetTokenFromServer(authenticationSettings, tokenClient);
-                var expirationTime = System.DateTimeOffset.Now.AddMinutes(30);
-                _memoryCache.Set(authenticationSettings, token, expirationTime);
-                return token;
+                return FetchAndCacheToken(authenticationSettings, tokenClient);
             }
+        }
+
+        /// <summary>
+        /// Replaces <paramref name="staleToken"/>, the token the server rejected, unless another caller already has.
+        /// After a failover every in-flight request is rejected at once, and they should share one new token.
+        /// </summary>
+        public string RefreshToken(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient, string staleToken)
+        {
+            lock (_lockObject)
+            {
+                string token = (string)_memoryCache.Get(authenticationSettings);
+                if (token != null && token != staleToken)
+                {
+                    return token;
+                }
+                return FetchAndCacheToken(authenticationSettings, tokenClient);
+            }
+        }
+
+        private string FetchAndCacheToken(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient)
+        {
+            string token = GetTokenFromServer(authenticationSettings, tokenClient);
+            var expirationTime = System.DateTimeOffset.Now.AddMinutes(30);
+            _memoryCache.Set(authenticationSettings, token, expirationTime);
+            return token;
         }
 
         private string GetTokenFromServer(OrkesAuthenticationSettings authenticationSettings, TokenResourceApi tokenClient)
