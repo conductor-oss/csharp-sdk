@@ -22,7 +22,7 @@ namespace Conductor.Definition.TaskType
 
         public WaitTask(string taskReferenceName, TimeSpan duration) : base(taskReferenceName, WorkflowTask.WorkflowTaskTypeEnum.WAIT)
         {
-            WithInput(DURATION_PARAMETER, duration.Seconds.ToString() + "s");
+            WithInput(DURATION_PARAMETER, duration.TotalSeconds.ToString() + "s");
         }
 
         public WaitTask(string taskReferenceName, DateTime until) : base(taskReferenceName, WorkflowTask.WorkflowTaskTypeEnum.WAIT)
