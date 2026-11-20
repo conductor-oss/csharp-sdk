@@ -263,6 +263,17 @@ namespace Conductor.Client
             return _tokenHandler.RefreshToken(AuthenticationSettings, _tokenClient);
         }
 
+        /// <summary>
+        /// Get a token to replace <paramref name="staleToken"/>, which the server rejected.
+        /// Fetches a new one only if no other caller has already replaced it.
+        /// </summary>
+        /// <returns> new token</returns>
+        public string GetRefreshToken(string staleToken)
+        {
+            _tokenClient = GetClient<TokenResourceApi>();
+            return _tokenHandler.RefreshToken(AuthenticationSettings, _tokenClient, staleToken);
+        }
+
         #endregion Methods
     }
 }
