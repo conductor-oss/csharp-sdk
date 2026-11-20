@@ -13,8 +13,10 @@
 using Conductor.Client.Interfaces;
 using Conductor.Client.Telemetry;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,8 +31,14 @@ namespace Conductor.Client.Worker
         private readonly HashSet<IWorkflowTaskExecutor> _workers;
         private readonly IWorkflowTaskClient _client;
         private readonly MetricsCollector _metrics;
+        private readonly WorkerDiscoveryOptions _workerDiscoveryOptions;
 
-        public WorkflowTaskCoordinator(IWorkflowTaskClient client, ILogger<WorkflowTaskCoordinator> logger, ILogger<WorkflowTaskExecutor> loggerWorkflowTaskExecutor, ILogger<WorkflowTaskMonitor> loggerWorkflowTaskMonitor, MetricsCollector metrics = null)
+        public WorkflowTaskCoordinator(IWorkflowTaskClient client,
+                                       ILogger<WorkflowTaskCoordinator> logger,
+                                       ILogger<WorkflowTaskExecutor> loggerWorkflowTaskExecutor,
+                                       ILogger<WorkflowTaskMonitor> loggerWorkflowTaskMonitor,
+                                       MetricsCollector metrics = null,
+                                       IOptions<WorkerDiscoveryOptions> workerDiscoveryOptions = null)
         {
             _logger = logger;
             _client = client;
@@ -38,6 +46,8 @@ namespace Conductor.Client.Worker
             _loggerWorkflowTaskExecutor = loggerWorkflowTaskExecutor;
             _loggerWorkflowTaskMonitor = loggerWorkflowTaskMonitor;
             _metrics = metrics;
+
+            _workerDiscoveryOptions = workerDiscoveryOptions?.Value ?? new WorkerDiscoveryOptions();
         }
 
         public async Task Start(CancellationToken token)
@@ -46,7 +56,12 @@ namespace Conductor.Client.Worker
                 token.ThrowIfCancellationRequested();
 
             _logger.LogDebug("Starting workers...");
-            DiscoverWorkers();
+
+            if (_workerDiscoveryOptions.EnableAttributeDiscovery)
+            {
+                DiscoverWorkers();
+            }
+
             var runningWorkers = new List<Task>();
             foreach (var worker in _workers)
             {
@@ -72,7 +87,9 @@ namespace Conductor.Client.Worker
 
         private void DiscoverWorkers()
         {
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            var assemblies = _workerDiscoveryOptions.Assemblies?.Any() == true ? _workerDiscoveryOptions.Assemblies : AppDomain.CurrentDomain.GetAssemblies();
+
+            foreach (var assembly in assemblies)
             {
                 foreach (var type in assembly.GetTypes())
                 {
@@ -80,6 +97,7 @@ namespace Conductor.Client.Worker
                     {
                         continue;
                     }
+
                     foreach (var method in type.GetMethods())
                     {
                         var workerTask = method.GetCustomAttribute<WorkerTask>();

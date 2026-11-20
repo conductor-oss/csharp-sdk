@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright 2024 Conductor Authors.
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
@@ -12,7 +12,11 @@
  */
 using Conductor.Client.Extensions;
 using Conductor.Client.Telemetry;
+using Conductor.Client.Worker;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using System.Collections.Generic;
+using System.Reflection;
 using Xunit;
 
 namespace Tests.Extensions
@@ -87,6 +91,67 @@ namespace Tests.Extensions
 
             var provider = services.BuildServiceProvider();
             Assert.NotNull(provider.GetService<Conductor.Client.Configuration>());
+        }
+
+        [Fact]
+        public void ConfigureConductorWorkerDiscovery_WithoutConfiguration_UsesEmptyAssemblyCollection()
+        {
+            var services = new ServiceCollection();
+
+            services.AddConductorWorker();
+
+            var provider = services.BuildServiceProvider();
+            var options = provider.GetRequiredService<IOptions<WorkerDiscoveryOptions>>().Value;
+
+            Assert.Empty(options.Assemblies);
+        }
+
+        [Fact]
+        public void ConfigureConductorWorkerDiscovery_WithAction_ConfiguresAssemblyCollection()
+        {
+            var services = new ServiceCollection();
+            var assembly = typeof(DependencyInjectionExtensionsTests).Assembly;
+
+            services.ConfigureConductorWorkerDiscovery(options =>
+                options.Assemblies = new[] { assembly });
+
+            var provider = services.BuildServiceProvider();
+            var options = provider.GetRequiredService<IOptions<WorkerDiscoveryOptions>>().Value;
+
+            Assert.Contains(assembly, options.Assemblies);
+        }
+
+        [Fact]
+        public void ConfigureConductorWorkerDiscovery_WithAttributeDiscoveryDisabled_ConfiguresOptions()
+        {
+            var services = new ServiceCollection();
+
+            services.ConfigureConductorWorkerDiscovery(options =>
+                options.EnableAttributeDiscovery = false);
+
+            var provider = services.BuildServiceProvider();
+            var options = provider.GetRequiredService<IOptions<WorkerDiscoveryOptions>>().Value;
+
+            Assert.False(options.EnableAttributeDiscovery);
+        }
+
+        [Fact]
+        public void ConfigureConductorWorkerDiscovery_WithOptions_CopiesAssemblyCollection()
+        {
+            var services = new ServiceCollection();
+            var assembly = typeof(DependencyInjectionExtensionsTests).Assembly;
+            var assemblies = new List<Assembly> { assembly };
+
+            services.ConfigureConductorWorkerDiscovery(new WorkerDiscoveryOptions
+            {
+                Assemblies = assemblies
+            });
+            assemblies.Clear();
+
+            var provider = services.BuildServiceProvider();
+            var options = provider.GetRequiredService<IOptions<WorkerDiscoveryOptions>>().Value;
+
+            Assert.Contains(assembly, options.Assemblies);
         }
     }
 }
